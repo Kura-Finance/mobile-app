@@ -1,0 +1,728 @@
+// MUST be first import — patches Object.defineProperty so getter-only `default`
+// exports don't throw "Cannot assign to property 'default' which has only a getter"
+// in Hermes during module init.
+import './src/shims/defaultWritable';
+import '@walletconnect/react-native-compat';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, ActivityIndicator, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { I18nextProvider } from 'react-i18next';
+import i18n from './src/shared/locales/i18n';
+import { PrivyProvider, usePrivy, useIdentityToken, usePrivyClient } from '@privy-io/expo';
+import { exchangePrivyToken } from './src/lib/api/auth/privyExchange';
+import { fetchIdentityTokenWithRetry } from './src/lib/auth/privyTokens';
+import { KuraApiError } from './src/lib/api/errors';
+import { clearDataKey } from './src/lib/crypto/dataKeySession';
+import { env } from './src/config/env';
+import { useAppStore } from './src/shared/store/useAppStore';
+import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
+import Logger from './src/shared/utils/Logger';
+import { getApiBaseUrl } from './src/lib/api/baseUrl';
+import { pingHealth } from './src/lib/api/system';
+import { installAppLock } from './src/lib/security/appLock';
+import { installScreenshotGuard } from './src/lib/security/screenshotGuard';
+import Header from './src/shared/navigation/Header';
+import TabNavigator from './src/shared/navigation/TabNavigator';
+import NotificationScreen from './src/features/notifications/screens/NotificationScreen';
+import NotificationSettingsScreen from './src/features/notifications/screens/NotificationSettingsScreen';
+import ConnectedDappsScreen from './src/features/walletconnect/screens/ConnectedDappsScreen';
+import WalletTransactionsScreen from './src/features/card/screens/WalletTransactionsScreen';
+import PrivyLoginScreen from './src/features/auth/screens/PrivyLoginScreen';
+import { AppKitProvider, AppKit } from '@reown/appkit-react-native';
+import { initAppKit } from './src/shared/config/AppKitConfig';
+import type { createAppKit } from '@reown/appkit-react-native';
+import { useWalletSync } from './src/shared/hooks/useWalletSync';
+import KuraWalletConnectShell from './src/features/walletconnect/components/KuraWalletConnectShell';
+import { startDeepLinkCapture } from './src/lib/walletconnect/wcInboundPairing';
+
+// Boot breadcrumb: confirms the JS bundle finished evaluating top-level imports
+// (incl. AppKitConfig's createAppKit). On a release build that's stuck on the
+// white splash, the device log shows whether we even get this far.
+Logger.info('Boot', 'App.tsx module evaluated — top-level imports OK');
+
+const PRIVY_APP_ID = env.privyAppId;
+
+const PRIVY_CLIENT_ID = env.privyClientId || undefined;
+
+if (!PRIVY_CLIENT_ID) {
+  Logger.warn(
+    'App',
+    'EXPO_PUBLIC_PRIVY_CLIENT_ID is missing — identity tokens may be unavailable and backend email binding can fail',
+  );
+}
+
+/**
+ * Privy's <PrivyProvider> throws during initialization if appId is empty,
+ * which crashes the entire app with a cryptic error. Validate up-front so we
+ * can show an actionable configuration screen instead of a blank crash.
+ */
+const HAS_VALID_PRIVY_APP_ID = PRIVY_APP_ID.trim().length > 0;
+
+const Stack = createNativeStackNavigator();
+const MainStack = createNativeStackNavigator();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bridge: syncs Privy auth state → useAppStore
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Retry `getIdentityToken()` — see src/lib/auth/privyTokens.ts
+ */
+
+/** Max attempts for the Privy→Kura token exchange on transient failures. */
+const MAX_LOGIN_ATTEMPTS = 3;
+
+/**
+ * Identity-token back-off alone can take ~15s before the first login attempt.
+ * Keep this above that window plus login retries so slow devices/networks are
+ * not shown the retry screen while exchange is still in flight.
+ */
+const SIGN_IN_TIMEOUT_MS = 60_000;
+
+/**
+ * An auth *rejection* means Privy's token was not accepted by the backend
+ * (401/403) — the only case where signing out and re-authenticating helps.
+ * Everything else (5xx, network) is transient: we retry and, if it keeps
+ * failing, surface a retry screen instead of kicking the user to login.
+ */
+function isAuthRejection(err: unknown): boolean {
+  return (
+    err instanceof KuraApiError &&
+    (err.status === 401 || err.status === 403 || err.code === 'UNAUTHORIZED')
+  );
+}
+
+type LoginExchangeStatus = 'idle' | 'pending' | 'error';
+
+interface LoginExchangeState {
+  status: LoginExchangeStatus;
+  retry: () => void;
+}
+
+const LoginExchangeContext = React.createContext<LoginExchangeState>({
+  status: 'idle',
+  retry: () => {},
+});
+
+function useLoginExchange(): LoginExchangeState {
+  return React.useContext(LoginExchangeContext);
+}
+
+function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
+  const { isReady, user, getAccessToken, logout } = usePrivy();
+  const { getIdentityToken } = useIdentityToken();
+  const privyClient = usePrivyClient();
+  const setPrivySession = useAppStore((s) => s.setPrivySession);
+  const clearAuthSession = useAppStore((s) => s.clearAuthSession);
+  const authStatus = useAppStore((s) => s.authStatus);
+
+  const [exchangeStatus, setExchangeStatus] = useState<LoginExchangeStatus>('idle');
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retry = React.useCallback(() => setRetryNonce((n) => n + 1), []);
+  const activePrivyUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    Logger.debug('PrivyBridge', '[1] isReady changed', { isReady, hasUser: !!user });
+    if (!isReady) return;
+
+    let cancelled = false;
+
+    if (user) {
+      const privyUserId = user.id;
+      const isNewPrivyUser = activePrivyUserIdRef.current !== privyUserId;
+      if (isNewPrivyUser) {
+        activePrivyUserIdRef.current = privyUserId;
+        // Switching Privy accounts on the same device must not reuse the prior
+        // Kura JWT while the new token exchange is in flight.
+        if (useAppStore.getState().authToken) {
+          clearDataKey();
+          clearAuthSession();
+        }
+      }
+
+      Logger.info('PrivyBridge', '[2] Privy user detected', {
+        privyUserId: user.id,
+        linkedAccounts: user.linked_accounts?.map((a) => a.type),
+      });
+      setExchangeStatus('pending');
+
+      void (async () => {
+        Logger.debug('PrivyBridge', '[3] Fetching Privy tokens...');
+        let accessToken: string | null = null;
+        let identityToken: string | null = null;
+        let privyUserForEmail = user;
+
+        try {
+          accessToken = await getAccessToken();
+          if (cancelled) return;
+          if (!accessToken) {
+            Logger.warn('PrivyBridge', '[3] accessToken is null, aborting');
+            if (!cancelled) setExchangeStatus('idle');
+            return;
+          }
+
+          // Refresh the Privy user record before requesting the identity token.
+          // Privy issues identity tokens asynchronously after login; user.get()
+          // helps sync linked accounts (incl. email) and makes the token available.
+          try {
+            const refreshed = await privyClient.user.get();
+            if (cancelled) return;
+            privyUserForEmail = refreshed.user;
+            Logger.debug('PrivyBridge', '[3] Privy user refreshed', {
+              linkedAccounts: refreshed.user.linked_accounts?.map((a) => a.type),
+            });
+          } catch (err) {
+            Logger.warn('PrivyBridge', '[3] privyClient.user.get() failed', {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+
+          identityToken = await fetchIdentityTokenWithRetry(getIdentityToken);
+          if (cancelled) return;
+
+          if (!identityToken) {
+            try {
+              await privyClient.user.get();
+              if (cancelled) return;
+              identityToken = await getIdentityToken();
+              if (identityToken) {
+                Logger.info('PrivyBridge', '[3] identity token obtained after user refresh');
+              }
+            } catch (err) {
+              Logger.warn('PrivyBridge', '[3] identity token refresh attempt failed', {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+
+          if (cancelled) return;
+
+          Logger.info('PrivyBridge', '[3] Tokens received', {
+            hasAccessToken: !!accessToken,
+            accessTokenPrefix: accessToken.slice(0, 20) + '...',
+            hasIdentityToken: !!identityToken,
+          });
+        } catch (err) {
+          Logger.error('PrivyBridge', '[3] token fetch failed', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          if (!cancelled) setExchangeStatus('idle');
+          return;
+        }
+
+        Logger.debug('PrivyBridge', '[4] Calling POST /api/auth/login...', {
+          willSendIdentityToken: !!identityToken,
+        });
+
+        for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
+          if (cancelled) return;
+          try {
+            let loginIdentityToken = identityToken;
+            if (!loginIdentityToken && attempt > 1) {
+              loginIdentityToken = await fetchIdentityTokenWithRetry(getIdentityToken, 2, 800);
+              if (cancelled) return;
+              if (loginIdentityToken) {
+                identityToken = loginIdentityToken;
+                Logger.info('PrivyBridge', `[4] identity token obtained on login retry ${attempt}`);
+              }
+            }
+
+            const login = await exchangePrivyToken(accessToken, loginIdentityToken ?? undefined);
+            if (cancelled) return;
+
+            Logger.info('PrivyBridge', '[5] Kura JWT received', {
+              kuraJwtPrefix: login.token.slice(0, 20) + '...',
+              backendUserId: login.user.id,
+              backendUserEmail: login.user.email,
+              emailIsPlaceholder: login.user.emailIsPlaceholder,
+              displayName: login.user.displayName,
+              emailConflict: login.emailConflict,
+            });
+            setPrivySession(login.token, login.user);
+            setExchangeStatus('idle');
+            Logger.info('PrivyBridge', '[6] Session set — login complete ✓');
+
+            if (login.emailConflict) {
+              Alert.alert(
+                i18n.t('settings.emailConflictTitle'),
+                i18n.t('settings.emailConflictMessage'),
+              );
+            }
+            return;
+          } catch (err) {
+            if (cancelled) return;
+            // Auth rejection (token invalid / expired) → re-authenticating is the
+            // only fix, so sign out: user→null sends AppInner to the login screen
+            // and the `!user` branch below wipes the data key + auth session.
+            if (isAuthRejection(err)) {
+              Logger.warn('PrivyBridge', '[5] login rejected (auth) → signing out', {
+                status: err instanceof KuraApiError ? err.status : undefined,
+                code: err instanceof KuraApiError ? err.code : undefined,
+              });
+              setExchangeStatus('idle');
+              void logout();
+              return;
+            }
+            // Server / transient error (5xx, network): the Privy session is fine,
+            // the backend is just (temporarily) failing. Retry with back-off and,
+            // if it keeps failing, show a retry screen instead of kicking the user.
+            Logger.warn(
+              'PrivyBridge',
+              `[5] POST /api/auth/login failed (transient) attempt ${attempt}/${MAX_LOGIN_ATTEMPTS}`,
+              {
+                status: err instanceof KuraApiError ? err.status : undefined,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            );
+            if (attempt < MAX_LOGIN_ATTEMPTS) {
+              await new Promise<void>((r) => setTimeout(r, 1200 * attempt));
+            }
+          }
+        }
+
+        if (cancelled) return;
+        Logger.error('PrivyBridge', '[5] login failed after all retries — showing retry screen');
+        setExchangeStatus('error');
+      })();
+    } else if (!user) {
+      // Privy user gone (logout / session expired / account deleted) → wipe crypto + auth
+      Logger.info('PrivyBridge', '[logout] Privy user cleared → wiping session', { prevAuthStatus: authStatus });
+      activePrivyUserIdRef.current = null;
+      setExchangeStatus('idle');
+      clearDataKey();
+      if (authStatus !== 'unauthenticated') {
+        clearAuthSession();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, user?.id, retryNonce]);
+
+  return (
+    <LoginExchangeContext.Provider value={{ status: exchangeStatus, retry }}>
+      {children}
+    </LoginExchangeContext.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screens
+// ─────────────────────────────────────────────────────────────────────────────
+
+function HomeScreen() {
+  useWalletSync();
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <TabNavigator />
+      <Header />
+      <View style={{ position: 'absolute', height: '100%', width: '100%', pointerEvents: 'box-none' }}>
+        <AppKit />
+      </View>
+    </View>
+  );
+}
+
+function MainNavigator() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="Tabs" component={HomeScreen} />
+      <MainStack.Screen name="Notifications" component={NotificationScreen} />
+      <MainStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <MainStack.Screen name="ConnectedDapps" component={ConnectedDappsScreen} />
+      <MainStack.Screen name="WalletTransactions" component={WalletTransactionsScreen} />
+    </MainStack.Navigator>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Root app — driven by Privy auth state (not useAppStore)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Watchdog windows (ms) — surface an actionable screen instead of an endless spinner. */
+const PRIVY_INIT_TIMEOUT_MS = 12_000;
+
+function AppInner() {
+  const { isReady, user } = usePrivy();
+  const { colors, scheme } = useTheme();
+  const navTheme = {
+    ...DefaultTheme,
+    dark: scheme === 'dark',
+    colors: { ...DefaultTheme.colors, background: colors.background },
+  };
+  const hydrateUserProfile = useAppStore((s) => s.hydrateUserProfile);
+  const authToken = useAppStore((s) => s.authToken);
+  const { status: loginStatus } = useLoginExchange();
+  const [backendOffline, setBackendOffline] = useState(false);
+  const [initTimedOut, setInitTimedOut] = useState(false);
+  const [signInTimedOut, setSignInTimedOut] = useState(false);
+
+  Logger.debug('Boot', 'AppInner render', { isReady, hasUser: !!user, hasToken: !!authToken });
+
+  // Watchdog 1: Privy SDK never reports ready (e.g. prod app/bundle not allowed).
+  useEffect(() => {
+    if (isReady) {
+      setInitTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      Logger.error('Boot', 'Privy isReady watchdog fired — SDK did not initialize in time');
+      setInitTimedOut(true);
+    }, PRIVY_INIT_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [isReady]);
+
+  // Watchdog 2: signed into Privy but the Kura token exchange never completes.
+  useEffect(() => {
+    if (!(user && !authToken)) {
+      setSignInTimedOut(false);
+      return;
+    }
+    // Reset the timer while exchange is actively retrying so we don't flash the
+    // retry screen mid-flight on slow networks.
+    if (loginStatus === 'pending') {
+      setSignInTimedOut(false);
+    }
+    const t = setTimeout(() => {
+      if (loginStatus === 'pending') {
+        Logger.warn('Boot', 'Sign-in watchdog fired while exchange still pending');
+      } else {
+        Logger.error('Boot', 'Sign-in watchdog fired — token exchange did not complete');
+      }
+      setSignInTimedOut(true);
+    }, SIGN_IN_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [user, authToken, loginStatus]);
+
+  useEffect(() => {
+    Logger.debug('App', 'API base URL', { url: getApiBaseUrl() });
+
+    const uninstallLock = installAppLock();
+    const uninstallScreenshotGuard = installScreenshotGuard();
+
+    void pingHealth(5_000).then((result) => {
+      if (!result.ok) {
+        Logger.warn('App', 'Backend health ping failed', {
+          latencyMs: result.latencyMs,
+          error: result.error,
+        });
+        setBackendOffline(true);
+      } else {
+        setBackendOffline(false);
+      }
+    });
+
+    return () => {
+      uninstallLock();
+      uninstallScreenshotGuard();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      void hydrateUserProfile();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user && authToken) {
+      startDeepLinkCapture();
+    }
+  }, [user, authToken]);
+
+  if (!isReady) {
+    if (initTimedOut) {
+      return (
+        <BootStuckScreen
+          title="Couldn’t start the app"
+          message="Sign-in services didn’t initialize. This usually means a configuration mismatch (e.g. this build’s identifier isn’t authorized). Please reopen the app, and if it keeps happening, contact support."
+        />
+      );
+    }
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#8B5CF6" />
+      </View>
+    );
+  }
+
+  // Privy is authenticated but the Kura token exchange keeps failing (backend
+  // 5xx / network). Don't kick the user back to login — offer a retry instead.
+  if (user && loginStatus === 'error') {
+    return <LoginRetryScreen />;
+  }
+
+  // Privy user present but no Kura session yet → the exchange is in flight.
+  // Show a loader instead of flashing the (session-less) main UI.
+  if (user && !authToken) {
+    if (signInTimedOut && loginStatus !== 'pending') {
+      return <LoginRetryScreen />;
+    }
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#8B5CF6" />
+        <Text style={{ color: '#9CA3AF', fontSize: 13, marginTop: 16 }}>Signing in…</Text>
+      </View>
+    );
+  }
+
+  const navigation = (
+    <NavigationContainer theme={navTheme}>
+      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} translucent={true} />
+      {backendOffline ? (
+        <View
+          style={{
+            paddingTop: 44,
+            paddingHorizontal: 16,
+            paddingBottom: 8,
+            backgroundColor: '#7F1D1D',
+          }}
+        >
+          <Text style={{ color: '#FECACA', fontSize: 12, textAlign: 'center' }}>
+            Connection issue — some data may be out of date.
+          </Text>
+        </View>
+      ) : null}
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          <Stack.Screen name="Main" component={MainNavigator} />
+        ) : (
+          <Stack.Screen
+            name="Auth"
+            component={PrivyLoginScreen}
+            options={{ animationTypeForReplace: 'pop' }}
+          />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+
+  if (user && authToken) {
+    return <KuraWalletConnectShell>{navigation}</KuraWalletConnectShell>;
+  }
+
+  return navigation;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Login retry — Privy is signed in but the Kura token exchange keeps failing
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LoginRetryScreen() {
+  const { logout } = usePrivy();
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#0B0B0F',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 32,
+      }}
+    >
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: 'rgba(239,68,68,0.15)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 20,
+        }}
+      >
+        <Text style={{ fontSize: 26 }}>⚠️</Text>
+      </View>
+      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 10, textAlign: 'center' }}>
+        Couldn’t sign you in
+      </Text>
+      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 28 }}>
+        We reached your account but our server didn’t respond. Sign out and try
+        signing in again in a moment.
+      </Text>
+
+      <TouchableOpacity
+        onPress={() => void logout()}
+        activeOpacity={0.85}
+        style={{
+          width: '100%',
+          backgroundColor: '#7C3AED',
+          paddingVertical: 15,
+          borderRadius: 14,
+          alignItems: 'center',
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Sign out</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Boot-stuck fallback — watchdog fired (init/sign-in took too long)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BootStuckScreen({ title, message }: { title: string; message: string }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+      <View
+        style={{
+          width: 56, height: 56, borderRadius: 28,
+          backgroundColor: 'rgba(239,68,68,0.15)',
+          alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+        }}
+      >
+        <Text style={{ fontSize: 26 }}>⚠️</Text>
+      </View>
+      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 10, textAlign: 'center' }}>
+        {title}
+      </Text>
+      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+        {message}
+      </Text>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Root error boundary — turns a render-time crash into a visible screen instead
+// of a blank/white splash (cannot catch errors thrown during module import).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class RootErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    Logger.error('Boot', 'RootErrorBoundary caught a render crash', {
+      error: error.message,
+      stack: info.componentStack?.slice(0, 500),
+    });
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <BootStuckScreen
+          title="Something went wrong"
+          message={`The app hit an unexpected error while starting.\n\n${this.state.error.message}`}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Missing-config fallback — shown when Privy appId is not set
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PrivyConfigErrorScreen() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#0B0B0F',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 32,
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center' }}>
+        Configuration Required
+      </Text>
+      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+        Privy App ID is missing. Set{' '}
+        <Text style={{ color: '#C4B5FD', fontWeight: '600' }}>EXPO_PUBLIC_PRIVY_APP_ID</Text>{' '}
+        in your environment (.env) or app config, then rebuild the app.
+      </Text>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppKit bootstrap — WalletKit must init before AppKit (shared SignClient)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AppKitGate({ children }: { children: React.ReactNode }) {
+  const [instance, setInstance] = useState<ReturnType<typeof createAppKit> | null>(null);
+
+  useEffect(() => {
+    initAppKit()
+      .then(setInstance)
+      .catch((err) => {
+        Logger.error('App', 'AppKit init failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, []);
+
+  if (!instance) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B0B0F' }}>
+        <ActivityIndicator color="#8B5CF6" size="large" />
+      </View>
+    );
+  }
+
+  return <AppKitProvider instance={instance}>{children}</AppKitProvider>;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Entry point
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  // Guard: mounting <PrivyProvider> with an empty appId throws and crashes the
+  // whole app. Fail gracefully with an actionable screen instead.
+  if (!HAS_VALID_PRIVY_APP_ID) {
+    Logger.error('App', 'Privy App ID is missing — set EXPO_PUBLIC_PRIVY_APP_ID');
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaProvider>
+          <StatusBar style="light" translucent={true} />
+          <PrivyConfigErrorScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+      <RootErrorBoundary>
+        <ThemeProvider>
+          <I18nextProvider i18n={i18n}>
+            <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
+              <AppKitGate>
+                <PrivyBridgeProvider>
+                  <AppInner />
+                </PrivyBridgeProvider>
+              </AppKitGate>
+            </PrivyProvider>
+          </I18nextProvider>
+        </ThemeProvider>
+      </RootErrorBoundary>
+    </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

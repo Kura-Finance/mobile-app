@@ -1,0 +1,34 @@
+# Copy to android/gradle.properties after `npx expo prebuild`.
+# android/gradle.properties is gitignored — never commit real passwords.
+#
+# Generate a release keystore (once):
+#   keytool -genkeypair -v -storetype PKCS12 -keystore kura-release.keystore \
+#     -alias kura-key -keyalg RSA -keysize 2048 -validity 10000
+#
+# Place the keystore in android/app/ and point KURA_STORE_FILE at it.
+
+org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+org.gradle.parallel=true
+
+android.useAndroidX=true
+android.enablePngCrunchInReleaseBuilds=true
+
+reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+newArchEnabled=true
+hermesEnabled=true
+edgeToEdgeEnabled=true
+
+expo.gif.enabled=true
+expo.webp.enabled=true
+expo.webp.animated=false
+expo.useLegacyPackaging=false
+expo.edgeToEdgeEnabled=true
+
+# Release signing — fill in locally
+KURA_STORE_FILE=kura-release.keystore
+KURA_STORE_PASSWORD=your_keystore_password
+KURA_KEY_ALIAS=kura-key
+KURA_KEY_PASSWORD=your_key_password
+
+# Optional: pin JDK 17 if Gradle cannot find Java
+# org.gradle.java.home=/path/to/jdk-17

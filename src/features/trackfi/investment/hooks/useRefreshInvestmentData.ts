@@ -1,0 +1,54 @@
+import { useState, useCallback } from 'react';
+import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useExchangeStore } from '../../../../shared/store/useExchangeStore';
+import { useAppStore } from '../../../../shared/store/useAppStore';
+import Logger from '../../../../shared/utils/Logger';
+
+/**
+ * Hook for managing Investment data refresh with pull-to-refresh UI state
+ * Responsibility: Refresh both Plaid finance data AND exchange balances
+ */
+export function useRefreshInvestmentData() {
+  const [refreshing, setRefreshing] = useState(false);
+  const hydratePlaidFinanceData = useFinanceStore((state) => state.hydratePlaidFinanceData);
+  const hydrateAssetHistory = useFinanceStore((state) => state.hydrateAssetHistory);
+  const fetchExchangeBalances = useExchangeStore((state) => state.fetchExchangeBalances);
+  const exchangeAccounts = useExchangeStore((state) => state.exchangeAccounts);
+  const authToken = useAppStore((state) => state.authToken);
+
+  const handleRefresh = useCallback(async () => {
+    if (!authToken) {
+      Logger.warn('useRefreshInvestmentData', 'No auth token available');
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      // Phase 3: encrypted snapshot is cache-driven; backend updates via webhooks.
+      // Mobile just refetches what the server has.
+      await hydratePlaidFinanceData(authToken, true);
+
+      if (exchangeAccounts.length > 0) {
+        const exchangeRefreshPromises = exchangeAccounts.map((account) =>
+          fetchExchangeBalances(account.id, authToken, true).catch((error: unknown) => {
+            Logger.warn('useRefreshInvestmentData', `Failed to refresh exchange ${account.id}`, {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }),
+        );
+        await Promise.all(exchangeRefreshPromises);
+      }
+
+      await hydrateAssetHistory(undefined, true);
+    } catch (error) {
+      Logger.error('useRefreshInvestmentData', 'Failed to refresh investment data', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [authToken, hydratePlaidFinanceData, hydrateAssetHistory, fetchExchangeBalances, exchangeAccounts]);
+
+  return {
+    refreshing,
+    handleRefresh,
+  };
+}

@@ -1,0 +1,11 @@
+{
+  "extends": "expo/tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "exclude": [
+    "node_modules",
+    "src/**/__tests__/**",
+    "vitest.config.ts"
+  ]
+}
