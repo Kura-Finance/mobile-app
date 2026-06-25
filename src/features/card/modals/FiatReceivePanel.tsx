@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { makeModalStyles } from './modalStyles';
 import MoonPayModal from './MoonPayModal';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { hasVerifiedEmail, needsEmailLink } from '../../../lib/api/auth/userProfileHelpers';
@@ -22,12 +23,10 @@ import {
   getPendingFiatEndorsement,
   formatDepositFeeLabel,
   isUnsupportedCurrencyError,
-  listDeposits,
   listOnRampAccounts,
   resolveEndorsementDetail,
   type BridgeCustomer,
   type EndorsementRequiredDetail,
-  type DepositResult,
   type FiatCurrency,
   type KycLinkRequest,
   type VirtualAccount,
@@ -72,19 +71,6 @@ export const FIAT_OPTIONS: FiatOption[] = [
   { code: 'brl', label: 'BRL', name: 'Brazilian Real', flag: '🇧🇷', rails: 'Pix' },
   { code: 'cop', label: 'COP', name: 'Colombian Peso', flag: '🇨🇴', rails: 'Bre-B · PSE' },
 ];
-
-// Pretty labels + colors for deposit event statuses.
-const DEPOSIT_STATUS: Record<
-  string,
-  { labelKey: string; color: string }
-> = {
-  funds_scheduled: { labelKey: 'card.statusScheduled', color: '#9CA3AF' },
-  funds_received: { labelKey: 'card.statusConverting', color: '#FBBF24' },
-  in_review: { labelKey: 'card.statusInReview', color: '#FBBF24' },
-  payment_submitted: { labelKey: 'card.statusOnItsWay', color: '#60A5FA' },
-  payment_processed: { labelKey: 'card.statusCompleted', color: '#10B981' },
-  refunded: { labelKey: 'card.statusRefunded', color: '#EF4444' },
-};
 
 function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong. Please try again.';
@@ -137,8 +123,6 @@ export default function FiatReceivePanel({
     },
     [],
   );
-
-  const [deposits, setDeposits] = useState<DepositResult[]>([]);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -269,28 +253,6 @@ export default function FiatReceivePanel({
     if (endorsementByCurrency[currency]) return;
     void loadAccount(currency);
   }, [customer, currency, accountsByCurrency, loadingAccount, unsupportedByCurrency, endorsementByCurrency, loadAccount]);
-
-  const refreshDeposits = useCallback(async () => {
-    try {
-      setDeposits(await listDeposits());
-    } catch {
-      // Non-fatal: deposit history is best-effort.
-    }
-  }, []);
-
-  // Load deposit history once verified.
-  useEffect(() => {
-    if (!customer?.canTransact) return;
-    void refreshDeposits();
-  }, [customer?.canTransact, refreshDeposits]);
-
-  // Poll while any deposit is still in flight (webhook-driven, expect lag).
-  useEffect(() => {
-    if (!customer?.canTransact) return;
-    if (!deposits.some((d) => !d.completed)) return;
-    const id = setInterval(() => void refreshDeposits(), 12000);
-    return () => clearInterval(id);
-  }, [customer?.canTransact, deposits, refreshDeposits]);
 
   const startKyc = useCallback(async (req: KycLinkRequest) => {
     if (req.type === 'individual' && !hasVerifiedEmail(userProfile)) {
@@ -427,8 +389,11 @@ export default function FiatReceivePanel({
     const di = account?.depositInstructions;
     if (!di) return null;
 
+    const accountHolderName =
+      di.bank_beneficiary_name?.trim() || di.account_holder_name?.trim() || undefined;
+
     const rows: { key: string; label: string; value?: string }[] = [
-      { key: 'bank_beneficiary_name', label: t('card.accountHolderName'), value: di.bank_beneficiary_name },
+      { key: 'account_holder_name', label: t('card.accountHolderName'), value: accountHolderName },
       { key: 'bank_account_number', label: t('card.accountNumber'), value: di.bank_account_number },
       { key: 'bank_routing_number', label: t('card.routingNumber'), value: di.bank_routing_number },
       { key: 'iban', label: 'IBAN', value: di.iban },
@@ -438,11 +403,6 @@ export default function FiatReceivePanel({
       { key: 'clabe', label: 'CLABE', value: di.clabe },
       { key: 'pix_key', label: t('card.pixKey'), value: di.pix_key },
       { key: 'bre_b_key', label: t('card.breBKey'), value: di.bre_b_key },
-      {
-        key: 'account_holder_name',
-        label: t('card.accountHolderName'),
-        value: di.account_holder_name,
-      },
       { key: 'bank_name', label: t('card.bankLabel'), value: di.bank_name },
       { key: 'bank_address', label: t('card.bankAddress'), value: di.bank_address },
       { key: 'bank_beneficiary_address', label: t('card.beneficiaryAddress'), value: di.bank_beneficiary_address },
@@ -482,47 +442,8 @@ export default function FiatReceivePanel({
 
         <Text style={s.depositNoteBelow}>{t('card.depositAccountNote')}</Text>
         <DepositBulletList items={depositBullets} />
+        <LegalDisclaimer variant="fiatRamp" style={{ marginTop: 12 }} />
       </>
-    );
-  };
-
-  // ── Recent deposits ────────────────────────────────────────────────────────
-  const renderDeposits = () => {
-    if (deposits.length === 0) return null;
-
-    return (
-      <View style={[s.fiatCard, { marginTop: 4 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Text style={[s.fiatCardTitle, { marginBottom: 0, textAlign: 'left' }]}>{t('card.recentDeposits')}</Text>
-          <TouchableOpacity onPress={() => void refreshDeposits()} hitSlop={8}>
-            <Ionicons name="refresh" size={16} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {deposits.slice(0, 5).map((d) => {
-          const statusMeta = DEPOSIT_STATUS[d.status];
-          const meta = statusMeta
-            ? { label: t(statusMeta.labelKey), color: statusMeta.color }
-            : { label: d.status, color: '#9CA3AF' };
-          const amount = d.netAmount ?? d.amount;
-          return (
-            <View key={d.depositId} style={s.depositRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.depositRowValue} numberOfLines={1}>
-                  {amount ? `${amount} ${(d.currency ?? '').toUpperCase()}` : '—'}
-                </Text>
-                <Text style={s.depositLabel}>
-                  {new Date(d.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {!d.completed ? <ActivityIndicator size="small" color={meta.color} /> : null}
-                <Text style={[s.statusPillText, { color: meta.color }]}>{meta.label}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
     );
   };
 
@@ -601,7 +522,6 @@ export default function FiatReceivePanel({
         <>
           {renderStatusPill()}
           {renderDepositInstructions()}
-          {renderDeposits()}
         </>
       );
     }

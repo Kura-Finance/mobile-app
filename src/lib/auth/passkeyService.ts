@@ -312,6 +312,3 @@ export async function authenticatePasskeyForDek(): Promise<Uint8Array | null> {
   const dek = xorBytes(encryptedDekBytes, prfOutput);
   return dek;
 }
-
-// Re-export crypto utilities used by callers
-export { aesGcmDecrypt, bytesToHex, hexToBytes };

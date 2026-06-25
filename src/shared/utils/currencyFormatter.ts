@@ -1,9 +1,9 @@
 /**
  * Currency formatting and conversion utilities
- * Supports multiple currencies: USD, EUR, TWD, CNY, JPY
+ * Supports multiple currencies: USD, EUR, TWD, CNY, JPY, NGN
  */
 
-export type Currency = 'USD' | 'EUR' | 'TWD' | 'CNY' | 'JPY';
+export type Currency = 'USD' | 'EUR' | 'TWD' | 'CNY' | 'JPY' | 'NGN';
 
 export interface CurrencyConfig {
   symbol: string;
@@ -43,9 +43,15 @@ export const CURRENCY_CONFIGS: Record<Currency, CurrencyConfig> = {
     locale: 'ja-JP',
     decimals: 0, // Japanese Yen has no minor unit
   },
+  NGN: {
+    symbol: '₦',
+    code: 'NGN',
+    locale: 'en-NG',
+    decimals: 2,
+  },
 };
 
-export const SUPPORTED_CURRENCIES: Currency[] = ['USD', 'EUR', 'TWD', 'CNY', 'JPY'];
+export const SUPPORTED_CURRENCIES: Currency[] = ['USD', 'EUR', 'TWD', 'CNY', 'JPY', 'NGN'];
 
 /**
  * Exchange rates relative to USD (1 USD = X)
@@ -58,6 +64,7 @@ export const EXCHANGE_RATES: Record<Currency, number> = {
   TWD: 31.5, // 1 USD = 31.5 TWD
   CNY: 7.1, // 1 USD = 7.1 CNY
   JPY: 150, // 1 USD = 150 JPY
+  NGN: 1600, // 1 USD = 1600 NGN
 };
 
 /**
@@ -161,30 +168,6 @@ export function convertCurrency(
 }
 
 /**
- * Parse a currency string back to a number
- * e.g., "$1,234.56" -> 1234.56
- */
-export function parseCurrency(value: string, currency: Currency = 'USD'): number {
-  // Remove currency symbol and whitespace
-  const config = CURRENCY_CONFIGS[currency];
-  let cleaned = value.replace(new RegExp(`\\${config.symbol}`, 'g'), '').trim();
-  
-  // Handle different locale formats
-  if (currency === 'TWD' || currency === 'EUR') {
-    // Remove dots/spaces used as thousand separators
-    cleaned = cleaned.replace(/\./g, '').replace(/\s/g, '');
-    // Replace comma with dot if it's a decimal separator
-    cleaned = cleaned.replace(',', '.');
-  } else {
-    // For USD, dots are thousand separators, commas are decimals (in some locales)
-    // But typically USD uses commas as thousand separators
-    cleaned = cleaned.replace(/,/g, '');
-  }
-  
-  return parseFloat(cleaned) || 0;
-}
-
-/**
  * Get currency display name
  */
 export function getCurrencyName(currency: Currency): string {
@@ -194,6 +177,7 @@ export function getCurrencyName(currency: Currency): string {
     TWD: 'Taiwan Dollar',
     CNY: 'Chinese Yuan',
     JPY: 'Japanese Yen',
+    NGN: 'Nigerian Naira',
   };
   return names[currency];
 }

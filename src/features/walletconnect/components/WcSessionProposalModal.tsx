@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { BASE_CAIP2 } from '../../../lib/walletconnect/constants';
 import { useTheme } from '../../../shared/theme/ThemeContext';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 
 interface Props {
   visible: boolean;
@@ -62,6 +63,7 @@ export default function WcSessionProposalModal({
               {smartAddress}
             </Text>
             <Text style={[styles.infoHint, { color: colors.textFaint }]}>{t('walletConnect.scaHint')}</Text>
+            <LegalDisclaimer variant="walletConnect" style={styles.dappDisclaimer} />
           </View>
 
           {!supportsBase && (
@@ -120,6 +122,7 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 },
   infoValue: { fontSize: 13, fontFamily: 'monospace' },
   infoHint: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+  dappDisclaimer: { marginTop: 8 },
   warning: { fontSize: 12, lineHeight: 17, marginBottom: 12, textAlign: 'center' },
   actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   secondaryBtn: {

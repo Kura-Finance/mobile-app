@@ -29,6 +29,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useHideBalance } from '../../../shared/hooks/useHideBalance';
 import { formatUsdCompact, formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 
 export type TradeSide = 'buy' | 'sell';
 
@@ -207,6 +208,8 @@ export default function StockTradeSheet({
                 </View>
               )}
 
+              <LegalDisclaimer variant="securities" style={st.disclaimer} />
+
               <TouchableOpacity
                 style={[
                   st.execBtn,
@@ -283,7 +286,8 @@ function makeStyles(c: ThemeColors) {
       paddingHorizontal: 14, paddingVertical: 10, marginTop: 12,
     },
     errorText: { color: c.danger, fontSize: 12, flex: 1 },
-    execBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+    disclaimer: { marginTop: 14, paddingHorizontal: 4 },
+    execBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
     execBuy: { backgroundColor: c.primary },
     execSell: { backgroundColor: c.danger },
     execDisabled: { backgroundColor: c.surfaceInput },

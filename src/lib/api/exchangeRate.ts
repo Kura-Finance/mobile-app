@@ -18,6 +18,7 @@ export interface ExchangeRates {
   TWD: number;
   CNY: number;
   JPY: number;
+  NGN: number;
   lastUpdated: number; // Unix timestamp
 }
 
@@ -70,6 +71,7 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
       TWD: data.rates.TWD || 31.5,
       CNY: data.rates.CNY || 7.1,
       JPY: data.rates.JPY || 150,
+      NGN: data.rates.NGN || 1600,
       lastUpdated: Date.now(),
     };
 
@@ -92,6 +94,7 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
       TWD: 31.5,
       CNY: 7.1,
       JPY: 150,
+      NGN: 1600,
       lastUpdated: Date.now(),
     };
   }

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useRef } from 'react';
+import React, { createContext } from 'react';
 
-type TabName = 'Home' | 'Portfolio' | 'TrackFi';
+import type { TabName } from './TabNavigator';
 
 interface TabNavigatorContextValue {
   switchToTab: (tab: TabName) => void;
@@ -9,10 +9,6 @@ interface TabNavigatorContextValue {
 const TabNavigatorContext = createContext<TabNavigatorContextValue>({
   switchToTab: () => {},
 });
-
-export function useTabNavigator() {
-  return useContext(TabNavigatorContext);
-}
 
 interface Props {
   children: React.ReactNode;
@@ -26,3 +22,5 @@ export function TabNavigatorProvider({ children, switchToTab }: Props) {
     </TabNavigatorContext.Provider>
   );
 }
+
+export type { TabName };

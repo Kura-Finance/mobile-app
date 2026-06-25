@@ -3,9 +3,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import KuraCardScreen from '../../features/card/screens/KuraCardScreen';
-import CryptoScreen from '../../features/crypto/screens/CryptoScreen';
+import DiscoverScreen from '../../features/crypto/screens/DiscoverScreen';
+import PortfolioScreen from '../../features/crypto/screens/PortfolioScreen';
 import TrackFiScreen from '../../features/trackfi/screens/TrackFiScreen';
 import { TabNavigatorProvider } from './TabNavigatorContext';
 import { useTheme } from '../theme/ThemeContext';
@@ -14,27 +16,27 @@ import { features } from '../../config/features';
 
 const Stack = createNativeStackNavigator();
 
-export type TabName = 'Home' | 'Portfolio' | 'TrackFi';
+export type TabName = 'Home' | 'Discover' | 'Portfolio' | 'TrackFi';
 export type InvestmentCategory = 'Transaction' | 'Stock' | 'Crypto' | 'DeFi';
 
 interface TabOption {
   name: TabName;
   icon: string;
-  label: string;
+  labelKey: string;
 }
 
 const TABS: TabOption[] = [
-  { name: 'Home',      icon: 'home-outline',        label: 'Home'      },
-  { name: 'Portfolio', icon: 'pie-chart-outline',   label: 'Portfolio' },
-  { name: 'TrackFi',   icon: 'trending-up-outline', label: 'TrackFi'   },
+  { name: 'Home',      icon: 'home-outline',        labelKey: 'nav.home'      },
+  { name: 'Discover',  icon: 'compass-outline',     labelKey: 'nav.discover'  },
+  { name: 'Portfolio', icon: 'pie-chart-outline',   labelKey: 'nav.portfolio' },
+  { name: 'TrackFi',   icon: 'trending-up-outline', labelKey: 'nav.trackFi'   },
 ];
-
-
 
 export default function TabNavigator() {
   const [activeTab, setActiveTab] = useState<TabName>('Home');
   const insets = useSafeAreaInsets();
   const { colors, scheme } = useTheme();
+  const { t } = useTranslation();
   const setScrolled = useHeaderStore((s) => s.setScrolled);
 
   const visibleTabs = useMemo(
@@ -57,8 +59,10 @@ export default function TabNavigator() {
     switch (activeTab) {
       case 'Home':
         return KuraCardScreen;
+      case 'Discover':
+        return DiscoverScreen;
       case 'Portfolio':
-        return CryptoScreen;
+        return PortfolioScreen;
       case 'TrackFi':
         return TrackFiScreen;
       default:
@@ -89,8 +93,9 @@ export default function TabNavigator() {
                 styles.tabText,
                 { color: isActive ? colors.primary : colors.text, fontWeight: isActive ? '600' : '400' },
               ]}
+              numberOfLines={1}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </TouchableOpacity>
         );
@@ -162,7 +167,7 @@ const styles = StyleSheet.create({
   tabButton: {
     flex: 1,
     paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',

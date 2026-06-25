@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import WalletTxRow from '../components/wallet/WalletTxRow';
-import { useWalletHistory } from '../hooks/useWalletHistory';
+import { useWalletHistory, type WalletTx } from '../hooks/useWalletHistory';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
@@ -28,7 +28,7 @@ export default function WalletTransactionsScreen() {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'WalletTransactions'>>();
   const smartAddress = route.params?.smartAddress ?? '';
   const { txs, loading, error, hasMore, loadMore, refresh } = useWalletHistory(smartAddress);
@@ -46,6 +46,10 @@ export default function WalletTransactionsScreen() {
       `https://base.blockscout.com/address/${smartAddress}?tab=token_transfers`,
     ).catch(() => undefined);
   }, [smartAddress]);
+
+  const openTxDetail = useCallback((tx: WalletTx) => {
+    navigation.navigate('TransactionDetail', { tx, smartAddress });
+  }, [navigation, smartAddress]);
 
   const renderFooter = () => {
     if (loading && txs.length > 0) {
@@ -80,7 +84,7 @@ export default function WalletTransactionsScreen() {
       <FlatList
         data={txs}
         keyExtractor={(tx) => tx.id}
-        renderItem={({ item }) => <WalletTxRow tx={item} />}
+        renderItem={({ item }) => <WalletTxRow tx={item} onPress={openTxDetail} />}
         contentContainerStyle={[
           s.listContent,
           { paddingBottom: insets.bottom + 24 },

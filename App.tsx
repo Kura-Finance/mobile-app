@@ -14,6 +14,7 @@ import { I18nextProvider } from 'react-i18next';
 import i18n from './src/shared/locales/i18n';
 import { PrivyProvider, usePrivy, useIdentityToken, usePrivyClient } from '@privy-io/expo';
 import { exchangePrivyToken } from './src/lib/api/auth/privyExchange';
+import { applyPendingOAuthDisplayName } from './src/lib/auth/applyPendingOAuthName';
 import { fetchIdentityTokenWithRetry } from './src/lib/auth/privyTokens';
 import { KuraApiError } from './src/lib/api/errors';
 import { clearDataKey } from './src/lib/crypto/dataKeySession';
@@ -27,10 +28,11 @@ import { installAppLock } from './src/lib/security/appLock';
 import { installScreenshotGuard } from './src/lib/security/screenshotGuard';
 import Header from './src/shared/navigation/Header';
 import TabNavigator from './src/shared/navigation/TabNavigator';
-import NotificationScreen from './src/features/notifications/screens/NotificationScreen';
-import NotificationSettingsScreen from './src/features/notifications/screens/NotificationSettingsScreen';
 import ConnectedDappsScreen from './src/features/walletconnect/screens/ConnectedDappsScreen';
 import WalletTransactionsScreen from './src/features/card/screens/WalletTransactionsScreen';
+import TransactionDetailScreen from './src/features/card/screens/TransactionDetailScreen';
+import CardManagerScreen from './src/features/card/screens/CardManagerScreen';
+import DinariKycScreen from './src/features/stocks/screens/DinariKycScreen';
 import PrivyLoginScreen from './src/features/auth/screens/PrivyLoginScreen';
 import { AppKitProvider, AppKit } from '@reown/appkit-react-native';
 import { initAppKit } from './src/shared/config/AppKitConfig';
@@ -38,6 +40,10 @@ import type { createAppKit } from '@reown/appkit-react-native';
 import { useWalletSync } from './src/shared/hooks/useWalletSync';
 import KuraWalletConnectShell from './src/features/walletconnect/components/KuraWalletConnectShell';
 import { startDeepLinkCapture } from './src/lib/walletconnect/wcInboundPairing';
+import {
+  consumePendingReferralCode,
+  installReferralDeepLinkListener,
+} from './src/lib/referral/pendingReferralCode';
 
 // Boot breadcrumb: confirms the JS bundle finished evaluating top-level imports
 // (incl. AppKitConfig's createAppKit). On a release build that's stuck on the
@@ -231,18 +237,27 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            const login = await exchangePrivyToken(accessToken, loginIdentityToken ?? undefined);
+            const pendingReferralCode = await consumePendingReferralCode();
             if (cancelled) return;
+
+            const login = await exchangePrivyToken(
+              accessToken,
+              loginIdentityToken ?? undefined,
+              pendingReferralCode,
+            );
+            if (cancelled) return;
+
+            const profile = await applyPendingOAuthDisplayName(login.user, privyUserForEmail);
 
             Logger.info('PrivyBridge', '[5] Kura JWT received', {
               kuraJwtPrefix: login.token.slice(0, 20) + '...',
-              backendUserId: login.user.id,
-              backendUserEmail: login.user.email,
-              emailIsPlaceholder: login.user.emailIsPlaceholder,
-              displayName: login.user.displayName,
+              backendUserId: profile.id,
+              backendUserEmail: profile.email,
+              emailIsPlaceholder: profile.emailIsPlaceholder,
+              displayName: profile.displayName,
               emailConflict: login.emailConflict,
             });
-            setPrivySession(login.token, login.user);
+            setPrivySession(login.token, profile);
             setExchangeStatus('idle');
             Logger.info('PrivyBridge', '[6] Session set — login complete ✓');
 
@@ -334,10 +349,11 @@ function MainNavigator() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="Tabs" component={HomeScreen} />
-      <MainStack.Screen name="Notifications" component={NotificationScreen} />
-      <MainStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <MainStack.Screen name="ConnectedDapps" component={ConnectedDappsScreen} />
       <MainStack.Screen name="WalletTransactions" component={WalletTransactionsScreen} />
+      <MainStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      <MainStack.Screen name="CardManager" component={CardManagerScreen} />
+      <MainStack.Screen name="DinariKyc" component={DinariKycScreen} />
     </MainStack.Navigator>
   );
 }
@@ -403,6 +419,7 @@ function AppInner() {
 
   useEffect(() => {
     Logger.debug('App', 'API base URL', { url: getApiBaseUrl() });
+    installReferralDeepLinkListener();
 
     const uninstallLock = installAppLock();
     const uninstallScreenshotGuard = installScreenshotGuard();

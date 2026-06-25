@@ -27,7 +27,8 @@ import { WebView } from 'react-native-webview';
 import { DISABLE_EME_JS } from '../../../shared/utils/webviewGuards';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useGnosisPayOnboarding, type GpStep } from '../hooks/useGnosisPayOnboarding';
+import { useGnosisPayOnboarding, type GpStep, type UseGnosisPayOnboardingReturn } from '../hooks/useGnosisPayOnboarding';
+import CardProductDmPage from '../components/CardProductDmPage';
 import type { GpSofSource } from '../../../lib/api/gp/client';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -577,7 +578,19 @@ function ErrorStep({ message, onRetry }: { message: string; onRetry: () => void 
 // Main screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function GnosisPayOnboardingScreen({ onClose }: { onClose?: () => void }) {
+export default function GnosisPayOnboardingScreen({
+  onClose,
+  embedded,
+  onboarding: externalOnboarding,
+}: {
+  onClose?: () => void;
+  /** When true, hides standalone header/loading/complete — for use inside CardManager */
+  embedded?: boolean;
+  /** Pass hook return from parent to avoid duplicate hook state */
+  onboarding?: UseGnosisPayOnboardingReturn;
+}) {
+  const internal = useGnosisPayOnboarding();
+  const onboarding = externalOnboarding ?? internal;
   const {
     step,
     errorMessage,
@@ -597,14 +610,14 @@ export default function GnosisPayOnboardingScreen({ onClose }: { onClose?: () =>
     doDeploySafe,
     doIssueCard,
     refresh,
-  } = useGnosisPayOnboarding();
+  } = onboarding;
 
   const { t } = useTranslation();
   const styles = useStyles();
   const { colors } = useTheme();
   const userEmail = useAppStore((s) => s.userProfile.email) ?? '';
 
-  if (step === 'loading') {
+  if (!embedded && step === 'loading') {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -613,7 +626,7 @@ export default function GnosisPayOnboardingScreen({ onClose }: { onClose?: () =>
     );
   }
 
-  if (step === 'complete' && card) {
+  if (!embedded && step === 'complete' && card) {
     return (
       <View style={styles.successWrap}>
         <Text style={styles.successEmoji}>🎉</Text>
@@ -633,35 +646,112 @@ export default function GnosisPayOnboardingScreen({ onClose }: { onClose?: () =>
   }
 
   return (
+    <GnosisPayOnboardingWizard
+      embedded={embedded}
+      onClose={onClose}
+      step={step}
+      errorMessage={errorMessage}
+      gpSafeAddress={gpSafeAddress}
+      safeCurrency={safeCurrency}
+      kycUrl={kycUrl}
+      isLoading={isLoading}
+      userEmail={userEmail}
+      doSiweAuth={doSiweAuth}
+      doSignup={doSignup}
+      doAcceptTerms={doAcceptTerms}
+      doStartKyc={doStartKyc}
+      doCheckKycStatus={doCheckKycStatus}
+      doSubmitSof={doSubmitSof}
+      doSendPhoneOtp={doSendPhoneOtp}
+      doVerifyPhoneOtp={doVerifyPhoneOtp}
+      doDeploySafe={doDeploySafe}
+      doIssueCard={doIssueCard}
+      refresh={refresh}
+    />
+  );
+}
+
+function GnosisPayOnboardingWizard({
+  embedded,
+  onClose,
+  step,
+  errorMessage,
+  gpSafeAddress,
+  safeCurrency,
+  kycUrl,
+  isLoading,
+  userEmail,
+  doSiweAuth,
+  doSignup,
+  doAcceptTerms,
+  doStartKyc,
+  doCheckKycStatus,
+  doSubmitSof,
+  doSendPhoneOtp,
+  doVerifyPhoneOtp,
+  doDeploySafe,
+  doIssueCard,
+  refresh,
+}: {
+  embedded?: boolean;
+  onClose?: () => void;
+  step: GpStep;
+  errorMessage: string;
+  gpSafeAddress: string | null;
+  safeCurrency: string | null;
+  kycUrl: string | null;
+  isLoading: boolean;
+  userEmail: string;
+  doSiweAuth: () => Promise<void>;
+  doSignup: (email: string) => Promise<void>;
+  doAcceptTerms: () => Promise<void>;
+  doStartKyc: () => Promise<void>;
+  doCheckKycStatus: () => Promise<void>;
+  doSubmitSof: (source: GpSofSource) => Promise<void>;
+  doSendPhoneOtp: (phone: string) => Promise<void>;
+  doVerifyPhoneOtp: (code: string) => Promise<void>;
+  doDeploySafe: () => Promise<void>;
+  doIssueCard: () => Promise<void>;
+  refresh: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
+
+  return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, embedded && styles.scrollContentEmbedded]}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>{t('card.productName')}</Text>
-            <Text style={styles.headerSub}>
-              {t('card.headerSub')}
-            </Text>
+        {!embedded && (
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>{t('card.productName')}</Text>
+              <Text style={styles.headerSub}>{t('card.headerSub')}</Text>
+            </View>
+            {onClose && (
+              <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.headerClose}>
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
-          {onClose && (
-            <TouchableOpacity onPress={onClose} hitSlop={8} style={styles.headerClose}>
-              <Ionicons name="close" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <ProgressBar step={step} />
-
-        {step === 'siwe_auth' && (
-          <SiweStep onPress={doSiweAuth} loading={isLoading} />
         )}
+
+        {embedded && step === 'siwe_auth' ? (
+          <CardProductDmPage onGetCard={doSiweAuth} loading={isLoading} />
+        ) : (
+          <>
+            <ProgressBar step={step} />
+
+            {step === 'siwe_auth' && (
+              <SiweStep onPress={doSiweAuth} loading={isLoading} />
+            )}
         {step === 'signup' && (
           <SignupStep defaultEmail={userEmail} onSubmit={doSignup} loading={isLoading} />
         )}
@@ -704,6 +794,8 @@ export default function GnosisPayOnboardingScreen({ onClose }: { onClose?: () =>
         {step === 'error' && (
           <ErrorStep message={errorMessage} onRetry={refresh} />
         )}
+          </>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -723,6 +815,7 @@ function makeStyles(c: ThemeColors) {
 
     scroll: { flex: 1, backgroundColor: c.background },
     scrollContent: { padding: 20, paddingBottom: 48 },
+    scrollContentEmbedded: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 24 },
 
     header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, marginTop: 8, gap: 12 },
     headerTitle: {

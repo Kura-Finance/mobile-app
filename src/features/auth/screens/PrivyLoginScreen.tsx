@@ -9,15 +9,23 @@ import {
   Platform,
   ScrollView,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLoginWithEmail, useLoginWithOAuth } from '@privy-io/expo';
 import { brand } from '../../../config/branding';
+import {
+  formatAppleFullName,
+  setPendingAppleDisplayName,
+} from '../../../lib/auth/oauthDisplayName';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 
 const TOS_URL = `${brand.homepage}/tos`;
 const PRIVACY_URL = `${brand.homepage}/privacy`;
+
+const CARD_LOGO = require('../../../../assets/card.webp');
 
 function openLegalUrl(url: string) {
   void Linking.openURL(url).catch(() => undefined);
@@ -39,7 +47,7 @@ function isCancelledError(err: unknown): boolean {
 }
 
 export default function PrivyLoginScreen() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const [step, setStep] = useState<LoginStep>('home');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -98,7 +106,15 @@ export default function PrivyLoginScreen() {
   const handleAppleLogin = async () => {
     setError(null);
     try {
-      await loginWithOAuth({ provider: 'apple' });
+      await loginWithOAuth({
+        provider: 'apple',
+        onAppleOAuthUserInfo: ({ fullName }) => {
+          const displayName = formatAppleFullName(fullName);
+          if (displayName) {
+            setPendingAppleDisplayName(displayName);
+          }
+        },
+      });
     } catch (err) {
       if (isCancelledError(err)) return;
       setError(err instanceof Error ? err.message : 'Apple login failed. Please try again.');
@@ -130,23 +146,11 @@ export default function PrivyLoginScreen() {
     <View style={{ flex: 1 }}>
       {/* Logo / branding */}
       <View style={{ alignItems: 'center', marginBottom: 48 }}>
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 20,
-            backgroundColor: '#8B5CF6',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginBottom: 20,
-            shadowColor: '#8B5CF6',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.4,
-            shadowRadius: 16,
-          }}
-        >
-          <Ionicons name="card-outline" size={36} color="#FFFFFF" />
-        </View>
+        <Image
+          source={CARD_LOGO}
+          style={{ width: 88, height: 56, marginBottom: 20 }}
+          resizeMode="contain"
+        />
         <Text style={{ fontSize: 30, fontWeight: '700', color: colors.text, letterSpacing: -0.5 }}>
           Kura
         </Text>
@@ -160,10 +164,18 @@ export default function PrivyLoginScreen() {
       {/* Social logins */}
       <View style={{ gap: 12 }}>
         {Platform.OS === 'ios' && (
-          <SocialButton
-            icon="logo-apple"
-            label="Continue with Apple"
-            onPress={handleAppleLogin}
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={
+              scheme === 'light'
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+            }
+            cornerRadius={14}
+            style={{ width: '100%', height: 50 }}
+            onPress={() => {
+              void handleAppleLogin();
+            }}
           />
         )}
         <SocialButton

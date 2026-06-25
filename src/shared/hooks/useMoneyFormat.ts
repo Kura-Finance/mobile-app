@@ -34,6 +34,7 @@ export function useMoneyFormat() {
             TWD: dynamicRates.TWD,
             CNY: dynamicRates.CNY,
             JPY: dynamicRates.JPY,
+            NGN: dynamicRates.NGN,
           }
         : undefined,
     [dynamicRates],

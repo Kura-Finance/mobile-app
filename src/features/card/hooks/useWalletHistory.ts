@@ -10,8 +10,10 @@
  * across all routes — whereas this v1 route stays up, so we rely on it instead.)
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import i18n from '../../../shared/locales/i18n';
+import { fetchBridgeActivities, hasPendingBridgeActivity } from './walletBridgeActivity';
+import { filterWalletTxsForDisplay } from '../utils/walletTxFilter';
 
 const BLOCKSCOUT_API = 'https://base.blockscout.com/api';
 const PAGE_SIZE = 20;
@@ -56,9 +58,12 @@ interface BlockscoutV1Response {
 
 export type TxDirection = 'in' | 'out' | 'self';
 
+export type WalletActivitySource = 'chain' | 'fiat_deposit' | 'crypto_deposit';
+
 export interface WalletTx {
-  /** Stable row id (hash + token contract + from + to + value). */
+  /** Stable row id (hash + token contract + from + to + value, or bridge id). */
   id: string;
+  source: WalletActivitySource;
   hash: string;
   timestamp: string;
   direction: TxDirection;
@@ -71,6 +76,21 @@ export interface WalletTx {
   /** human-readable amount */
   amount: number;
   rawValue: string;
+  /** Bridge deposit / transfer status (shown instead of counterparty address). */
+  statusLabelKey?: string;
+  statusColor?: string;
+  statusPending?: boolean;
+  fromAddress?: string;
+  toAddress?: string;
+  tokenContract?: string;
+  bridgeReferenceId?: string;
+  grossAmountLabel?: string;
+  exchangeFee?: string | null;
+  developerFee?: string | null;
+  gasFee?: string | null;
+  updatedAt?: string;
+  destinationRail?: string | null;
+  destinationCurrency?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,6 +148,7 @@ function normalize(
 
   return {
     id: txId(transfer),
+    source: 'chain',
     hash: transfer.hash,
     timestamp,
     direction,
@@ -138,6 +159,9 @@ function normalize(
     tokenIconUrl: null,
     amount,
     rawValue,
+    fromAddress: transfer.from,
+    toAddress: transfer.to,
+    tokenContract: transfer.contractAddress,
   };
 }
 
@@ -155,16 +179,40 @@ export interface UseWalletHistoryReturn {
 }
 
 export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
-  const [txs, setTxs] = useState<WalletTx[]>([]);
+  const [chainTxs, setChainTxs] = useState<WalletTx[]>([]);
+  const [bridgeTxs, setBridgeTxs] = useState<WalletTx[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const mountedRef = useRef(true);
 
+  const txs = useMemo(() => {
+    const seen = new Set<string>();
+    const merged = [...chainTxs, ...bridgeTxs]
+      .filter((tx) => {
+        if (seen.has(tx.id)) return false;
+        seen.add(tx.id);
+        return true;
+      })
+      .sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+    return filterWalletTxsForDisplay(merged);
+  }, [chainTxs, bridgeTxs]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
+  }, []);
+
+  const fetchBridge = useCallback(async () => {
+    try {
+      const items = await fetchBridgeActivities();
+      if (mountedRef.current) setBridgeTxs(items);
+    } catch {
+      // Bridge history is best-effort; on-chain history still shows.
+    }
   }, []);
 
   const fetchPage = useCallback(
@@ -218,7 +266,7 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
         if (items === null) throw new Error(lastErr || i18n.t('card.failedLoadHistory'));
 
         const normalized = items.map((item) => normalize(item, smartAddress));
-        setTxs((prev) => {
+        setChainTxs((prev) => {
           if (!append) return normalized;
           const seen = new Set(prev.map((tx) => tx.id));
           const next = normalized.filter((tx) => !seen.has(tx.id));
@@ -237,11 +285,13 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
   );
 
   const refresh = useCallback(() => {
-    setTxs([]);
+    setChainTxs([]);
+    setBridgeTxs([]);
     setPage(1);
     setHasMore(false);
+    void fetchBridge();
     fetchPage(1, false);
-  }, [fetchPage]);
+  }, [fetchBridge, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
@@ -252,13 +302,22 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
   // Auto-load on address change
   useEffect(() => {
     if (smartAddress) {
-      setTxs([]);
+      setChainTxs([]);
+      setBridgeTxs([]);
       setPage(1);
       setHasMore(false);
+      void fetchBridge();
       fetchPage(1, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [smartAddress]);
+
+  // Poll Bridge deposits while any are still in flight.
+  useEffect(() => {
+    if (!hasPendingBridgeActivity(bridgeTxs)) return;
+    const id = setInterval(() => void fetchBridge(), 12000);
+    return () => clearInterval(id);
+  }, [bridgeTxs, fetchBridge]);
 
   return { txs, loading, error, hasMore, loadMore, refresh };
 }

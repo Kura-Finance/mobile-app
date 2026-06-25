@@ -68,7 +68,6 @@ export interface UserProfile {
 export interface UserPreferences {
   baseCurrency: BaseCurrency;
   language: Language;
-  weeklyAiSummary: boolean;
   themeMode: ThemeMode;
   /** Block screenshots / screen recording (FLAG_SECURE on Android). */
   disableScreenshot: boolean;
@@ -108,24 +107,10 @@ async function persistSecurityPrefs(prefs: Pick<UserPreferences, 'disableScreens
   );
 }
 
-export interface AiInsight {
-  id: 'spending-alert' | 'optimization';
-  title: string;
-  content: string;
-}
-
-export interface AppChatMessage {
-  id: string;
-  role: 'ai' | 'user';
-  content: string;
-}
-
 interface AppState {
   authStatus: 'loading' | 'authenticated' | 'unauthenticated';
   userProfile: UserProfile;
   preferences: UserPreferences;
-  aiInsights: AiInsight[];
-  chatMessages: AppChatMessage[];
   plaidLinkToken: string | null;
   plaidLinkTokenTimestamp: number | null;
   authToken: string | null;
@@ -161,10 +146,8 @@ interface AppState {
   setBaseCurrency: (currency: BaseCurrency) => void;
   setLanguage: (language: Language) => void;
   setThemeMode: (mode: ThemeMode) => void;
-  toggleWeeklyAiSummary: () => void;
   setDisableScreenshot: (enabled: boolean) => void;
   setHideBalance: (enabled: boolean) => void;
-  addChatMessage: (message: AppChatMessage) => void;
 
   // ── Plaid ───────────────────────────────────────────────────────────────
   setPlaidLinkToken: (token: string | null) => void;
@@ -183,7 +166,6 @@ interface AppState {
 const DEFAULT_PREFERENCES: UserPreferences = {
   baseCurrency: 'USD',
   language: 'en',
-  weeklyAiSummary: false,
   themeMode: 'dark',
   disableScreenshot: false,
   hideBalance: false,
@@ -251,8 +233,6 @@ export const useAppStore = create<AppState>((set, get) => {
     authStatus: 'loading',
     userProfile: EMPTY_USER_PROFILE,
     preferences: DEFAULT_PREFERENCES,
-    aiInsights: [],
-    chatMessages: [],
     plaidLinkToken: null,
     plaidLinkTokenTimestamp: null,
     authToken: null,
@@ -279,7 +259,6 @@ export const useAppStore = create<AppState>((set, get) => {
           disableScreenshot: get().preferences.disableScreenshot,
           hideBalance: get().preferences.hideBalance,
         },
-        aiInsights: [],
       });
       void get().loadExchangeRates();
     },
@@ -417,14 +396,6 @@ export const useAppStore = create<AppState>((set, get) => {
       void AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode).catch(() => {});
     },
 
-    toggleWeeklyAiSummary: () =>
-      set((state) => ({
-        preferences: {
-          ...state.preferences,
-          weeklyAiSummary: !state.preferences.weeklyAiSummary,
-        },
-      })),
-
     setDisableScreenshot: (enabled) => {
       set((state) => ({
         preferences: { ...state.preferences, disableScreenshot: enabled },
@@ -456,9 +427,6 @@ export const useAppStore = create<AppState>((set, get) => {
         hideBalance: enabled,
       }).catch(() => {});
     },
-
-    addChatMessage: (message) =>
-      set((state) => ({ chatMessages: [...state.chatMessages, message] })),
 
     // ── Plaid ─────────────────────────────────────────────────────────────
 

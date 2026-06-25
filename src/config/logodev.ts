@@ -72,9 +72,6 @@ export function domainLogoUrl(domain: string, size = 64): string | null {
   );
 }
 
-/** logo.dev lookup order for Gnosis Pay branding. */
-export const GNOSIS_LOGO_DOMAINS = ['gnosispay.com', 'gnosis.io'] as const;
-
 /** logo.dev lookup for supported send/bridge chains (domain first, crypto fallback). */
 export const CHAIN_LOGO_LOOKUP: Record<
   string,

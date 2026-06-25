@@ -23,6 +23,8 @@ export interface BluechipToken {
   badge?: string;
   /** Whether this can be a swap target from USDC */
   swappable: boolean;
+  /** When false, list in Discover but skip on-chain balance reads (no Base deployment). */
+  trackBalance?: boolean;
   /** Ticker used for the logo.dev crypto logo (defaults to `symbol`). */
   logoSymbol?: string;
 }
@@ -149,6 +151,55 @@ export const BLUE_CHIPS: BluechipToken[] = [
     decimals: 18,
     swappable: true,
     logoSymbol: 'morpho',
+  },
+  {
+    geckoId: 'ondo-us-dollar-yield',
+    symbol: 'USDY',
+    name: 'Ondo US Dollar Yield',
+    displayName: 'USDY',
+    color: '#1A3A6B',
+    emoji: '$',
+    baseAddress: '0xc6682c8b7cbb363562bd1ff1c1ad50d66f5baeda',
+    decimals: 18,
+    swappable: false,
+    logoSymbol: 'usdy',
+  },
+  {
+    geckoId: 'ousg',
+    symbol: 'OUSG',
+    name: 'Ondo Short-Term US Treasuries',
+    displayName: 'OUSG',
+    color: '#0066CC',
+    emoji: 'T',
+    baseAddress: null,
+    decimals: 18,
+    swappable: false,
+    trackBalance: false,
+    logoSymbol: 'ousg',
+  },
+  {
+    geckoId: 'susds',
+    symbol: 'sUSDS',
+    name: 'Savings USDS',
+    displayName: 'sUSDS',
+    color: '#2775CA',
+    emoji: '$',
+    baseAddress: '0x5875eee11cf8398102fdad704c9e96607675467a',
+    decimals: 18,
+    swappable: false,
+    logoSymbol: 'susds',
+  },
+  {
+    geckoId: 'resolv-usr',
+    symbol: 'USR',
+    name: 'Resolv USD',
+    displayName: 'USR',
+    color: '#6366F1',
+    emoji: '$',
+    baseAddress: '0x35E5dB674D8e93a03d814FA0ADa70731efe8a4b9',
+    decimals: 18,
+    swappable: true,
+    logoSymbol: 'usr',
   },
   {
     geckoId: 'virtual-protocol',

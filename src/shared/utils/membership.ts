@@ -16,7 +16,3 @@ export function getAssetHistoryDaysLimit(label: string): number {
     ? BASIC_ASSET_HISTORY_DAYS
     : FULL_ASSET_HISTORY_DAYS;
 }
-
-export function isAssetHistoryRangeLimited(label: string, days: number): boolean {
-  return days > getAssetHistoryDaysLimit(label);
-}

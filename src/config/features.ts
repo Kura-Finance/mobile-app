@@ -4,8 +4,12 @@
  * Core wallet + WalletConnect work without the proprietary Kura backend.
  * TrackFi, Plaid, DeBank, Dinari, and backend-proxied Gnosis Pay require
  * EXPO_PUBLIC_API_BASE_URL (official or self-hosted).
+ *
+ * Morpho Earn uses Morpho's public API (no Kura backend) but needs Pimlico
+ * for on-chain deposits — see src/config/earn.ts.
  */
 
+import { isMorphoEarnEnabled } from './earn';
 import { env, hasKuraBackend } from './env';
 
 export const features = {
@@ -24,7 +28,7 @@ export const features = {
   /** DeBank proxy (/api/debank/*). */
   debank: hasKuraBackend(),
 
-  /** Dinari dShares in Portfolio → Stocks tab. */
+  /** Dinari dShares in Discover → US Stock tab. */
   dinariStocks: false,
 
   /** Gnosis Pay card — direct SIWE mode or backend proxy. */
@@ -35,6 +39,12 @@ export const features = {
 
   /** Li.Fi bridge / swap integrator fee (optional). */
   lifiSwap: true,
+
+  /**
+   * Morpho vault earn on Base (public GraphQL + smart-account deposits).
+   * Disable with EXPO_PUBLIC_MORPHO_EARN_ENABLED=false.
+   */
+  morphoEarn: isMorphoEarnEnabled(),
 } as const;
 
 export type AppFeatures = typeof features;

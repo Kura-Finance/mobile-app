@@ -195,6 +195,30 @@ export function listStocks(params?: {
   return requestJson<DinariStock[]>(`/api/dinari/stocks${suffix}`, { apiName: API });
 }
 
+const DEFAULT_STOCK_LIST_PAGE_SIZE = 100;
+const DEFAULT_STOCK_LIST_MAX_PAGES = 50;
+
+/** Paginate through Dinari's catalog — metadata only, no per-stock price calls. */
+export async function listAllStocks(options?: {
+  pageSize?: number;
+  maxPages?: number;
+}): Promise<DinariStock[]> {
+  const pageSize = options?.pageSize ?? DEFAULT_STOCK_LIST_PAGE_SIZE;
+  const maxPages = options?.maxPages ?? DEFAULT_STOCK_LIST_MAX_PAGES;
+  const byId = new Map<string, DinariStock>();
+
+  for (let page = 1; page <= maxPages; page++) {
+    const batch = await listStocks({ page, pageSize });
+    if (!batch.length) break;
+    for (const stock of batch) byId.set(String(stock.id), stock);
+    if (batch.length < pageSize) break;
+  }
+
+  return Array.from(byId.values()).sort((a, b) =>
+    a.symbol.localeCompare(b.symbol, undefined, { sensitivity: 'base' }),
+  );
+}
+
 export function getStockPrice(stockId: string): Promise<DinariStockPrice> {
   return requestJson<DinariStockPrice>(`/api/dinari/stocks/${stockId}/price`, { apiName: API });
 }

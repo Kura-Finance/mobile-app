@@ -22,6 +22,8 @@ import { PAY_GAS_IN_USDC } from '../../config/cardWalletConfig';
 import { makeModalStyles } from '../modalStyles';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
+import LegalDisclaimer from '../../../../shared/components/LegalDisclaimer';
+import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -255,7 +257,7 @@ export default function ConfirmView({
                 <Text style={st.fetchingText}>{t('card.gettingBestRate')}</Text>
               </View>
             ) : quoteError ? (
-              <Text style={[s.errorText, { marginTop: 4 }]}>{quoteError}</Text>
+              <InlineErrorBanner message={quoteError} style={{ marginTop: 8 }} />
             ) : quote ? (
               <>
                 <Row
@@ -310,7 +312,7 @@ export default function ConfirmView({
         </View>
       )}
 
-      {error ? <Text style={[s.errorText, { marginTop: 8 }]}>{error}</Text> : null}
+      {error ? <InlineErrorBanner message={error} style={{ marginTop: 8 }} /> : null}
 
       {/* ── Confirm button ── */}
       <TouchableOpacity
@@ -336,6 +338,7 @@ export default function ConfirmView({
           ? t('card.bridgeRateNote')
           : PAY_GAS_IN_USDC ? t('card.gasUsdcNote') : t('card.gasSponsoredNote')}
       </Text>
+      {isBridge ? <LegalDisclaimer variant="bridge" style={st.bridgeDisclaimer} /> : null}
     </ScrollView>
   );
 }
@@ -489,6 +492,10 @@ function makeStyles(c: ThemeColors) {
       color: '#FFF',
       fontSize: 16,
       fontWeight: '700',
+    },
+    bridgeDisclaimer: {
+      marginBottom: 8,
+      paddingHorizontal: 4,
     },
   });
 }

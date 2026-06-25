@@ -30,6 +30,7 @@ What the **open-source client** connects to — the trust boundary between code 
 | TrackFi (Plaid, brokers) | **Yes** | Passkey registration | E2EE snapshots |
 | DeBank DeFi portfolio | **Yes** | Backend proxy | Client normalizes in `debank/normalize.ts` |
 | Dinari stocks | **Yes** | Feature flag `dinariStocks` | Currently off in `features.ts` |
+| Morpho Earn | No | `morphoEarn` + Pimlico | Public Morpho GraphQL; vault list in `src/config/earn.ts` |
 | Gnosis Pay card (proxy) | **Yes** | — | Backend holds GP JWT |
 | Gnosis Pay (direct SIWE) | No | `EXPO_PUBLIC_GP_*` | Whitelisted SIWE domain |
 | MoonPay buy crypto | No | `EXPO_PUBLIC_MOONPAY_*` | WebView to MoonPay |
@@ -45,6 +46,7 @@ What the **open-source client** connects to — the trust boundary between code 
 | logo.dev | [logo.dev](https://logo.dev) | Ticker / crypto / domain logos |
 | MoonPay | [dashboard.moonpay.com](https://dashboard.moonpay.com) | Fiat on-ramp |
 | Li.Fi | [li.fi](https://li.fi) | Bridge / swap aggregator |
+| Morpho | [docs.morpho.org](https://docs.morpho.org) | Vault listings + APY (public GraphQL) |
 | Gnosis Pay | [docs.gnosispay.com](https://docs.gnosispay.com) | Card onboarding (direct mode) |
 
 ### Base RPC

@@ -19,9 +19,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../../../shared/store/useAppStore';
 import { hasVerifiedEmail, needsEmailLink } from '../../../../lib/api/auth/userProfileHelpers';
+import { splitDisplayName } from '../../../../lib/auth/oauthDisplayName';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import { makeModalStyles } from '../modalStyles';
+import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 import {
   accountTypeForCurrency,
   buildExternalAccountBody,
@@ -71,11 +73,6 @@ export interface FiatWithdrawPanelProps {
   embedded?: boolean;
   /** Sync nav bar title/back with parent when embedded. */
   onNavStateChange?: (state: WithdrawNavState) => void;
-}
-
-/** @deprecated Use FiatWithdrawPanel embedded in SendModal. */
-interface FiatWithdrawModalProps extends Omit<FiatWithdrawPanelProps, 'active'> {
-  visible: boolean;
 }
 
 const SW = Dimensions.get('window').width;
@@ -231,9 +228,14 @@ export function FiatWithdrawPanel({
   }, [screen, slideAnim]);
 
   const goBack = useCallback(() => {
-    const prev = historyRef.current.pop() ?? 'amount';
+    const prev = historyRef.current.pop();
+    if (prev === undefined) {
+      // Entered add-bank directly from Send picker — exit withdraw flow.
+      onClose();
+      return;
+    }
     navigate(prev, 'back');
-  }, [navigate]);
+  }, [navigate, onClose]);
 
   const resetFlow = useCallback(() => {
     historyRef.current = [];
@@ -297,8 +299,11 @@ export function FiatWithdrawPanel({
   );
 
   const resetForm = useCallback(() => {
-    setFirstName('');
-    setLastName('');
+    const { firstName: profileFirstName, lastName: profileLastName } = splitDisplayName(
+      userProfile.displayName,
+    );
+    setFirstName(profileFirstName);
+    setLastName(profileLastName);
     setAccountNumber('');
     setRoutingNumber('');
     setSortCode('');
@@ -316,7 +321,7 @@ export function FiatWithdrawPanel({
     setCountry('');
     bankNameManualRef.current = false;
     lastAbaLookupRef.current = '';
-  }, []);
+  }, [userProfile.displayName]);
 
   const openAddBank = useCallback(() => {
     resetForm();
@@ -1085,10 +1090,19 @@ export function FiatWithdrawPanel({
         ) : null}
 
         {maxSendable <= 0 && PAY_GAS_IN_USDC && !gasEstimating ? (
-          <Text style={s.errorText}>{t('wallet.insufficientUsdcForGas')}</Text>
+          <InlineErrorBanner
+            title={t('card.insufficientUsdcForGasTitle')}
+            message={t('card.insufficientUsdcForGasDetail', {
+              balance: usdcBalance.toFixed(2),
+              gas: gasReserve.toFixed(2),
+            })}
+            style={{ marginBottom: 12 }}
+          />
         ) : null}
 
-        {error ? <Text style={s.errorText}>{error}</Text> : null}
+        {error ? (
+          <InlineErrorBanner message={error} style={{ marginBottom: 12 }} />
+        ) : null}
 
         <TouchableOpacity
           onPress={continueToConfirm}
@@ -1279,13 +1293,6 @@ export function FiatWithdrawPanel({
       </KeyboardAvoidingView>
     </Modal>
   );
-}
-
-export default function FiatWithdrawModal({
-  visible,
-  ...props
-}: FiatWithdrawModalProps) {
-  return <FiatWithdrawPanel active={visible} {...props} />;
 }
 
 function ConfirmRow({

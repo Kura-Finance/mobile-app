@@ -1,98 +1,91 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import i18n from '../../../../shared/locales/i18n';
+import type { WalletTx } from '../../hooks/useWalletHistory';
+import {
+  formatTxAmount,
+  formatTxRelativeTime,
+  getTxAccentColor,
+  getTxAmountPrefix,
+  getTxTypeLabel,
+  truncateAddress,
+} from '../../utils/walletTxDisplay';
 import { useHideBalance } from '../../../../shared/hooks/useHideBalance';
 import { HIDDEN_BALANCE_TEXT } from '../../../../shared/utils/privacyDisplay';
-import type { WalletTx } from '../../hooks/useWalletHistory';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
-function formatAmount(amount: number, symbol: string): string {
-  const abs = Math.abs(amount);
-  let str: string;
-  if (abs === 0) str = '0';
-  else if (abs < 0.000001) str = abs.toExponential(2);
-  else if (abs < 0.01) str = abs.toFixed(6);
-  else if (abs < 1000) str = abs.toFixed(abs < 1 ? 4 : 2);
-  else str = abs.toLocaleString('en-US', { maximumFractionDigits: 2 });
-  return `${str} ${symbol}`;
-}
-
-function formatTime(isoTimestamp: string): string {
-  try {
-    const d = new Date(isoTimestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMin = Math.floor(diffMs / 60_000);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffMin < 1) return i18n.t('card.justNow');
-    if (diffMin < 60) return i18n.t('card.minutesAgo', { count: diffMin });
-    if (diffHour < 24) return i18n.t('card.hoursAgo', { count: diffHour });
-    if (diffDay < 7) return i18n.t('card.daysAgo', { count: diffDay });
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return '—';
-  }
-}
-
-function truncateAddr(addr: string): string {
-  if (!addr || addr.length < 12) return addr;
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
 interface Props {
   tx: WalletTx;
+  onPress?: (tx: WalletTx) => void;
 }
 
-export default function WalletTxRow({ tx }: Props) {
+export default function WalletTxRow({ tx, onPress }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const hideBalance = useHideBalance();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const isIn = tx.direction === 'in';
-  const isSelf = tx.direction === 'self';
+  const isBridge = tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit';
 
-  const directionColor = isSelf ? colors.textMuted : isIn ? '#10B981' : '#F59E0B';
-  const directionIcon: string = isSelf
-    ? 'swap-horizontal-outline'
-    : isIn
-      ? 'arrow-down-outline'
-      : 'arrow-up-outline';
-  const directionLabel = isSelf ? t('card.self') : isIn ? t('card.received') : t('card.sent');
-  const amountPrefix = isSelf ? '' : isIn ? '+' : '−';
+  const accent = getTxAccentColor(tx, colors);
+  const typeLabel = getTxTypeLabel(tx);
+  const amountPrefix = getTxAmountPrefix(tx);
+  const subtitle = tx.statusLabelKey
+    ? t(tx.statusLabelKey)
+    : (tx.counterpartyName ?? truncateAddress(tx.counterparty));
+  const subtitleColor = tx.statusLabelKey ? (tx.statusColor ?? colors.textMuted) : colors.textMuted;
 
-  const openExplorer = useCallback(() => {
-    Linking.openURL(`https://base.blockscout.com/tx/${tx.hash}`).catch(() => undefined);
-  }, [tx.hash]);
+  const directionIcon: string = isBridge
+    ? 'arrow-down-outline'
+    : tx.direction === 'self'
+      ? 'swap-horizontal-outline'
+      : tx.direction === 'in'
+        ? 'arrow-down-outline'
+        : 'arrow-up-outline';
 
-  const copyHash = useCallback(() => {
-    Clipboard.setStringAsync(tx.hash).catch(() => undefined);
-  }, [tx.hash]);
+  const handlePress = useCallback(() => {
+    onPress?.(tx);
+  }, [onPress, tx]);
 
   return (
-    <TouchableOpacity style={s.row} onPress={openExplorer} onLongPress={copyHash} activeOpacity={0.7}>
-      <View style={[s.iconWrap, { backgroundColor: `${directionColor}1A` }]}>
-        <Ionicons name={directionIcon as any} size={18} color={directionColor} />
+    <TouchableOpacity
+      style={s.row}
+      onPress={onPress ? handlePress : undefined}
+      activeOpacity={onPress ? 0.7 : 1}
+      disabled={!onPress}
+    >
+      <View style={[s.iconWrap, { backgroundColor: `${accent}1A` }]}>
+        <Ionicons name={directionIcon as any} size={18} color={accent} />
       </View>
       <View style={s.info}>
-        <Text style={s.label}>{directionLabel}</Text>
-        <Text style={s.counterparty} numberOfLines={1}>
-          {tx.counterpartyName ?? truncateAddr(tx.counterparty)}
-        </Text>
+        <Text style={s.label}>{typeLabel}</Text>
+        <View style={s.subtitleRow}>
+          {tx.statusPending ? (
+            <ActivityIndicator size="small" color={subtitleColor} style={s.subtitleSpinner} />
+          ) : null}
+          <Text
+            style={[
+              s.counterparty,
+              tx.statusLabelKey ? { color: subtitleColor } : s.counterpartyMono,
+            ]}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        </View>
       </View>
       <View style={s.right}>
-        <Text style={[s.amount, { color: directionColor }]}>
+        <Text style={[s.amount, { color: accent }]}>
           {hideBalance
             ? HIDDEN_BALANCE_TEXT
-            : `${amountPrefix}${formatAmount(tx.amount, tx.tokenSymbol)}`}
+            : `${amountPrefix}${formatTxAmount(tx.amount, tx.tokenSymbol)}`}
         </Text>
-        <Text style={s.time}>{formatTime(tx.timestamp)}</Text>
+        <Text style={s.time}>{formatTxRelativeTime(tx.timestamp)}</Text>
       </View>
+      {onPress ? (
+        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -117,7 +110,10 @@ function makeStyles(c: ThemeColors) {
     },
     info: { flex: 1 },
     label: { color: c.text, fontSize: 13, fontWeight: '600', marginBottom: 3 },
-    counterparty: { color: c.textMuted, fontSize: 11, fontFamily: 'monospace' },
+    subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    subtitleSpinner: { transform: [{ scale: 0.75 }] },
+    counterparty: { color: c.textMuted, fontSize: 11, flexShrink: 1 },
+    counterpartyMono: { fontFamily: 'monospace' },
     right: { alignItems: 'flex-end' },
     amount: { fontSize: 13, fontWeight: '700', marginBottom: 3 },
     time: { color: c.textFaint, fontSize: 11 },

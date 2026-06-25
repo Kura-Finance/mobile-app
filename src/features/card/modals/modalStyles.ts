@@ -1,12 +1,10 @@
 import { StyleSheet, Platform } from 'react-native';
-import { darkColors, type ThemeColors } from '../../../shared/theme/theme';
+import type { ThemeColors } from '../../../shared/theme/theme';
 
 /**
  * Theme-aware modal styles.
  *
- * Use `makeModalStyles(colors)` inside a component (memoized on `colors`) to get
- * styles that follow the active theme. A dark `modalStyles` default export is
- * kept for screens that haven't been migrated to the theme yet.
+ * Use `makeModalStyles(colors)` inside a component (memoized on `colors`).
  */
 export function makeModalStyles(c: ThemeColors) {
   return StyleSheet.create({
@@ -170,8 +168,3 @@ export function makeModalStyles(c: ThemeColors) {
     linkBtnText: { color: c.primary, fontSize: 14, fontWeight: '600' as const },
   });
 }
-
-/** Dark-themed default for not-yet-migrated consumers. */
-const modalStyles = makeModalStyles(darkColors);
-
-export default modalStyles;

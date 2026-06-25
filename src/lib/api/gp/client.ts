@@ -300,3 +300,12 @@ export async function unfreezeGpCard(cardId: string): Promise<void> {
     apiName: TAG,
   });
 }
+
+/** PUT /api/card/gp/daily-limit — backend signs and submits the on-chain limit update */
+export async function setGpDailyLimit(dailyLimit: number): Promise<void> {
+  await requestJson<unknown>('/api/card/gp/daily-limit', {
+    method: 'PUT',
+    body: JSON.stringify({ dailyLimit }),
+    apiName: TAG,
+  });
+}

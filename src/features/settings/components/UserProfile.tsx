@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -13,6 +13,13 @@ interface UserProfileProps {
 
 export default function UserProfile({ displayName, email, avatarUrl, onAvatarPress, isLoadingAvatar }: UserProfileProps) {
   const { colors } = useTheme();
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasAvatar = Boolean(avatarUrl?.trim()) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
       <TouchableOpacity 
@@ -20,13 +27,14 @@ export default function UserProfile({ displayName, email, avatarUrl, onAvatarPre
         disabled={isLoadingAvatar}
         style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 16, borderWidth: 2, borderColor: colors.surface, overflow: 'hidden', position: 'relative' }}
       >
-        {avatarUrl ? (
+        {hasAvatar ? (
           <Image 
-            source={{ uri: avatarUrl }} 
+            source={{ uri: avatarUrl!.trim() }} 
             style={{ width: '100%', height: '100%' }}
+            onError={() => setImageFailed(true)}
           />
         ) : (
-          <Text style={{ color: colors.white, fontSize: 28, fontWeight: 'bold' }}>{displayName.trim() ? displayName.trim().slice(0, 1).toUpperCase() : '?'}</Text>
+          <Ionicons name="person" size={32} color="#FFFFFF" />
         )}
         {isLoadingAvatar ? (
           <View style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>

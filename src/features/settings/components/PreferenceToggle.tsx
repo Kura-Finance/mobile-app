@@ -77,14 +77,17 @@ function makeStyles(colors: ThemeColors, embedded: boolean, isLast: boolean) {
       lineHeight: 17,
     },
     switchCol: {
-      width: Platform.OS === 'ios' ? 44 : 48,
+      width: Platform.OS === 'ios' ? 44 : 56,
       alignItems: 'flex-end',
       justifyContent: 'center',
       flexShrink: 0,
     },
-    switchScaled: {
-      transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }],
-      marginRight: Platform.OS === 'ios' ? -6 : -8,
-    },
+    switchScaled: Platform.select({
+      ios: {
+        transform: [{ scaleX: 0.78 }, { scaleY: 0.78 }],
+        marginRight: -6,
+      },
+      default: {},
+    }),
   });
 }

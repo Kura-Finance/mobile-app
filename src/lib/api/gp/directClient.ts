@@ -662,3 +662,12 @@ export async function freezeGpCard(cardId: string): Promise<void> {
 export async function unfreezeGpCard(cardId: string): Promise<void> {
   await gpRequest<unknown>(`/api/v1/cards/${cardId}/unfreeze`, { method: 'POST' });
 }
+
+/** Daily limit updates require EIP-712 Safe signing — use the backend proxy client. */
+export async function setGpDailyLimit(_dailyLimit: number): Promise<void> {
+  throw new KuraApiError({
+    code: 'GP_NOT_SUPPORTED',
+    message: 'Daily limit updates are not supported in direct GP mode yet',
+    status: 501,
+  });
+}

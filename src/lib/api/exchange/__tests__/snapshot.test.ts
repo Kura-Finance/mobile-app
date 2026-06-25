@@ -89,8 +89,6 @@ describe('fetchExchangeSnapshot (round-trip via mocked transport)', () => {
     setCryptoSession({
       x25519PrivateKey: kp.privateKey,
       x25519PublicKeyBase64: sodium.to_base64(kp.publicKey, sodium.base64_variants.ORIGINAL),
-      dekWrapKey: new Uint8Array(32),
-      localCacheKey: new Uint8Array(32),
     });
 
     try {

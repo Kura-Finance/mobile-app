@@ -16,7 +16,7 @@ const t = ((key: string, opts?: { defaultValue?: string; amount?: string; curren
     'card.depositBulletArrive': opts?.timing ?? '',
     'card.depositBulletFee': `Deposit fee: ${opts?.fee}`,
     'card.bridgeLimitUnlimited': 'No limit',
-    'card.bridgeLimitContactAccountManager': 'Contact account manager',
+    'card.bridgeLimitContactAccountManager': 'Not allowed',
     'card.bridgeLimitUpTo': `Up to ${opts?.amount} ${opts?.currency} per transfer`,
     'card.bridgeLimitP2pUnder': `Less than ${opts?.amount} ${opts?.currency} per person-to-person transfer`,
     'card.bridgeArrival.spei': 'Arrives within minutes (SPEI settles in seconds)',

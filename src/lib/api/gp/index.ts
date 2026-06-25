@@ -33,6 +33,7 @@ export const issueGpVirtualCard = impl.issueGpVirtualCard;
 export const getGpTransactions = impl.getGpTransactions;
 export const freezeGpCard = impl.freezeGpCard;
 export const unfreezeGpCard = impl.unfreezeGpCard;
+export const setGpDailyLimit = impl.setGpDailyLimit;
 
 /** Clear the client-held GP session (only meaningful for the direct client). */
 export async function clearGpSession(): Promise<void> {

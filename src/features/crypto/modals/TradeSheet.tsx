@@ -1,16 +1,14 @@
 /**
  * TradeSheet
  *
- * Compact bottom-sheet to buy or sell a token (Revolut / Kraken style).
- *  Buy  → spend USDC, receive the token.
- *  Sell → spend the token, receive USDC.
- *
- * Fetches a live Li.Fi quote (auto-refreshing every 5s) and executes the swap
- * through the ERC-4337 smart account.
+ * Compact bottom-sheet swap UI: USDC ↔ token with a flip control.
+ * Fetches a live Li.Fi quote (auto-refreshing every 5s) and executes through
+ * the ERC-4337 smart account.
  */
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -34,13 +32,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { parseUnits } from 'viem';
 
 import { fetchSwapQuote, SwapQuote } from '../../../lib/api/bridge/lifiSwapClient';
-import { USDC_BASE, PAY_GAS_IN_USDC } from '../../card/config/cardWalletConfig';
-import type { BluechipToken } from '../config/blueChips';
+import { USDC_BASE, PAY_GAS_IN_USDC, GAS_RESERVE_FALLBACK_USDC } from '../../card/config/cardWalletConfig';
+import { BLUE_CHIPS, type BluechipToken } from '../config/blueChips';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
+import { formatSensitiveUsd, HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
+import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
+import TokenLogo from '../components/TokenLogo';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -49,15 +50,21 @@ function useStyles() {
 
 const REFRESH_INTERVAL = 5_000;
 const USDC_DECIMALS = 6;
+const USDC_TOKEN = BLUE_CHIPS.find((t) => t.symbol === 'USDC')!;
 
 export type TradeSide = 'buy' | 'sell';
 
+function formatTokenAmount(n: number): string {
+  if (n === 0) return '0.00';
+  if (n < 0.0001) return n.toExponential(2);
+  if (n < 1) return n.toFixed(6);
+  if (n < 1000) return n.toFixed(4);
+  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
 function formatToken(n: number, symbol: string): string {
   if (n === 0) return `0 ${symbol}`;
-  if (n < 0.0001) return `${n.toExponential(2)} ${symbol}`;
-  if (n < 1) return `${n.toFixed(6)} ${symbol}`;
-  if (n < 1000) return `${n.toFixed(4)} ${symbol}`;
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${symbol}`;
+  return `${formatTokenAmount(n)} ${symbol}`;
 }
 
 function toWei(amount: string, decimals: number): string {
@@ -97,7 +104,6 @@ const barFill = { height: '100%' as const, borderRadius: 1 };
 
 interface Props {
   visible: boolean;
-  side: TradeSide;
   token: BluechipToken | null;
   tokenPrice: number;
   usdcBalance: number;
@@ -113,7 +119,6 @@ interface Props {
 
 export default function TradeSheet({
   visible,
-  side,
   token,
   tokenPrice,
   usdcBalance,
@@ -132,6 +137,7 @@ export default function TradeSheet({
   const st = useStyles();
   const hideBalance = useHideBalance();
 
+  const [direction, setDirection] = useState<TradeSide>('buy');
   const [amountInput, setAmountInput] = useState('');
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -140,41 +146,38 @@ export default function TradeSheet({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [execError, setExecError] = useState<string | null>(null);
   const [gasUsdc, setGasUsdc] = useState<number | null>(null);
-  const [gasReserve, setGasReserve] = useState(0);
+  const [gasReserve, setGasReserve] = useState(() => (PAY_GAS_IN_USDC ? GAS_RESERVE_FALLBACK_USDC : 0));
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isSell = side === 'sell';
+  const isSell = direction === 'sell';
   const tokenSymbol = token?.displayName ?? '';
   const tokenDecimals = token?.decimals ?? 18;
+  const fromToken = isSell ? token : USDC_TOKEN;
+  const toToken = isSell ? USDC_TOKEN : token;
 
   const amountNum = parseFloat(amountInput) || 0;
   const spendBalance = isSell ? tokenHoldings : usdcBalance;
-  // Paying gas in USDC means a *buy* can't spend 100% of the USDC balance — the
-  // ERC-20 paymaster pulls its fee in postOp, so keep a little USDC back. A sell
-  // produces USDC before postOp, so it needs no reserve.
   const buyGasReserve = isSell ? 0 : gasReserve;
   const maxSpendable = Math.max(0, spendBalance - buyGasReserve);
   const hasValidAmount = amountNum > 0 && amountNum <= maxSpendable + 1e-9;
-  const orderUsd = isSell ? amountNum * tokenPrice : amountNum;
+  const maxBlocked = !isSell && PAY_GAS_IN_USDC && maxSpendable <= 0;
 
-  // ── Reset on open ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (visible) {
+      setDirection('buy');
       setAmountInput('');
       setQuote(null);
       setQuoteError(null);
       setTxHash(null);
       setExecError(null);
       setGasUsdc(null);
-      setGasReserve(0);
+      setGasReserve(PAY_GAS_IN_USDC ? GAS_RESERVE_FALLBACK_USDC : 0);
     } else if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-  }, [visible, side]);
+  }, [visible]);
 
-  // Estimate the USDC to hold back for gas (0 when sponsored). Used to cap a buy
-  // so it never leaves the SCA unable to pay the ERC-20 paymaster.
   useEffect(() => {
     if (!visible) return;
     let alive = true;
@@ -184,7 +187,17 @@ export default function TradeSheet({
     return () => { alive = false; };
   }, [visible, estimateGasReserve]);
 
-  // ── Auto-refresh quote ─────────────────────────────────────────────────────
+  // When the gas reserve estimate lands, reclamp a stale MAX amount (buy only).
+  useEffect(() => {
+    if (!visible || isSell) return;
+    setAmountInput((prev) => {
+      if (!prev) return prev;
+      const num = parseFloat(prev);
+      if (!Number.isFinite(num) || num <= maxSpendable + 1e-9) return prev;
+      return maxSpendable > 0 ? maxSpendable.toFixed(2) : '';
+    });
+  }, [gasReserve, maxSpendable, visible, isSell]);
+
   const fetchQuote = useCallback(async () => {
     if (!token?.baseAddress || !scaAddress || !hasValidAmount) {
       setQuote(null);
@@ -207,7 +220,6 @@ export default function TradeSheet({
       });
       setQuote(q);
       setQuoteKey((k) => k + 1);
-      // Price the actual network fee (paid in USDC) for this exact route.
       if (PAY_GAS_IN_USDC) {
         setGasUsdc(null);
         estimateSwapGasUsdc(q).then(setGasUsdc).catch(() => setGasUsdc(null));
@@ -253,12 +265,35 @@ export default function TradeSheet({
     }
   }, [isSell, tokenHoldings, maxSpendable]);
 
+  const flipDirection = useCallback(() => {
+    setDirection((d) => (d === 'buy' ? 'sell' : 'buy'));
+    setAmountInput('');
+    setQuote(null);
+    setQuoteError(null);
+    setGasUsdc(null);
+    setExecError(null);
+  }, []);
+
   const toAmountHuman = quote
     ? parseFloat(quote.toAmount) / Math.pow(10, quote.toToken.decimals)
     : 0;
-  const receiveText = isSell ? formatSensitiveUsd(toAmountHuman, hideBalance) : formatToken(toAmountHuman, tokenSymbol);
 
-  if (!token) return null;
+  const toAmountDisplay = useMemo(() => {
+    if (!hasValidAmount) return '0.00';
+    if (quoteLoading && !quote) return '…';
+    if (quoteError || !quote) return '0.00';
+    if (isSell) return formatSensitiveUsd(toAmountHuman, hideBalance).replace(/^\$/, '');
+    return formatTokenAmount(toAmountHuman);
+  }, [hasValidAmount, quoteLoading, quote, quoteError, isSell, toAmountHuman, hideBalance]);
+
+  const successFromText = isSell
+    ? formatToken(amountNum, tokenSymbol)
+    : formatSensitiveUsd(amountNum, hideBalance);
+  const successToText = isSell
+    ? formatSensitiveUsd(toAmountHuman, hideBalance)
+    : formatToken(toAmountHuman, tokenSymbol);
+
+  if (!token || !fromToken || !toToken) return null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -268,16 +303,11 @@ export default function TradeSheet({
       >
         <Pressable style={st.backdrop} onPress={onClose} />
         <View style={[st.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          {/* Header */}
           <View style={st.sheetHeader}>
             <View style={st.handle} />
           </View>
           <View style={st.titleRow}>
-            <Text style={st.title}>
-              {isSell
-                ? t('crypto.sellToken', { symbol: tokenSymbol })
-                : t('crypto.buyToken', { symbol: tokenSymbol })}
-            </Text>
+            <Text style={st.title}>{t('crypto.swap')}</Text>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -286,17 +316,9 @@ export default function TradeSheet({
           {txHash ? (
             <View style={st.successBox}>
               <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={st.successTitle}>{isSell ? t('crypto.sellSubmitted') : t('crypto.buySubmitted')}</Text>
+              <Text style={st.successTitle}>{t('crypto.swapSubmitted')}</Text>
               <Text style={st.successSub}>
-                {isSell
-                  ? t('crypto.sellingSummary', {
-                      from: formatToken(amountNum, tokenSymbol),
-                      to: formatSensitiveUsd(toAmountHuman, hideBalance),
-                    })
-                  : t('crypto.buyingSummary', {
-                      from: formatSensitiveUsd(amountNum, hideBalance),
-                      to: formatToken(toAmountHuman, tokenSymbol),
-                    })}
+                {t('crypto.swapSummary', { from: successFromText, to: successToText })}
               </Text>
               <TouchableOpacity onPress={onClose} style={st.doneBtn} activeOpacity={0.85}>
                 <Text style={st.doneBtnText}>{t('crypto.done')}</Text>
@@ -304,93 +326,123 @@ export default function TradeSheet({
             </View>
           ) : (
             <>
-              {/* Available balance */}
-              <Text style={st.balanceHint}>
-                {t('crypto.available', {
-                  amount: isSell ? formatToken(tokenHoldings, tokenSymbol) : formatSensitiveUsd(usdcBalance, hideBalance),
-                })}
-              </Text>
+              <View style={st.swapStack}>
+                {/* From */}
+                <View style={st.swapCard}>
+                  <View style={st.swapCardHeader}>
+                    <Text style={st.swapLabel}>{t('crypto.from')}</Text>
+                    <TouchableOpacity
+                      onPress={setMaxAmount}
+                      activeOpacity={0.7}
+                      hitSlop={8}
+                      disabled={maxBlocked || maxSpendable <= 0}
+                    >
+                      <Text style={[st.maxBtn, (maxBlocked || maxSpendable <= 0) && st.maxBtnDisabled]}>
+                        {t('crypto.max')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={st.swapCardBody}>
+                    <View style={st.tokenPicker}>
+                      <TokenLogo token={fromToken} size={36} />
+                      <Text style={st.tokenSymbol}>{isSell ? tokenSymbol : 'USDC'}</Text>
+                    </View>
+                    <TextInput
+                      style={st.amountInput}
+                      value={amountInput}
+                      onChangeText={setAmountInput}
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textFaint}
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
 
-              {/* Amount input */}
-              <View style={st.inputRow}>
-                {!isSell && <Text style={st.inputCurrency}>$</Text>}
-                <TextInput
-                  style={st.input}
-                  value={amountInput}
-                  onChangeText={setAmountInput}
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textFaint}
-                  keyboardType="decimal-pad"
-                  returnKeyType="done"
-                />
-                {isSell && <Text style={st.inputSuffix}>{tokenSymbol}</Text>}
-                <TouchableOpacity onPress={setMaxAmount} style={st.maxBtn} activeOpacity={0.7}>
-                  <Text style={st.maxBtnText}>{t('crypto.max')}</Text>
-                </TouchableOpacity>
+                <View style={st.flipWrap}>
+                  <TouchableOpacity
+                    style={st.flipBtn}
+                    onPress={flipDirection}
+                    activeOpacity={0.85}
+                    accessibilityLabel={t('crypto.swap')}
+                  >
+                    <Ionicons name="swap-vertical" size={18} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* To */}
+                <View style={st.swapCard}>
+                  <View style={st.swapCardHeader}>
+                    <Text style={st.swapLabel}>{t('crypto.to')}</Text>
+                    {quoteLoading && hasValidAmount ? (
+                      <ActivityIndicator size="small" color={colors.textMuted} />
+                    ) : null}
+                  </View>
+                  <View style={st.swapCardBody}>
+                    <View style={st.tokenPicker}>
+                      <TokenLogo token={toToken} size={36} />
+                      <Text style={st.tokenSymbol}>{isSell ? 'USDC' : tokenSymbol}</Text>
+                    </View>
+                    <Text
+                      style={[
+                        st.amountInput,
+                        st.toAmount,
+                        hasValidAmount && quote && !quoteLoading && toAmountHuman > 0 && st.toAmountActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {toAmountDisplay}
+                    </Text>
+                  </View>
+                </View>
               </View>
+
               {amountNum > spendBalance + 1e-9 ? (
-                <Text style={st.insufficientText}>
-                  {t('crypto.insufficientBalance', { symbol: isSell ? tokenSymbol : 'USDC' })}
-                </Text>
+                <InlineErrorBanner
+                  message={t('crypto.insufficientBalance', { symbol: isSell ? tokenSymbol : 'USDC' })}
+                  style={{ marginTop: 10 }}
+                />
               ) : !isSell && amountNum > maxSpendable + 1e-9 ? (
-                <Text style={st.insufficientText}>{t('crypto.leaveUsdcForGas')}</Text>
-              ) : isSell && amountNum > 0 ? (
-                <Text style={st.subHint}>≈ {formatSensitiveUsd(orderUsd, hideBalance)}</Text>
+                <InlineErrorBanner
+                  title={t('card.insufficientUsdcForGasTitle')}
+                  message={t('card.amountLeaveGas')}
+                  style={{ marginTop: 10 }}
+                />
               ) : null}
 
-              {/* Quote card */}
-              {hasValidAmount && (
+              {quoteError ? (
+                <InlineErrorBanner message={quoteError} style={{ marginTop: 12 }} />
+              ) : null}
+
+              {hasValidAmount && quote && !quoteLoading && (
                 <View style={st.quoteCard}>
-                  {!quoteLoading && quote && <CountdownBar key={quoteKey} durationMs={REFRESH_INTERVAL} />}
+                  <CountdownBar key={quoteKey} durationMs={REFRESH_INTERVAL} />
                   <View style={st.quoteContent}>
-                    {quoteLoading && !quote ? (
-                      <View style={st.quoteLoading}>
-                        <ActivityIndicator size="small" color={colors.primary} />
-                        <Text style={st.quoteLoadingText}>{t('crypto.fetchingRoute')}</Text>
-                      </View>
-                    ) : quoteError ? (
-                      <View style={st.quoteErrorRow}>
-                        <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-                        <Text style={st.quoteErrorText}>{quoteError}</Text>
-                      </View>
-                    ) : quote ? (
-                      <>
-                        <View style={st.quoteRow}>
-                          <Text style={st.quoteLabel}>{t('crypto.youReceive')}</Text>
-                          <Text style={st.quoteValue}>{receiveText}</Text>
-                        </View>
-                        <View style={st.quoteDivider} />
-                        <View style={st.quoteRow}>
-                          <Text style={st.quoteLabel}>{t('crypto.fee')}</Text>
-                          <Text style={st.quoteValueSub}>{t('crypto.feeValue', { fee: quote.feeUSD })}</Text>
-                        </View>
-                        <View style={st.quoteRow}>
-                          <Text style={st.quoteLabel}>{t('crypto.networkFee')}</Text>
-                          <Text style={st.quoteValueSub}>
-                            {!PAY_GAS_IN_USDC
-                              ? t('crypto.gasSponsored')
-                              : gasUsdc != null
-                                ? t('crypto.gasUsdcValue', { gas: gasUsdc.toFixed(2) })
-                                : t('crypto.estimatingGas')}
-                          </Text>
-                        </View>
-                      </>
-                    ) : null}
+                    <View style={st.quoteRow}>
+                      <Text style={st.quoteLabel}>{t('crypto.fee')}</Text>
+                      <Text style={st.quoteValueSub}>{t('crypto.feeValue', { fee: quote.feeUSD })}</Text>
+                    </View>
+                    <View style={st.quoteRow}>
+                      <Text style={st.quoteLabel}>{t('crypto.networkFee')}</Text>
+                      <Text style={st.quoteValueSub}>
+                        {!PAY_GAS_IN_USDC
+                          ? t('crypto.gasSponsored')
+                          : gasUsdc != null
+                            ? t('crypto.gasUsdcValue', { gas: gasUsdc.toFixed(2) })
+                            : t('crypto.estimatingGas')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               )}
 
-              {execError && (
-                <View style={st.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={14} color={colors.danger} />
-                  <Text style={st.errorText}>{execError}</Text>
-                </View>
-              )}
+              {execError ? (
+                <InlineErrorBanner message={execError} style={{ marginTop: 12 }} />
+              ) : null}
 
               <TouchableOpacity
                 style={[
                   st.execBtn,
-                  isSell ? st.execBtnSell : st.execBtnBuy,
                   (!quote || isExecutingSwap || !hasValidAmount) && st.execBtnDisabled,
                 ]}
                 onPress={handleExecute}
@@ -400,13 +452,10 @@ export default function TradeSheet({
                 {isExecutingSwap ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={st.execBtnText}>
-                    {isSell
-                      ? `${t('crypto.sellToken', { symbol: tokenSymbol })}${orderUsd > 0 ? ` · ${formatSensitiveUsd(orderUsd, hideBalance)}` : ''}`
-                      : `${t('crypto.buyToken', { symbol: tokenSymbol })}${amountNum > 0 ? ` · ${formatSensitiveUsd(amountNum, hideBalance)}` : ''}`}
-                  </Text>
+                  <Text style={st.execBtnText}>{t('crypto.swap')}</Text>
                 )}
               </TouchableOpacity>
+              <LegalDisclaimer variant="swap" style={st.thirdPartyDisclaimer} />
             </>
           )}
         </View>
@@ -434,7 +483,7 @@ function makeStyles(c: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 18,
+      marginBottom: 16,
     },
     title: { color: c.text, fontSize: 20, fontWeight: '700' },
     closeBtn: {
@@ -447,65 +496,80 @@ function makeStyles(c: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    balanceHint: { color: c.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 10 },
-    inputRow: {
+
+    swapStack: { gap: 0 },
+    swapCard: {
+      backgroundColor: c.background,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 16,
+    },
+    swapCardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: c.background,
-      borderRadius: 14,
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    swapLabel: { color: c.textMuted, fontSize: 13, fontWeight: '600', letterSpacing: 0 },
+    maxBtn: { color: c.primary, fontSize: 12, fontWeight: '600' },
+    maxBtnDisabled: { opacity: 0.4 },
+    swapCardBody: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    tokenPicker: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 },
+    tokenSymbol: {
+      color: c.text,
+      fontSize: 24,
+      fontWeight: '700',
+      letterSpacing: -0.3,
+    },
+    amountInput: {
+      flex: 1,
+      color: c.text,
+      fontSize: 32,
+      fontWeight: '600',
+      letterSpacing: 0,
+      textAlign: 'right',
+      padding: 0,
+      minWidth: 0,
+      ...(Platform.OS === 'ios' ? { fontVariant: ['tabular-nums' as const] } : {}),
+      ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
+    },
+    toAmount: { color: c.textMuted, fontWeight: '600' },
+    toAmountActive: { color: c.text },
+    flipWrap: { alignItems: 'center', zIndex: 2, marginVertical: -18 },
+    flipBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.surfaceAlt,
       borderWidth: 1,
       borderColor: c.borderStrong,
-      paddingHorizontal: 16,
-      height: 64,
-      gap: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 3,
     },
-    inputCurrency: { color: c.textMuted, fontSize: 24, fontWeight: '600' },
-    inputSuffix: { color: c.textMuted, fontSize: 15, fontWeight: '600' },
-    input: { flex: 1, color: c.text, fontSize: 28, fontWeight: '700', padding: 0 },
-    maxBtn: {
-      backgroundColor: c.primarySoft,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderWidth: 1,
-      borderColor: c.primarySoft,
-    },
-    maxBtnText: { color: c.primary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-    insufficientText: { color: c.danger, fontSize: 12, fontWeight: '500', marginTop: 8 },
-    subHint: { color: c.textMuted, fontSize: 13, fontWeight: '500', marginTop: 8 },
 
     quoteCard: {
       backgroundColor: c.background,
       borderRadius: 16,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.border,
-      marginTop: 16,
+      marginTop: 14,
       overflow: 'hidden',
     },
-    quoteContent: { padding: 16, gap: 10 },
-    quoteLoading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    quoteLoadingText: { color: c.textMuted, fontSize: 13 },
-    quoteErrorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    quoteErrorText: { color: c.danger, fontSize: 12, flex: 1 },
+    quoteContent: { padding: 14, gap: 8 },
     quoteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     quoteLabel: { color: c.textMuted, fontSize: 13, fontWeight: '500' },
-    quoteValue: { color: c.text, fontSize: 15, fontWeight: '700' },
     quoteValueSub: { color: c.textMuted, fontSize: 13, fontWeight: '400' },
-    quoteDivider: { height: StyleSheet.hairlineWidth, backgroundColor: c.border },
-
-    errorBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      backgroundColor: 'rgba(239,68,68,0.08)',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(239,68,68,0.2)',
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      marginTop: 12,
-    },
-    errorText: { color: c.danger, fontSize: 12, flex: 1 },
 
     execBtn: {
       height: 56,
@@ -513,11 +577,14 @@ function makeStyles(c: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 18,
+      backgroundColor: c.primary,
     },
-    execBtnBuy: { backgroundColor: c.primary },
-    execBtnSell: { backgroundColor: '#EF4444' },
     execBtnDisabled: { backgroundColor: c.surfaceInput },
     execBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+    thirdPartyDisclaimer: {
+      marginTop: 10,
+      paddingHorizontal: 8,
+    },
 
     successBox: { alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 24 },
     successTitle: { color: c.text, fontSize: 22, fontWeight: '700' },

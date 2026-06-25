@@ -138,6 +138,7 @@ const cashbackItemSchema = z.object({
   referredUserId: z.string(),
   referredUserEmail: z.string().nullable(),
   stripeInvoiceId: z.string(),
+  stripeSubscriptionId: z.string().optional(),
   grossAmount: z.number(),
   cashbackAmount: z.number(),
   currency: z.string(),

@@ -45,13 +45,13 @@ import {
 const TAG = 'KeypairManager';
 
 /** Wrap a raw X25519 private key with the DEK → `iv | ct | tag`, base64. */
-export function wrapPrivateKeyWithDek(privateKey: Uint8Array, dek: Uint8Array): string {
+function wrapPrivateKeyWithDek(privateKey: Uint8Array, dek: Uint8Array): string {
   const packed = aesGcmSeal(dek, privateKey, () => randomBytes(12));
   return bytesToBase64(packed);
 }
 
 /** Reverse of {@link wrapPrivateKeyWithDek}. Throws if the DEK is wrong (GCM tag). */
-export function unwrapPrivateKeyWithDek(encryptedPrivateKey: string, dek: Uint8Array): Uint8Array {
+function unwrapPrivateKeyWithDek(encryptedPrivateKey: string, dek: Uint8Array): Uint8Array {
   const { iv, ciphertextWithTag } = unpackIvCtTag(base64ToBytes(encryptedPrivateKey));
   const privateKey = aesGcmDecrypt(dek, iv, ciphertextWithTag);
   if (privateKey.length !== X25519_KEY_BYTES) {
@@ -60,14 +60,10 @@ export function unwrapPrivateKeyWithDek(encryptedPrivateKey: string, dek: Uint8A
   return privateKey;
 }
 
-function activateSession(privateKey: Uint8Array, publicKeyBase64: string, dek: Uint8Array): void {
-  // The session owns these buffers and zeroizes them on clear; hand it copies of
-  // the DEK so the caller can safely wipe its own copy afterwards.
+function activateSession(privateKey: Uint8Array, publicKeyBase64: string): void {
   setCryptoSession({
     x25519PrivateKey: privateKey,
     x25519PublicKeyBase64: publicKeyBase64,
-    dekWrapKey: new Uint8Array(dek),
-    localCacheKey: new Uint8Array(dek),
   });
 }
 
@@ -78,7 +74,7 @@ function openExisting(record: UserKeyPairRecord, dek: Uint8Array): void {
   } catch {
     throw new Error(
       'Failed to decrypt your account key on this device. If you reset your ' +
-        'passkey or set up on another platform, you may need to reset E2EE.',
+        'passkey or set up on another platform, you may need to reset your security layer.',
     );
   }
 
@@ -89,7 +85,7 @@ function openExisting(record: UserKeyPairRecord, dek: Uint8Array): void {
     throw new Error('Account key integrity check failed (public key mismatch).');
   }
 
-  activateSession(privateKey, record.publicKey, dek);
+  activateSession(privateKey, record.publicKey);
 }
 
 async function createAndSetup(dek: Uint8Array): Promise<void> {
@@ -116,7 +112,7 @@ async function createAndSetup(dek: Uint8Array): Promise<void> {
     throw error;
   }
 
-  activateSession(privateKey, publicKeyBase64, dek);
+  activateSession(privateKey, publicKeyBase64);
 }
 
 /**

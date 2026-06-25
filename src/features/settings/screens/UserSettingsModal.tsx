@@ -8,6 +8,7 @@ import { readAsStringAsync } from 'expo-file-system/legacy';
 import { usePrivy } from '@privy-io/expo';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useFinanceStore } from '../../../shared/store/useFinanceStore';
+import type { CurrencyType } from '../../../shared/store/finance/types';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import Logger from '../../../shared/utils/Logger';
@@ -17,10 +18,13 @@ import BaseCurrencySelector from '../components/BaseCurrencySelector';
 import LanguageSelector from '../components/LanguageSelector';
 import ThemeSelector from '../components/ThemeSelector';
 import SectionHeader from '../components/SectionHeader';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import SettingsList from '../components/SettingsList';
-import SignOutButton from '../components/SignOutButton';
+import ActionsAgreementsList from '../components/ActionsAgreementsList';
 import ProfileSecurityScreen from './ProfileSecurityScreen';
 import ConnectedAccountsScreen from './ConnectedAccountsScreen';
+import ReferralsScreen from './ReferralsScreen';
+import OurAgreementsScreen from './OurAgreementsScreen';
 
 interface UserSettingsModalProps {
   isVisible: boolean;
@@ -32,6 +36,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function UserSettingsModal({ isVisible, onClose }: UserSettingsModalProps) {
   const [showProfileSecurity, setShowProfileSecurity] = useState(false);
   const [showConnectedAccounts, setShowConnectedAccounts] = useState(false);
+  const [showReferrals, setShowReferrals] = useState(false);
+  const [showAgreements, setShowAgreements] = useState(false);
   const [isLoadingAvatar, setIsLoadingAvatar] = useState(false);
   const animationProgress = useSharedValue(0);
   const { t } = useAppTranslation();
@@ -47,12 +53,12 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
   const { logout } = usePrivy();
   
   // Crypto price currency from Finance Store
-  const currency = useFinanceStore((state) => state.currency) as 'usd' | 'eur' | 'twd' | 'cny' | 'jpy';
+  const currency = useFinanceStore((state) => state.currency) as CurrencyType;
   const setCurrency = useFinanceStore((state) => state.setCurrency);
 
   // 當法幣改變時，同時更新加密貨幣價格貨幣
   useEffect(() => {
-    const baseCurrencyLowercase = preferences.baseCurrency.toLowerCase() as 'usd' | 'eur' | 'twd' | 'cny' | 'jpy';
+    const baseCurrencyLowercase = preferences.baseCurrency.toLowerCase() as CurrencyType;
     if (currency !== baseCurrencyLowercase) {
       setCurrency(baseCurrencyLowercase);
     }
@@ -217,6 +223,38 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
     );
   }
 
+  if (showReferrals) {
+    return (
+      <Modal visible={isVisible} transparent animationType="none" onRequestClose={() => setShowReferrals(false)}>
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-start' }}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <Animated.View style={[{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)' }, backdropStyle]} />
+          </TouchableWithoutFeedback>
+
+          <Animated.View style={[{ width: '100%', height: '100%', backgroundColor: colors.background, zIndex: 1 }, drawerStyle]}>
+            <ReferralsScreen onClose={() => setShowReferrals(false)} />
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (showAgreements) {
+    return (
+      <Modal visible={isVisible} transparent animationType="none" onRequestClose={() => setShowAgreements(false)}>
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-start' }}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <Animated.View style={[{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)' }, backdropStyle]} />
+          </TouchableWithoutFeedback>
+
+          <Animated.View style={[{ width: '100%', height: '100%', backgroundColor: colors.background, zIndex: 1 }, drawerStyle]}>
+            <OurAgreementsScreen onClose={() => setShowAgreements(false)} />
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal visible={isVisible} transparent animationType="none" onRequestClose={handleClose}>
       <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-start' }}>
@@ -259,15 +297,32 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
 
             <SectionHeader title={t('settings.general')} />
             <View style={{ marginBottom: 32 }}>
-              <SettingsList 
+              <SettingsList
                 onProfileSecurityPress={() => setShowProfileSecurity(true)}
                 onConnectedAccountsPress={() => setShowConnectedAccounts(true)}
               />
+
+              <Text
+                style={{
+                  color: colors.textMuted,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  marginTop: 8,
+                  marginBottom: 12,
+                }}
+              >
+                {t('settings.actionsAndAgreements')}
+              </Text>
+              <ActionsAgreementsList
+                onReferralsPress={() => setShowReferrals(true)}
+                onAgreementsPress={() => setShowAgreements(true)}
+                onSignOutPress={handleSignOut}
+                showSignOut={authStatus === 'authenticated'}
+              />
             </View>
 
-            {authStatus === 'authenticated' && (
-              <SignOutButton onPress={handleSignOut} />
-            )}
+            <SectionHeader title={t('settings.legalSection')} />
+            <LegalDisclaimer variant="riskSummary" centered={false} style={{ marginBottom: 32 }} />
           </ScrollView>
         </Animated.View>
       </View>

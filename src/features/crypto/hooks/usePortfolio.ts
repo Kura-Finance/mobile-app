@@ -60,51 +60,58 @@ export function usePortfolio(tokenBalances: TokenBalances) {
     [tokenBalances],
   );
 
+  const applyPrices = useCallback((
+    prices: Record<string, { usd: number; usd_24h_change: number }>,
+  ) => {
+    const balances = balancesRef.current;
+
+    const result: PortfolioToken[] = BLUE_CHIPS.map((token) => {
+      const priceData = prices[token.geckoId];
+      const price = priceData?.usd ?? 0;
+      const change24h = priceData?.usd_24h_change ?? 0;
+      const holdings = balances[token.symbol] ?? 0;
+
+      return {
+        token,
+        price,
+        change24h,
+        holdings,
+        value: holdings * price,
+      };
+    });
+
+    result.sort((a, b) => {
+      if (a.value !== b.value) return b.value - a.value;
+      return BLUE_CHIPS.indexOf(a.token) - BLUE_CHIPS.indexOf(b.token);
+    });
+
+    setTokens(result);
+    setTotalValue(result.reduce((sum, t) => sum + t.value, 0));
+    setIsLoading(false);
+  }, []);
+
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setIsRefreshing(true);
     setError(null);
     try {
       const prices = await fetchPrices();
-      const balances = balancesRef.current;
-
-      const result: PortfolioToken[] = BLUE_CHIPS.map((token) => {
-        const priceData = prices[token.geckoId];
-        const price = priceData?.usd ?? 0;
-        const change24h = priceData?.usd_24h_change ?? 0;
-
-        // Look up holdings by symbol from on-chain balance data
-        const holdings = balances[token.symbol] ?? 0;
-
-        return {
-          token,
-          price,
-          change24h,
-          holdings,
-          value: holdings * price,
-        };
-      });
-
-      // Sort: tokens with holdings first (by value desc), then by market order
-      result.sort((a, b) => {
-        if (a.value !== b.value) return b.value - a.value;
-        // Preserve original order for zero-holding tokens
-        return BLUE_CHIPS.indexOf(a.token) - BLUE_CHIPS.indexOf(b.token);
-      });
-
-      const total = result.reduce((sum, t) => sum + t.value, 0);
-      setTokens(result);
-      setTotalValue(total);
+      applyPrices(prices);
     } catch (err) {
       setError(err instanceof Error ? err.message : i18n.t('crypto.failedLoadPrices'));
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [applyPrices]);
 
   useEffect(() => {
-    load();
-  }, [holdingsKey, load]);
+    const now = Date.now();
+    if (priceCache && now - lastFetchAt < CACHE_TTL_MS) {
+      applyPrices(priceCache);
+      return;
+    }
+    void load();
+  }, [holdingsKey, load, applyPrices]);
 
   const refresh = useCallback(() => {
     priceCache = null; // bust cache on manual refresh

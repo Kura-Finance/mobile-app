@@ -1,86 +1,86 @@
 /**
- * Compact Crypto / Stock segmented toggle.
- *
- * Sized to sit inline inside the portfolio column-header row (between the
- * "Asset" and "Holdings" labels). Shared by CryptoScreen and StocksView so the
- * control looks identical regardless of which asset class is active.
+ * Horizontally scrollable portfolio asset-class tabs.
  */
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '../../../shared/theme/ThemeContext';
-import type { ThemeColors } from '../../../shared/theme/theme';
+import { makePortfolioToolbarBtnStyles } from './portfolioToolbarStyles';
 
-export type AssetClass = 'crypto' | 'stock';
+export type AssetClass = 'stablecoin' | 'earn' | 'stock' | 'crypto';
 
 interface Props {
   value: AssetClass;
   onChange: (v: AssetClass) => void;
-  /** When false, only the crypto segment is shown (no Dinari / backend). */
+  /** When false, hide the US Stock tab. */
   stocksEnabled?: boolean;
+  /** When false, hide the Earn tab. */
+  earnEnabled?: boolean;
 }
 
-export default function AssetClassToggle({ value, onChange, stocksEnabled = true }: Props) {
+const TAB_ORDER: AssetClass[] = ['stablecoin', 'earn', 'stock', 'crypto'];
+
+export default function AssetClassToggle({
+  value,
+  onChange,
+  stocksEnabled = true,
+  earnEnabled = true,
+}: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
-  const st = useMemo(() => makeStyles(colors), [colors]);
+  const st = useMemo(() => makePortfolioToolbarBtnStyles(colors), [colors]);
 
-  if (!stocksEnabled) {
-    return null;
-  }
+  const tabs = TAB_ORDER.filter((id) => {
+    if (id === 'stock' && !stocksEnabled) return false;
+    if (id === 'earn' && !earnEnabled) return false;
+    return true;
+  });
+
+  const labelFor = (id: AssetClass) => {
+    switch (id) {
+      case 'stablecoin':
+        return t('crypto.tabStablecoin');
+      case 'earn':
+        return t('crypto.tabEarn');
+      case 'stock':
+        return t('crypto.tabUsStock');
+      default:
+        return t('crypto.tabCrypto');
+    }
+  };
 
   return (
-    <View style={st.segment}>
-      <TouchableOpacity
-        style={[st.segmentBtn, value === 'crypto' && st.segmentBtnActive]}
-        onPress={() => onChange('crypto')}
-        activeOpacity={0.8}
-      >
-        <Text style={[st.segmentText, value === 'crypto' && st.segmentTextActive]}>
-          {t('crypto.tabCrypto')}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[st.segmentBtn, value === 'stock' && st.segmentBtnActive]}
-        onPress={() => onChange('stock')}
-        activeOpacity={0.8}
-      >
-        <Text style={[st.segmentText, value === 'stock' && st.segmentTextActive]}>
-          {t('crypto.tabStocks')}
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      {tabs.map((id) => {
+        const active = value === id;
+        return (
+          <TouchableOpacity
+            key={id}
+            style={[st.tabBtn, active && st.btnActive]}
+            onPress={() => onChange(id)}
+            activeOpacity={0.8}
+          >
+            <Text style={[st.btnText, active && st.btnTextActive]} numberOfLines={1}>
+              {labelFor(id)}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 }
 
-function makeStyles(c: ThemeColors) {
-  return StyleSheet.create({
-    segment: {
-      flexDirection: 'row',
-      backgroundColor: c.surfaceInput,
-      borderRadius: 9,
-      padding: 2,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.border,
-    },
-    segmentBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: 7,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    segmentBtnActive: {
-      backgroundColor: c.primary,
-    },
-    segmentText: {
-      color: c.textMuted,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    segmentTextActive: {
-      color: '#FFFFFF',
-    },
-  });
-}
+const styles = StyleSheet.create({
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 4,
+  },
+});

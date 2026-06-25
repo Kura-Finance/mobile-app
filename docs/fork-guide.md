@@ -66,9 +66,14 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs if unset; see logo.dev domain restrictions in [official-services.md](official-services.md) |
 | `EXPO_PUBLIC_MOONPAY_*` | Buy crypto | Optional |
 | `EXPO_PUBLIC_LIFI_*` | Integrator fee on swaps | Optional |
+| `EXPO_PUBLIC_MORPHO_EARN_ENABLED` | Discover → Earn tab | Default on when Pimlico key set |
+| `EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST` | Vault addresses (JSON array) | Default Steakhouse USDC + Gauntlet EURC Balanced + USDC |
+| `EXPO_PUBLIC_MORPHO_EARN_FEE` | Optional performance fee on yield | Requires fee-wrapper + recipient |
+| `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` | Inner vault → wrapper address map (JSON) | See `src/config/earnFeeWrapper.ts` |
+| `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` | Query Morpho for matching wrappers | Default `true`; set `false` for overrides-only |
 | `EXPO_PUBLIC_GP_*` | Gnosis Pay direct SIWE | See below |
 
-Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari automatically.
+Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari automatically. Earn vault list → [`src/config/earn.ts`](../src/config/earn.ts). Fee-wrapper routing → [`src/config/earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts).
 
 Store builds: production values in `.env` **before** `prebuild` — [local-release.md](local-release.md).
 

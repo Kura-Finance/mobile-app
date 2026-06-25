@@ -3,9 +3,9 @@
  *
  * Full-screen, Revolut-style asset detail page:
  *   header · price + 24h change · price chart with timeframe selector ·
- *   balance card · key stats · about · fixed Sell / Buy bar.
+ *   balance card · key stats · about · fixed Swap bar.
  *
- * Tapping Buy or Sell opens a compact {@link TradeSheet}.
+ * Tapping Swap opens a compact {@link TradeSheet}.
  */
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import PriceChart from '../components/PriceChart';
 import TokenLogo from '../components/TokenLogo';
-import TradeSheet, { TradeSide } from './TradeSheet';
+import TradeSheet from './TradeSheet';
 import TokenDepositModal from './TokenDepositModal';
 import TokenWithdrawModal from './TokenWithdrawModal';
 import { useTokenDetail, TIMEFRAMES, Timeframe } from '../hooks/useTokenDetail';
@@ -222,7 +222,7 @@ export default function TokenDetailModal({
   const money = useMoneyFormat();
 
   const [timeframe, setTimeframe] = useState<Timeframe>('24H');
-  const [tradeSide, setTradeSide] = useState<TradeSide | null>(null);
+  const [swapOpen, setSwapOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [wrapError, setWrapError] = useState('');
@@ -252,7 +252,7 @@ export default function TokenDetailModal({
 
   useEffect(() => {
     if (visible && token?.symbol === 'ETH' && token.baseAddress === null) {
-      setTradeSide(null);
+      setSwapOpen(false);
     }
   }, [visible, token?.symbol, token?.baseAddress]);
 
@@ -494,25 +494,14 @@ export default function TokenDetailModal({
           </View>
         ) : !isCash ? (
           <View style={[st.actionBar, { paddingBottom: insets.bottom + 10 }]}>
-            <View style={st.actionRow}>
-              <TouchableOpacity
-                style={[st.sellBtn, tokenHoldings <= 0 && st.sellBtnDisabled]}
-                onPress={() => setTradeSide('sell')}
-                disabled={tokenHoldings <= 0}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="remove-circle-outline"
-                  size={20}
-                  color={tokenHoldings > 0 ? colors.text : colors.textFaint}
-                />
-                <Text style={[st.sellBtnText, tokenHoldings <= 0 && st.disabledText]}>{t('crypto.sell')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={st.buyBtn} onPress={() => setTradeSide('buy')} activeOpacity={0.85}>
-                <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
-                <Text style={st.buyBtnText}>{t('crypto.buy')}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={st.swapBtn}
+              onPress={() => setSwapOpen(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="swap-vertical" size={20} color="#FFFFFF" />
+              <Text style={st.swapBtnText}>{t('crypto.swap')}</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -536,8 +525,7 @@ export default function TokenDetailModal({
         {/* ── Trade sheet (swappable tokens only) ── */}
         {!isCash && !isNativeEth && (
           <TradeSheet
-            visible={tradeSide !== null}
-            side={tradeSide ?? 'buy'}
+            visible={swapOpen}
             token={token}
             tokenPrice={tokenPrice}
             usdcBalance={usdcBalance}
@@ -547,7 +535,7 @@ export default function TokenDetailModal({
             estimateSwapGasUsdc={estimateSwapGasUsdc}
             estimateGasReserve={estimateGasReserve}
             isExecutingSwap={isExecutingSwap}
-            onClose={() => setTradeSide(null)}
+            onClose={() => setSwapOpen(false)}
             onTraded={onTraded}
           />
         )}
@@ -788,6 +776,16 @@ function makeStyles(c: ThemeColors) {
       borderTopColor: c.border,
     },
     actionRow: { flexDirection: 'row', gap: 12 },
+    swapBtn: {
+      height: 50,
+      borderRadius: 16,
+      backgroundColor: c.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    swapBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
     sellBtn: {
       flex: 1,
       height: 50,

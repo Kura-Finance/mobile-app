@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import WalletTxRow from './WalletTxRow';
-import { useWalletHistory } from '../../hooks/useWalletHistory';
+import { useWalletHistory, type WalletTx } from '../../hooks/useWalletHistory';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
 const HOME_PREVIEW_LIMIT = 3;
+/** Max extra pages to fetch on Home when the first page(s) are mostly dust. */
+const HOME_PREFETCH_MAX_PAGES = 5;
 
 interface WalletHistorySectionProps {
   smartAddress: string;
@@ -22,6 +24,7 @@ interface WalletHistorySectionProps {
   /** When set, only show this many rows and a "View all" link instead of load-more. */
   previewLimit?: number;
   onViewAll?: () => void;
+  onTxPress?: (tx: WalletTx) => void;
 }
 
 export default function WalletHistorySection({
@@ -29,15 +32,33 @@ export default function WalletHistorySection({
   sectionTitleStyle,
   previewLimit,
   onViewAll,
+  onTxPress,
 }: WalletHistorySectionProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { txs, loading, error, hasMore, loadMore } = useWalletHistory(smartAddress);
+  const prefetchPagesRef = useRef(0);
 
   const isPreview = previewLimit != null;
   const visibleTxs = isPreview ? txs.slice(0, previewLimit) : txs;
   const showViewAll = isPreview && onViewAll && (txs.length > previewLimit || hasMore);
+
+  useEffect(() => {
+    prefetchPagesRef.current = 0;
+  }, [smartAddress]);
+
+  useEffect(() => {
+    if (!isPreview || previewLimit == null) return;
+    if (loading || !hasMore) return;
+    if (txs.length >= previewLimit) {
+      prefetchPagesRef.current = 0;
+      return;
+    }
+    if (prefetchPagesRef.current >= HOME_PREFETCH_MAX_PAGES) return;
+    prefetchPagesRef.current += 1;
+    loadMore();
+  }, [isPreview, previewLimit, txs.length, loading, hasMore, loadMore]);
 
   const openAllTxs = useCallback(() => {
     Linking.openURL(
@@ -71,7 +92,7 @@ export default function WalletHistorySection({
         )}
 
         {visibleTxs.map((tx) => (
-          <WalletTxRow key={tx.id} tx={tx} />
+          <WalletTxRow key={tx.id} tx={tx} onPress={onTxPress} />
         ))}
 
         {showViewAll && (

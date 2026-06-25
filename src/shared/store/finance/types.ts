@@ -156,13 +156,13 @@ export interface UIState {
   // UI Preferences
   selectedTimeRange: TimeRangeType;
   chartDataByTimeRange: Record<string, number[]>;
-  currency: 'usd' | 'eur' | 'twd' | 'cny' | 'jpy';
+  currency: 'usd' | 'eur' | 'twd' | 'cny' | 'jpy' | 'ngn';
   isAiOptedIn: boolean;
 
   // UI Actions
   toggleAiOptIn: () => void;
   setSelectedTimeRange: (timeRange: TimeRangeType) => void;
-  setCurrency: (currency: 'usd' | 'eur' | 'twd' | 'cny' | 'jpy') => void;
+  setCurrency: (currency: 'usd' | 'eur' | 'twd' | 'cny' | 'jpy' | 'ngn') => void;
 }
 
 // ============================================================================
@@ -272,7 +272,7 @@ export interface ChainMarketMeta {
   fallbackName: string;
 }
 
-export type CurrencyType = 'usd' | 'eur' | 'twd' | 'cny' | 'jpy';
+export type CurrencyType = 'usd' | 'eur' | 'twd' | 'cny' | 'jpy' | 'ngn';
 export type TimeRangeType = '1W' | '1M' | '6M' | '1Y';
 
 export const BROKER_TIME_RANGES: TimeRangeType[] = ['1W', '1M', '6M', '1Y'];

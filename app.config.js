@@ -4,7 +4,7 @@ module.exports = {
   expo: {
     name: brand.appName,
     slug: brand.slug,
-    version: "0.1.17",
+    version: "0.2.2",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -46,7 +46,8 @@ module.exports = {
         NSLocalNetworkUsageDescription: "This app needs access to your local network to connect to financial services",
         NSBonjourServiceTypes: ["_http._tcp", "_https._tcp"],
         NSFaceIDUsageDescription: `${brand.appName} uses Face ID to unlock the app after it has been in the background.`,
-        NSCameraUsageDescription: "Camera access is required to scan your identity documents and take a profile photo.",
+        NSCameraUsageDescription:
+          "Kura uses the camera to scan QR codes when sending crypto or connecting to dApps. When you choose, it is also used to take a profile photo or capture images during identity verification with our partners.",
         NSMicrophoneUsageDescription: "Microphone access is required to record video for liveness verification during identity checks.",
         NSPhotoLibraryUsageDescription: "Photo library access is required to upload document images for identity verification or select a profile picture.",
         NSLocationWhenInUseUsageDescription: "Location access is used to detect your country for identity verification.",

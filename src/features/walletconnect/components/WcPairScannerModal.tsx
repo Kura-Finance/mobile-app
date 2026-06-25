@@ -12,6 +12,7 @@ import {
   Platform,
   Animated,
   Easing,
+  Linking,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -174,19 +175,40 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
     }
 
     if (!permission.granted) {
+      const canAskAgain = permission.canAskAgain !== false;
+
+      if (canAskAgain) {
+        return (
+          <View style={st.center}>
+            <View style={st.permIconWrap}>
+              <Ionicons name="camera-outline" size={36} color={colors.primary} />
+            </View>
+            <Text style={st.permTitle}>{t('walletConnect.cameraRequiredTitle')}</Text>
+            <Text style={st.permHint}>{t('walletConnect.cameraRequired')}</Text>
+            <TouchableOpacity
+              onPress={requestPermission}
+              style={st.primaryBtn}
+              activeOpacity={0.85}
+            >
+              <Text style={st.primaryBtnText}>{t('card.continue')}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
       return (
         <View style={st.center}>
           <View style={st.permIconWrap}>
             <Ionicons name="camera-outline" size={36} color={colors.primary} />
           </View>
           <Text style={st.permTitle}>{t('walletConnect.cameraRequiredTitle')}</Text>
-          <Text style={st.permHint}>{t('walletConnect.cameraRequired')}</Text>
+          <Text style={st.permHint}>{t('walletConnect.cameraPermissionDenied')}</Text>
           <TouchableOpacity
-            onPress={requestPermission}
+            onPress={() => void Linking.openSettings()}
             style={st.primaryBtn}
             activeOpacity={0.85}
           >
-            <Text style={st.primaryBtnText}>{t('walletConnect.allowCamera')}</Text>
+            <Text style={st.primaryBtnText}>{t('card.openSettings')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handlePasteFromClipboard} style={st.linkBtn}>
             <Text style={st.linkBtnText}>{t('walletConnect.pasteLink')}</Text>
@@ -199,13 +221,14 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
   };
 
   const hasCamera = permission?.granted;
+  const awaitingCameraPrompt = Boolean(permission && !permission.granted && permission.canAskAgain !== false);
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={handleClose}
+      onRequestClose={awaitingCameraPrompt ? () => {} : handleClose}
     >
       <KeyboardAvoidingView
         style={st.root}
@@ -213,9 +236,13 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
       >
         {/* ── Header ── */}
         <View style={[st.header, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity onPress={handleClose} style={st.headerBtn} hitSlop={8}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          {awaitingCameraPrompt ? (
+            <View style={st.headerBtn} />
+          ) : (
+            <TouchableOpacity onPress={handleClose} style={st.headerBtn} hitSlop={8}>
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <Text style={st.headerTitle}>{t('walletConnect.scanTitle')}</Text>
           {hasCamera ? (
             <TouchableOpacity
@@ -284,6 +311,7 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
         {!hasCamera && renderPermission()}
 
         {/* ── Bottom panel ── */}
+        {!awaitingCameraPrompt && (
         <View style={[st.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
           {!showPaste ? (
             <>
@@ -338,6 +366,7 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
             </View>
           )}
         </View>
+        )}
       </KeyboardAvoidingView>
     </Modal>
   );

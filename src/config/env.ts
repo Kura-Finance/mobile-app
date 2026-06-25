@@ -104,4 +104,23 @@ export const env = {
   lifiIntegrator: readEnv('EXPO_PUBLIC_LIFI_INTEGRATOR'),
   lifiFee: readEnv('EXPO_PUBLIC_LIFI_FEE'),
   lifiApiKey: readEnv('EXPO_PUBLIC_LIFI_API_KEY'),
+
+  /** Morpho Earn — set to `false` to hide Earn tab (default: on when Pimlico key is set). */
+  morphoEarnEnabled: readEnv('EXPO_PUBLIC_MORPHO_EARN_ENABLED'),
+  /**
+   * JSON array of Morpho vault addresses on Base to list in Discover → Earn.
+   * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime when unset.
+   */
+  morphoEarnVaultAllowlist: readEnv('EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST'),
+  /** Morpho Earn — Kura performance fee (0–1 decimal, default 0.1 = 10%). */
+  morphoEarnFee: readEnv('EXPO_PUBLIC_MORPHO_EARN_FEE') || '0.1',
+  /** Treasury address that receives Kura's Morpho earn performance fee. */
+  kuraEarnFeeRecipient: readEnv('EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT'),
+  /**
+   * Optional JSON map of inner vault → fee-wrapper vault addresses.
+   * Example: {"0xee8f...":"0x002f..."}
+   */
+  morphoFeeWrapperOverrides: readEnv('EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES'),
+  /** When false, skip Morpho API fee-wrapper discovery (env overrides only). */
+  morphoFeeWrapperAutoDiscover: readEnv('EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER'),
 } as const;

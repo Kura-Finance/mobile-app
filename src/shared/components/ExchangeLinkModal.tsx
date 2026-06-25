@@ -33,6 +33,7 @@ import {
 } from '../../lib/api/exchange';
 
 import { logoDevImageSource } from '../../config/logodev';
+import LegalDisclaimer from './LegalDisclaimer';
 
 interface ExchangeLinkModalProps {
   isOpen: boolean;
@@ -335,6 +336,11 @@ export default function ExchangeLinkModal({
               </TouchableOpacity>
             </View>
 
+            <LegalDisclaimer
+              variant="exchangeReadOnly"
+              style={{ marginBottom: 16, paddingHorizontal: 4 }}
+            />
+
             {/* Content */}
             <ScrollView
               scrollEnabled={true}
@@ -600,6 +606,7 @@ export default function ExchangeLinkModal({
             {/* Footer Buttons */}
             {step === 'credentials' && (
               <View style={{ gap: 12, marginTop: 20 }}>
+                <LegalDisclaimer variant="exchangeReadOnly" style={{ paddingHorizontal: 4 }} />
                 <TouchableOpacity
                   onPress={handleValidateAndConnect}
                   disabled={isLoading}

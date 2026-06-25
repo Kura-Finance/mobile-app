@@ -62,10 +62,9 @@ export interface UnwrapEnvelopeOptions {
 /**
  * Unwrap every payload key in the envelope into a `Map<id, SEK>`.
  *
- * The returned map's values are caller-owned — call {@link zeroizeSekMap} when
- * finished, before any UI render path keeps references.
+ * The returned map's values are caller-owned — zeroized in {@link decryptEnvelopeRows}.
  */
-export async function unwrapPayloadKeys(
+async function unwrapPayloadKeys(
   payloadKeys: PayloadKeyEnvelope[],
   opts: UnwrapEnvelopeOptions = {},
 ): Promise<Map<string, Uint8Array>> {
@@ -89,7 +88,7 @@ export async function unwrapPayloadKeys(
   return out;
 }
 
-export function zeroizeSekMap(map: Map<string, Uint8Array>): void {
+function zeroizeSekMap(map: Map<string, Uint8Array>): void {
   for (const sek of map.values()) {
     sek.fill(0);
   }
@@ -100,7 +99,7 @@ export function zeroizeSekMap(map: Map<string, Uint8Array>): void {
  * Decrypt one packed `payloadCiphertext` blob with the SEK identified by
  * `payloadKeyId`. Throws if the key isn't in the map.
  */
-export function decryptRowPayload<T>(
+function decryptRowPayload<T>(
   payloadCiphertext: string,
   payloadKeyId: string,
   seks: Map<string, Uint8Array>,

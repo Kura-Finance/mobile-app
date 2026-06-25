@@ -112,6 +112,7 @@ Plaintext finance data should not persist unencrypted on device beyond active se
 | `wallet`, `walletConnect`, `lifiSwap` | On (with keys) |
 | `trackFi`, `plaid`, `debank` | Off |
 | `dinariStocks` | Off |
+| `morphoEarn` | Off without Pimlico key |
 | `gnosisPay` | On if GP direct or backend |
 | `moonPay` | On if API key set |
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions,
+  View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, Linking,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useTranslation } from 'react-i18next';
@@ -37,12 +37,26 @@ export default function QRScanner({ onScanned, onCancel }: Props) {
   }
 
   if (!permission.granted) {
+    const canAskAgain = permission.canAskAgain !== false;
+
+    if (canAskAgain) {
+      return (
+        <View style={st.center}>
+          <Ionicons name="camera-outline" size={48} color="#6B7280" style={{ marginBottom: 16 }} />
+          <Text style={st.permText}>{t('card.cameraAccessRequired')}</Text>
+          <TouchableOpacity onPress={requestPermission} style={st.permBtn}>
+            <Text style={st.permBtnText}>{t('card.continue')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={st.center}>
         <Ionicons name="camera-outline" size={48} color="#6B7280" style={{ marginBottom: 16 }} />
-        <Text style={st.permText}>{t('card.cameraAccessRequired')}</Text>
-        <TouchableOpacity onPress={requestPermission} style={st.permBtn}>
-          <Text style={st.permBtnText}>{t('card.allowCamera')}</Text>
+        <Text style={st.permText}>{t('card.cameraPermissionDenied')}</Text>
+        <TouchableOpacity onPress={() => void Linking.openSettings()} style={st.permBtn}>
+          <Text style={st.permBtnText}>{t('card.openSettings')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onCancel} style={{ marginTop: 16 }}>
           <Text style={{ color: '#6B7280', fontSize: 14 }}>{t('card.cancel')}</Text>

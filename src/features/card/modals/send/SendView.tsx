@@ -18,6 +18,7 @@ import { makeModalStyles } from '../modalStyles';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import ChainPickerSheet from './ChainPickerSheet';
+import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 
 const BRIDGE_GAS_PROBE_USDC = 1;
 
@@ -177,10 +178,19 @@ export default function SendView({
           ) : null}
 
           {gasBlocked ? (
-            <Text style={s.errorText}>{t('wallet.insufficientUsdcForGas')}</Text>
+            <InlineErrorBanner
+              title={t('card.insufficientUsdcForGasTitle')}
+              message={t('card.insufficientUsdcForGasDetail', {
+                balance: usdcBalance.toFixed(2),
+                gas: gasReserve.toFixed(2),
+              })}
+              style={{ marginBottom: 12 }}
+            />
           ) : null}
 
-          {error ? <Text style={s.errorText}>{error}</Text> : null}
+          {error ? (
+            <InlineErrorBanner message={error} style={{ marginBottom: 12 }} />
+          ) : null}
 
           {/* Continue */}
           <TouchableOpacity

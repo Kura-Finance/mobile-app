@@ -47,7 +47,7 @@ const PRICE_CACHE: Record<
 const CACHE_DURATION = 300000; // 5 分鐘
 
 // 支援的貨幣
-const SUPPORTED_CURRENCIES = ['usd', 'eur', 'twd', 'cny', 'jpy'];
+const SUPPORTED_CURRENCIES = ['usd', 'eur', 'twd', 'cny', 'jpy', 'ngn'];
 
 // ============================================================================
 // Helper Functions

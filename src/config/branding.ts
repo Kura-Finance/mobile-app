@@ -10,10 +10,11 @@ export const brand = {
   bundleId: 'com.kurafinance.app',
   scheme: 'kura',
   homepage: 'https://kura-finance.com',
+  signupUrl: 'https://app.kura-finance.com/signup',
   defaultIconUrl: 'https://kura-finance.com/icon.png',
   webCredentialsHost: 'api.kura-finance.com',
   universalLinkHost: 'kura-finance.com',
-  universalLinkDashboard: 'https://kura-finance.com/dashboard',
+  universalLinkDashboard: 'https://app.kura-finance.com/dashboard',
   walletId: 'kura-wallet',
   walletName: 'Kura',
   appDescription:

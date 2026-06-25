@@ -43,18 +43,6 @@ export function bytesToHex(bytes: Uint8Array): string {
   return s;
 }
 
-export function isEvenHex(value: string): boolean {
-  return /^[0-9a-f]+$/i.test(value) && value.length % 2 === 0;
-}
-
-export function assertHexBytes(value: string, expectedBytes: number, fieldName: string): Uint8Array {
-  const normalized = value.trim().toLowerCase();
-  if (!isEvenHex(normalized) || normalized.length !== expectedBytes * 2) {
-    throw new Error(`${fieldName} must be a ${expectedBytes}-byte hex string`);
-  }
-  return hexToBytes(normalized);
-}
-
 export function bytesToBase64(bytes: Uint8Array): string {
   return b64encode(bytes);
 }

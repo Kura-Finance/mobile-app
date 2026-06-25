@@ -20,8 +20,8 @@ const publicClient = createPublicClient({
 });
 
 async function fetchBalances(address: `0x${string}`): Promise<TokenBalances> {
-  const erc20Tokens = BLUE_CHIPS.filter((t) => t.baseAddress !== null);
-  const nativeTokens = BLUE_CHIPS.filter((t) => t.baseAddress === null);
+  const erc20Tokens = BLUE_CHIPS.filter((t) => t.baseAddress !== null && t.trackBalance !== false);
+  const nativeTokens = BLUE_CHIPS.filter((t) => t.baseAddress === null && t.trackBalance !== false);
 
   const calls = erc20Tokens.map((t) => ({
     address: t.baseAddress as `0x${string}`,
@@ -58,6 +58,10 @@ async function fetchBalances(address: `0x${string}`): Promise<TokenBalances> {
     }
   }
 
+  for (const token of BLUE_CHIPS.filter((t) => t.trackBalance === false)) {
+    balances[token.symbol] = 0;
+  }
+
   return balances;
 }
 
@@ -67,20 +71,25 @@ export function useBaseBalances(scaAddress: string | null) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
     if (!scaAddress) {
       setBalances({});
       setHasLoaded(false);
+      hasLoadedRef.current = false;
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!options?.silent && !hasLoadedRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const result = await fetchBalances(scaAddress as `0x${string}`);
       setBalances(result);
       setHasLoaded(true);
+      hasLoadedRef.current = true;
     } catch (e: any) {
       setError(e?.message ?? i18n.t('crypto.balanceFetchFailed'));
     } finally {
@@ -90,7 +99,7 @@ export function useBaseBalances(scaAddress: string | null) {
 
   useEffect(() => {
     void refresh();
-    timerRef.current = setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
+    timerRef.current = setInterval(() => { void refresh({ silent: true }); }, REFRESH_INTERVAL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };

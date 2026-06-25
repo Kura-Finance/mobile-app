@@ -20,14 +20,9 @@ import {
   getBridgeCustomer,
   getOrCreateCryptoDepositAddress,
   formatDepositFeeLabel,
-  isCryptoTransferComplete,
-  isCryptoTransferTerminal,
-  listCryptoTransfers,
-  listTransfers,
   type BridgeCustomer,
   type KycLinkRequest,
   type LiquidationAddressResult,
-  type TransferResult,
 } from '../../../lib/api/ramp/client';
 import { openBridgeHostedKycFlow } from '../../../lib/api/ramp/hostedFlow';
 import KycVerificationCard from '../components/KycVerificationCard';
@@ -37,17 +32,6 @@ import { buildUsdtDepositBullets } from '../config/receiveDepositBullets';
 interface UsdtReceivePanelProps {
   smartAddress: string;
 }
-
-const CRYPTO_TRANSFER_STATUS: Record<string, { labelKey: string; color: string }> = {
-  awaiting_funds: { labelKey: 'card.cryptoStatusAwaitingFunds', color: '#9CA3AF' },
-  funds_received: { labelKey: 'card.cryptoStatusFundsReceived', color: '#FBBF24' },
-  payment_submitted: { labelKey: 'card.cryptoStatusConverting', color: '#60A5FA' },
-  payment_processed: { labelKey: 'card.statusCompleted', color: '#10B981' },
-  returned: { labelKey: 'card.cryptoStatusReturned', color: '#EF4444' },
-  refunded: { labelKey: 'card.statusRefunded', color: '#EF4444' },
-  error: { labelKey: 'card.cryptoStatusFailed', color: '#EF4444' },
-  canceled: { labelKey: 'card.cryptoStatusFailed', color: '#EF4444' },
-};
 
 function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong. Please try again.';
@@ -73,7 +57,6 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
   const [depositAddress, setDepositAddress] = useState<LiquidationAddressResult | null>(null);
   const [loadingAddress, setLoadingAddress] = useState(false);
 
-  const [transfers, setTransfers] = useState<TransferResult[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -118,19 +101,6 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
     }
   }, [smartAddress, t]);
 
-  const refreshTransfers = useCallback(async () => {
-    try {
-      const all = await listTransfers();
-      setTransfers(
-        listCryptoTransfers(all).sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        ),
-      );
-    } catch {
-      // Non-fatal: deposit history is best-effort.
-    }
-  }, []);
-
   useEffect(() => {
     void refreshCustomer();
   }, [refreshCustomer]);
@@ -140,18 +110,6 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
     if (depositAddress || loadingAddress) return;
     void loadDepositAddress();
   }, [customer?.canTransact, depositAddress, loadingAddress, loadDepositAddress]);
-
-  useEffect(() => {
-    if (!customer?.canTransact) return;
-    void refreshTransfers();
-  }, [customer?.canTransact, refreshTransfers]);
-
-  useEffect(() => {
-    if (!customer?.canTransact) return;
-    if (!transfers.some((tr) => !isCryptoTransferTerminal(tr))) return;
-    const id = setInterval(() => void refreshTransfers(), 8000);
-    return () => clearInterval(id);
-  }, [customer?.canTransact, transfers, refreshTransfers]);
 
   const startKyc = useCallback(async (req: KycLinkRequest) => {
     if (req.type === 'individual' && !hasVerifiedEmail(userProfile)) {
@@ -245,50 +203,6 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
     );
   };
 
-  const renderTransfers = () => {
-    if (transfers.length === 0) return null;
-
-    return (
-      <View style={[s.fiatCard, { marginTop: 4 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <Text style={[s.fiatCardTitle, { marginBottom: 0, textAlign: 'left' }]}>
-            {t('card.usdtRecentDeposits')}
-          </Text>
-          <TouchableOpacity onPress={() => void refreshTransfers()} hitSlop={8}>
-            <Ionicons name="refresh" size={16} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {transfers.slice(0, 5).map((tr) => {
-          const statusMeta = CRYPTO_TRANSFER_STATUS[tr.state];
-          const meta = statusMeta
-            ? { label: t(statusMeta.labelKey), color: statusMeta.color }
-            : { label: tr.state, color: '#9CA3AF' };
-          const amount = tr.amount;
-          const currency = (tr.sourceCurrency ?? 'usdt').toUpperCase();
-          return (
-            <View key={tr.bridgeTransferId} style={s.depositRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.depositRowValue} numberOfLines={1}>
-                  {amount ? `${amount} ${currency}` : '—'}
-                </Text>
-                <Text style={s.depositLabel}>
-                  {new Date(tr.createdAt).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {!isCryptoTransferComplete(tr) && !isCryptoTransferTerminal(tr) ? (
-                  <ActivityIndicator size="small" color={meta.color} />
-                ) : null}
-                <Text style={[s.statusPillText, { color: meta.color }]}>{meta.label}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
-
   const renderBody = () => {
     if (loadingCustomer) {
       return (
@@ -344,12 +258,7 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
     }
 
     if (depositAddress) {
-      return (
-        <>
-          {renderDepositInstructions()}
-          {renderTransfers()}
-        </>
-      );
+      return renderDepositInstructions();
     }
 
     return null;

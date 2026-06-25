@@ -74,8 +74,3 @@ export async function initAppKit(): Promise<ReturnType<typeof createAppKit>> {
   }
   return appKitInitPromise;
 }
-
-/** Lazy AppKit singleton — call initAppKit() before use. */
-export async function getAppKit(): Promise<ReturnType<typeof createAppKit>> {
-  return initAppKit();
-}

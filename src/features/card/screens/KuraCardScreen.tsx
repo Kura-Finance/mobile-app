@@ -4,18 +4,17 @@
  * Layout (top → bottom):
  *   1. Total balance (Base USDC from Kura SCA)
  *   2. Quick Actions (Send · Receive)
- *   3. GP Virtual Card + onboarding wizard
+ *   3. Kura Card entry (tap → Card Manager; GP loads there only)
  *   4. Transactions (Onchain — Base)
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from 'react-native';
 import { View as SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -26,14 +25,12 @@ import { useHeaderHeight } from '../../../shared/navigation/Header';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useKuraCardWallet } from '../context/KuraCardWalletContext';
-import { useGnosisPayOnboarding } from '../hooks/useGnosisPayOnboarding';
-import VirtualCard from '../components/VirtualCard';
 import WalletHistorySection, { HOME_PREVIEW_LIMIT } from '../components/wallet/WalletHistorySection';
+import type { WalletTx } from '../hooks/useWalletHistory';
 import WalletError from '../components/wallet/WalletError';
 import ImportWalletScreen from './ImportWalletScreen';
 import ReceiveModal from '../modals/ReceiveModal';
 import SendModal from '../modals/send';
-import GnosisPayOnboardingScreen from './GnosisPayOnboardingScreen';
 import { CardApplyBanner } from '../components/StatusBanner';
 import { features } from '../../../config/features';
 import LoadingDots from '../../../shared/components/LoadingDots';
@@ -51,7 +48,6 @@ function KuraCardScreen() {
   const [receiveMode, setReceiveMode] = useState<'topup' | 'receive'>('receive');
   const [showReceive, setShowReceive] = useState(false);
   const [showSend, setShowSend] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const openReceive = useCallback(() => { setReceiveMode('receive'); setShowReceive(true); }, []);
   const openSend    = useCallback(() => setShowSend(true), []);
 
@@ -73,22 +69,16 @@ function KuraCardScreen() {
     estimateBridgeGasUsdc,
   } = useKuraCardWallet();
 
-  // ── Gnosis Pay onboarding ─────────────────────────────────────────────────
-  const { step: gpStep, card: gpCard, gpSafeAddress, isLoading: gpLoading } =
-    useGnosisPayOnboarding();
-
-  const gpComplete  = gpStep === 'complete';
   const walletReady = walletStatus === 'ready' && !!smartAddress;
   const balanceLoading = walletStatus !== 'ready';
-  const gpInProgress = gpStep !== 'loading' && gpStep !== 'complete';
 
-  useEffect(() => {
-    if (gpInProgress) setShowOnboarding(true);
-  }, [gpInProgress]);
+  const openCardManager = useCallback(() => {
+    navigation.navigate('CardManager');
+  }, [navigation]);
 
-  const handleApplyForCard = useCallback(() => {
-    setShowOnboarding(true);
-  }, []);
+  const openTxDetail = useCallback((tx: WalletTx) => {
+    navigation.navigate('TransactionDetail', { tx, smartAddress });
+  }, [navigation, smartAddress]);
 
   // ── Import screen overlay ─────────────────────────────────────────────────
   if (showImportWallet) {
@@ -166,21 +156,9 @@ function KuraCardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── 3. GP Card, onboarding, or apply CTA ─────────────────────── */}
+          {/* ── 3. Kura Card entry ─────────────────────────────────────────── */}
           {features.gnosisPay && (
-            gpComplete && gpCard ? (
-              <GpCardSection card={gpCard} safeAddress={gpSafeAddress} />
-            ) : gpStep === 'loading' ? (
-              <View style={s.cardLoading}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
-            ) : showOnboarding ? (
-              <View style={s.onboardingWrapper}>
-                <GnosisPayOnboardingScreen onClose={() => setShowOnboarding(false)} />
-              </View>
-            ) : (
-              <CardApplyBanner onApply={handleApplyForCard} isLoading={gpLoading} />
-            )
+            <CardApplyBanner onPress={openCardManager} />
           )}
 
           {/* ── 4. Transactions ──────────────────────────────────────────── */}
@@ -191,6 +169,7 @@ function KuraCardScreen() {
                 sectionTitleStyle={s.sectionTitle}
                 previewLimit={HOME_PREVIEW_LIMIT}
                 onViewAll={() => navigation.navigate('WalletTransactions', { smartAddress })}
+                onTxPress={openTxDetail}
               />
             ) : (
               <View style={s.emptyTxn}>
@@ -228,80 +207,6 @@ function KuraCardScreen() {
 
 export default KuraCardScreen;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GP card detail section (shown after onboarding complete)
-// ─────────────────────────────────────────────────────────────────────────────
-
-import type { GpVirtualCard } from '../../../lib/api/gp';
-import { freezeGpCard, unfreezeGpCard } from '../../../lib/api/gp';
-
-function GpCardSection({
-  card,
-  safeAddress,
-}: {
-  card: GpVirtualCard;
-  safeAddress: string | null;
-}) {
-  const { t } = useTranslation();
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  const [frozen, setFrozen] = useState(card.status === 'frozen');
-  const [toggling, setToggling] = useState(false);
-
-  const toggleFreeze = async () => {
-    setToggling(true);
-    try {
-      if (frozen) {
-        await unfreezeGpCard(card.id);
-        setFrozen(false);
-      } else {
-        await freezeGpCard(card.id);
-        setFrozen(true);
-      }
-    } catch {
-      // silently ignore; user can retry
-    } finally {
-      setToggling(false);
-    }
-  };
-
-  return (
-    <View style={s.gpCardSection}>
-      {/* Card face */}
-      <VirtualCard
-        balance={t('card.cardFaceLabel', { last4: card.last4 })}
-        masked
-      />
-
-      {/* Status pill */}
-      <View style={[s.gpStatus, frozen && s.gpStatusFrozen]}>
-        <View style={[s.gpDot, frozen && s.gpDotFrozen]} />
-        <Text style={[s.gpStatusText, frozen && s.gpStatusTextFrozen]}>
-          {frozen ? t('card.cardFrozen') : t('card.cardActive', { last4: card.last4 })}
-        </Text>
-        <TouchableOpacity
-          onPress={toggleFreeze}
-          disabled={toggling}
-          style={s.gpFreezeBtn}
-        >
-          {toggling
-            ? <ActivityIndicator size="small" color="#6366F1" />
-            : <Ionicons name={frozen ? 'flash-outline' : 'snow-outline'} size={14} color="#6366F1" />}
-        </TouchableOpacity>
-      </View>
-
-      {safeAddress && (
-        <View style={s.safeRow}>
-          <Text style={s.safeLabel}>{t('card.onChainWallet')}</Text>
-          <Text style={s.safeAddr} numberOfLines={1} ellipsizeMode="middle">
-            {safeAddress}
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
@@ -329,38 +234,6 @@ function makeStyles(c: ThemeColors) {
     pillBtnDisabled: { opacity: 0.45 },
     pillBtnText: { color: c.text, fontSize: 16, fontWeight: '600' },
     quickActions: { flexDirection: 'row', gap: 12, marginTop: 0, marginBottom: 16 },
-
-    cardLoading: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
-
-    // GP onboarding embed
-    onboardingWrapper: {
-      marginBottom: 20, borderRadius: 16, overflow: 'hidden',
-      borderWidth: 1, borderColor: c.primarySoft,
-    },
-
-    // GP card section (after complete)
-    gpCardSection: { marginBottom: 16, gap: 10 },
-    gpStatus: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: 'rgba(16,185,129,0.08)', borderRadius: 10,
-      paddingVertical: 9, paddingHorizontal: 14,
-      borderWidth: 1, borderColor: 'rgba(16,185,129,0.2)',
-    },
-    gpStatusFrozen: {
-      backgroundColor: 'rgba(99,102,241,0.08)',
-      borderColor: 'rgba(99,102,241,0.2)',
-    },
-    gpDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#10B981' },
-    gpDotFrozen: { backgroundColor: '#6366F1' },
-    gpStatusText: { flex: 1, color: '#10B981', fontSize: 12, fontWeight: '500' },
-    gpStatusTextFrozen: { color: '#6366F1' },
-    gpFreezeBtn: { padding: 4 },
-    safeRow: {
-      backgroundColor: c.surface, borderRadius: 10, padding: 10, gap: 3,
-      borderWidth: 1, borderColor: c.border,
-    },
-    safeLabel: { color: c.textFaint, fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-    safeAddr: { color: c.textMuted, fontSize: 11, fontFamily: 'monospace' },
 
     // Transactions
     txSection: { marginBottom: 8 },

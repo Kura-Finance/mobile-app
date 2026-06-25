@@ -50,7 +50,7 @@ Build from source and confirm:
 1. **Transaction approval** — WalletConnect and send flows show calldata before signing (`src/features/walletconnect/`, send modals).
 2. **Key storage** — Private material uses `expo-secure-store`; logout clears local wallet cache (`clearLocalWalletCache()`).
 3. **TrackFi decryption** — Ciphertext is decrypted only after passkey unlock (`src/lib/crypto/envelope.ts`).
-4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, TrackFi and Dinari UI is hidden (`src/config/features.ts`).
+4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, TrackFi and Dinari UI is hidden. Morpho Earn is gated separately via `features.morphoEarn` (`src/config/earn.ts`).
 5. **Env isolation** — Secrets are read only through [`src/config/env.ts`](../src/config/env.ts), not scattered in features.
 
 ```bash

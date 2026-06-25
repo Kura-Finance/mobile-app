@@ -20,6 +20,7 @@ import {
   type MoonPayUrlParams,
 } from '../config/moonpayConfig';
 import { signMoonPayUrl } from '../../../lib/api/moonpay/client';
+import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 
 interface MoonPayModalProps {
   visible: boolean;
@@ -101,6 +102,8 @@ export default function MoonPayModal({
           </TouchableOpacity>
         </View>
 
+        <LegalDisclaimer variant="moonpay" style={st.disclaimer} />
+
         <View style={st.body}>
           {error ? (
             <View style={st.center}>
@@ -154,6 +157,7 @@ function makeStyles(c: ThemeColors) {
       paddingHorizontal: 8, paddingVertical: 3,
     },
     poweredByText: { color: c.primary, fontSize: 11, fontWeight: '600' },
+    disclaimer: { paddingHorizontal: 16, paddingVertical: 10 },
     closeBtn: {
       width: 36, height: 36, borderRadius: 18,
       backgroundColor: c.surfaceInput, alignItems: 'center', justifyContent: 'center',

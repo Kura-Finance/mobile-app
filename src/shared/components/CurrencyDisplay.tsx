@@ -57,6 +57,7 @@ export default function CurrencyDisplay({
     TWD: dynamicRates.TWD,
     CNY: dynamicRates.CNY,
     JPY: dynamicRates.JPY,
+    NGN: dynamicRates.NGN,
   } : undefined;
 
   // Convert value from valueCurrency to display currency using available rates

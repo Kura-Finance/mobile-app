@@ -11,7 +11,6 @@
 
 import { create } from 'zustand';
 import {
-  disconnectExchange as disconnectExchangeApi,
   fetchExchangeSnapshot,
   getExchangeAccounts,
   type ExchangeAccount,
@@ -288,5 +287,3 @@ export const useExchangeStore = create<ExchangeStoreState>((set, get) => ({
 
   getExchangeAccountIds: () => get().exchangeAccounts.map((acc) => acc.id),
 }));
-
-export { disconnectExchangeApi };

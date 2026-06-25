@@ -12,7 +12,7 @@ import { useCryptoContacts, CryptoContact, ChainOption, BASE_CHAIN } from '../..
 import PickerView from './PickerView';
 import SendView from './SendView';
 import ConfirmView, { ConfirmParams } from './ConfirmView';
-import FiatWithdrawPanel, { type WithdrawNavState } from './FiatWithdrawModal';
+import { FiatWithdrawPanel, type WithdrawNavState } from './FiatWithdrawModal';
 import AddWalletModal from './AddWalletModal';
 
 const SW = Dimensions.get('window').width;
