@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   FlatList,
   Image,
   Alert,
-  ActivityIndicator,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
@@ -122,7 +122,7 @@ function SessionRow({
         }
       >
         {busy ? (
-          <ActivityIndicator size="small" color={isActive ? colors.danger : colors.textMuted} />
+          <LoadingDots compact color={isActive ? colors.danger : colors.textMuted} size={6}    />
         ) : (
           <Ionicons
             name={isActive ? 'unlink-outline' : 'trash-outline'}

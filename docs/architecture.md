@@ -17,8 +17,8 @@ Technical map of the open-source mobile client. The **Kura backend is proprietar
 │  App.tsx          Boot, Privy provider, navigation      │
 ├─────────────────────────────────────────────────────────┤
 │  src/features/    Screens & product UX by domain        │
-│    card/          Gnosis Pay, MoonPay, smart wallet UI  │
-│    crypto/        Token list, swap, send                │
+│    card/          Smart wallet, card UI, MoonPay, send/receive │
+│    crypto/        Invest tab, portfolio, swap, send             │
 │    trackfi/       Plaid, investments, DeBank DeFi       │
 │    stocks/        Dinari dShares (feature-flagged)      │
 │    walletconnect/ WC wallet mode shell                  │
@@ -113,7 +113,6 @@ Plaintext finance data should not persist unencrypted on device beyond active se
 | `trackFi`, `plaid`, `debank` | Off |
 | `dinariStocks` | Off |
 | `morphoEarn` | Off without Pimlico key |
-| `gnosisPay` | On if GP direct or backend |
 | `moonPay` | On if API key set |
 
 ### Crypto primitives (client)

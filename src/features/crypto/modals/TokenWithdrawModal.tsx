@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * TokenWithdrawModal
  *
@@ -6,7 +7,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { isAddress } from 'viem';
 
+import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
 import TokenLogo from '../components/TokenLogo';
 import type { BluechipToken } from '../config/blueChips';
 import { makeModalStyles } from '../../card/modals/modalStyles';
@@ -117,7 +118,7 @@ export default function TokenWithdrawModal({
       setScreen('success');
       onWithdrawn?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('crypto.transactionFailed'));
+      setError(userFacingTransactionError(err));
     }
   }, [token, toAddress, amountStr, tokenHoldings, onWithdraw, onWithdrawn, t]);
 
@@ -210,7 +211,7 @@ export default function TokenWithdrawModal({
                 style={st.submitGradient}
               >
                 {isSending ? (
-                  <ActivityIndicator color="#FFF" />
+                  <LoadingDots color="#FFF" size={8}   />
                 ) : (
                   <>
                     <Ionicons name="arrow-up-circle-outline" size={18} color="#FFF" />

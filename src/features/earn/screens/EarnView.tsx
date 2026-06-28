@@ -1,23 +1,20 @@
 /**
- * Discover → Earn tab — Morpho vault listings on Base.
+ * Invest → Earn tab — Morpho vault listings on Base.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import VaultLogo from '../components/VaultLogo';
+import InvestListCard from '../../crypto/components/invest/InvestListCard';
 import EarnDetailModal from '../modals/EarnDetailModal';
 import { useMorphoVaults } from '../hooks/useMorphoVaults';
 import type { MorphoVault } from '../../../lib/api/morpho/client';
 import { appliesEarnServiceFee, effectiveEarnNetApy } from '../../../config/earn';
+import { matchesVault, normalizeSearchQuery } from '../../crypto/utils/portfolioSearch';
+import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
+import { earnFavoriteKey } from '../utils/earnFavorites';
 import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -34,63 +31,98 @@ function formatApy(apy: number): string {
   return `${(apy * 100).toFixed(2)}%`;
 }
 
-function formatTvl(usd: number, compact: (n: number) => string): string {
-  if (!Number.isFinite(usd) || usd <= 0) return '—';
-  return compact(usd);
+function SectionDivider({ label }: { label: string }) {
+  const st = useStyles();
+  return (
+    <View style={st.dividerWrap}>
+      <View style={st.dividerLine} />
+      <Text style={st.dividerLabel}>{label}</Text>
+      <View style={st.dividerLine} />
+    </View>
+  );
 }
 
-interface VaultRowProps {
+function VaultRow({ vault, depositedUsd, onPress }: {
   vault: MorphoVault;
   depositedUsd: number;
   onPress: (vault: MorphoVault) => void;
-}
-
-function VaultRow({ vault, depositedUsd, onPress }: VaultRowProps) {
+}) {
   const { colors } = useTheme();
   const st = useStyles();
   const money = useMoneyFormat();
+  const favorites = useFavoritesStore((s) => s.favorites);
+  const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const hasDeposit = depositedUsd > 0;
+  const favKey = earnFavoriteKey(vault);
+  const isFav = favorites.includes(favKey);
 
   return (
-    <TouchableOpacity style={st.row} onPress={() => onPress(vault)} activeOpacity={0.65}>
+    <TouchableOpacity
+      style={st.row}
+      onPress={() => onPress(vault)}
+      activeOpacity={0.65}
+      delayPressIn={Platform.OS === 'android' ? 80 : 0}
+    >
       <VaultLogo vault={vault} size={44} />
       <View style={st.mid}>
         <Text style={st.name} numberOfLines={1}>{vault.name}</Text>
-        <Text style={st.asset}>{vault.asset.symbol}</Text>
+        {hasDeposit ? (
+          <Text style={st.holdingsValue}>{money.compact(depositedUsd)}</Text>
+        ) : (
+          <Text style={st.noHoldingsSub}>—</Text>
+        )}
       </View>
       <View style={st.right}>
         <Text style={st.apy}>
           {formatApy(effectiveEarnNetApy(vault.netApy, appliesEarnServiceFee(vault.address)))}
         </Text>
-        {hasDeposit ? (
-          <Text style={st.deposited}>{money.compact(depositedUsd)}</Text>
-        ) : (
-          <Text style={st.tvl}>{formatTvl(vault.totalAssetsUsd, money.compact)}</Text>
-        )}
+        <Text style={st.asset}>{vault.asset.symbol}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+      <TouchableOpacity
+        style={st.starBtn}
+        onPress={() => toggleFavorite(favKey)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        activeOpacity={0.6}
+      >
+        <Ionicons
+          name={isFav ? 'star' : 'star-outline'}
+          size={18}
+          color={isFav ? '#F5AC37' : colors.textFaint}
+        />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 interface Props {
+  embedded?: boolean;
   scaAddress: string;
   favoritesOnly?: boolean;
+  searchQuery?: string;
   onRefresh: () => void;
+  onScroll?: (offsetY: number) => void;
+  onBindRefresh?: (refresh: (() => void) | null) => void;
+  onRefreshingChange?: (refreshing: boolean) => void;
   externalSelectedVault?: MorphoVault | null;
   onExternalSelectedVaultHandled?: () => void;
 }
 
 export default function EarnView({
+  embedded = false,
   scaAddress,
-  favoritesOnly: _favoritesOnly = false,
+  favoritesOnly = false,
+  searchQuery = '',
   onRefresh,
+  onScroll,
+  onBindRefresh,
+  onRefreshingChange,
   externalSelectedVault,
   onExternalSelectedVaultHandled,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const st = useStyles();
+  const favorites = useFavoritesStore((s) => s.favorites);
   const { vaults, positionsByVault, loading, refreshing, error, refresh } = useMorphoVaults(scaAddress || null);
 
   const [selected, setSelected] = useState<MorphoVault | null>(null);
@@ -107,6 +139,15 @@ export default function EarnView({
     onRefresh();
   }, [refresh, onRefresh]);
 
+  React.useEffect(() => {
+    onBindRefresh?.(refresh);
+    return () => onBindRefresh?.(null);
+  }, [refresh, onBindRefresh]);
+
+  React.useEffect(() => {
+    onRefreshingChange?.(refreshing);
+  }, [refreshing, onRefreshingChange]);
+
   const sortedVaults = useMemo(
     () =>
       [...vaults].sort((a, b) => {
@@ -117,8 +158,79 @@ export default function EarnView({
     [vaults, positionsByVault],
   );
 
+  const favoriteVaults = useMemo(
+    () => sortedVaults.filter((vault) => favorites.includes(earnFavoriteKey(vault))),
+    [sortedVaults, favorites],
+  );
+
+  const otherVaults = useMemo(
+    () => sortedVaults.filter((vault) => !favorites.includes(earnFavoriteKey(vault))),
+    [sortedVaults, favorites],
+  );
+
+  const query = normalizeSearchQuery(searchQuery);
+  const isSearching = query.length > 0;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const pool = favoritesOnly ? favoriteVaults : sortedVaults;
+    return pool.filter((vault) => matchesVault(vault, query));
+  }, [favoriteVaults, favoritesOnly, isSearching, query, sortedVaults]);
+
+  const renderVault = (vault: MorphoVault) => (
+    <VaultRow
+      key={vault.address}
+      vault={vault}
+      depositedUsd={positionsByVault[vault.address.toLowerCase()]?.assetsUsd ?? 0}
+      onPress={setSelected}
+    />
+  );
+
+  const listBody = loading && vaults.length === 0 ? (
+    <View style={st.loadingRow}>
+      <LoadingDots color={colors.textMuted} size={8} />
+    </View>
+  ) : vaults.length === 0 ? (
+    <View style={st.empty}>
+      <Text style={st.emptyText}>{t('crypto.earnEmpty')}</Text>
+    </View>
+  ) : isSearching ? (
+    searchResults.length > 0 ? (
+      searchResults.map(renderVault)
+    ) : (
+      <View style={st.empty}>
+        <Text style={st.emptyText}>{t('crypto.searchNoResults')}</Text>
+      </View>
+    )
+  ) : favoritesOnly ? (
+    favoriteVaults.length > 0 ? (
+      favoriteVaults.map(renderVault)
+    ) : (
+      <View style={st.empty}>
+        <Text style={st.emptyText}>{t('crypto.favoritesEmpty')}</Text>
+      </View>
+    )
+  ) : (
+    <>
+      {favoriteVaults.length > 0 && (
+        <>
+          <SectionDivider label={t('crypto.favorites')} />
+          {favoriteVaults.map(renderVault)}
+        </>
+      )}
+      {otherVaults.length > 0 && (
+        <>
+          {favoriteVaults.length > 0 && (
+            <SectionDivider label={t('crypto.watchlist')} />
+          )}
+          {otherVaults.map(renderVault)}
+        </>
+      )}
+    </>
+  );
+
   return (
-    <View style={st.flex}>
+    <View style={embedded ? st.embedded : undefined}>
       {error && (
         <View style={st.errorBox}>
           <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
@@ -126,47 +238,23 @@ export default function EarnView({
         </View>
       )}
 
-      <View style={st.listHost}>
-        <View style={st.card}>
-          <View style={st.colHeader}>
-            <Text style={st.colLabel}>{t('crypto.colVault')}</Text>
-            <Text style={[st.colLabel, { textAlign: 'right' }]}>{t('crypto.colApy')}</Text>
-          </View>
+      <InvestListCard
+        leftLabel={t('crypto.colAsset')}
+        rightLabel={t('crypto.colApy')}
+        refreshing={embedded ? undefined : refreshing}
+        onRefresh={embedded ? undefined : handleRefresh}
+        onScroll={onScroll}
+        outerScroll={embedded}
+      >
+        {listBody}
+      </InvestListCard>
 
-          <ScrollView
-            style={st.listScroll}
-            contentContainerStyle={st.listScrollContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
-            }
-          >
-            {loading && vaults.length === 0 ? (
-              <View style={st.loadingRow}>
-                <LoadingDots color={colors.textMuted} size={8} />
-              </View>
-            ) : vaults.length === 0 ? (
-              <View style={st.empty}>
-                <Text style={st.emptyText}>{t('crypto.earnEmpty')}</Text>
-              </View>
-            ) : (
-              sortedVaults.map((vault) => (
-                <VaultRow
-                  key={vault.address}
-                  vault={vault}
-                  depositedUsd={positionsByVault[vault.address.toLowerCase()]?.assetsUsd ?? 0}
-                  onPress={setSelected}
-                />
-              ))
-            )}
-          </ScrollView>
+      {!embedded && (
+        <View style={st.footer}>
+          <Text style={st.sourceNote}>{t('crypto.earnSourceNote')}</Text>
+          <LegalDisclaimer variant="earn" style={st.legalFooter} />
         </View>
-      </View>
-
-      <View style={st.footer}>
-        <Text style={st.sourceNote}>{t('crypto.earnSourceNote')}</Text>
-        <LegalDisclaimer variant="earn" style={st.legalFooter} />
-      </View>
+      )}
 
       <EarnDetailModal
         visible={!!selected}
@@ -182,7 +270,7 @@ export default function EarnView({
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    flex: { flex: 1 },
+    embedded: {},
     errorBox: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -197,37 +285,6 @@ function makeStyles(c: ThemeColors) {
       paddingVertical: 10,
     },
     errorText: { color: c.danger, fontSize: 12, flex: 1 },
-    listHost: {
-      flex: 1,
-      minHeight: 0,
-      marginHorizontal: 16,
-    },
-    card: {
-      flex: 1,
-      backgroundColor: c.surfaceAlt,
-      borderRadius: 20,
-      overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.border,
-    },
-    listScroll: { flex: 1 },
-    listScrollContent: { flexGrow: 1 },
-    colHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.border,
-    },
-    colLabel: {
-      color: c.textFaint,
-      fontSize: 11,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
     loadingRow: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -244,6 +301,25 @@ function makeStyles(c: ThemeColors) {
       textAlign: 'center',
       lineHeight: 19,
     },
+    dividerWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    dividerLine: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: c.border,
+    },
+    dividerLabel: {
+      color: c.textFaint,
+      fontSize: 10,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -255,11 +331,12 @@ function makeStyles(c: ThemeColors) {
     },
     mid: { flex: 1, gap: 4 },
     name: { color: c.text, fontSize: 15, fontWeight: '700' },
-    asset: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
+    holdingsValue: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
+    noHoldingsSub: { color: c.textFaint, fontSize: 12, fontWeight: '500' },
     right: { alignItems: 'flex-end', gap: 3, minWidth: 72 },
     apy: { color: '#10B981', fontSize: 15, fontWeight: '700' },
-    tvl: { color: c.textMuted, fontSize: 12 },
-    deposited: { color: c.textMuted, fontSize: 12 },
+    asset: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
+    starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     sourceNote: { color: c.textFaint, fontSize: 11, textAlign: 'center', marginTop: 16 },
     footer: { paddingBottom: 120 },
     legalFooter: { marginTop: 8, paddingHorizontal: 16 },

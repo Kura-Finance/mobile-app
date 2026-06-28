@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -12,6 +12,9 @@ import Animated, {
 interface LoadingDotsProps {
   color: string;
   size?: number;
+  /** Drop min-height — use inside buttons and tight rows. */
+  compact?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 interface DotProps {
@@ -62,9 +65,14 @@ function Dot({ color, size, delay }: DotProps) {
  * Three bouncing dots — used inline where a compact loading state is needed
  * (e.g. portfolio total value) without blocking the rest of the screen.
  */
-export default function LoadingDots({ color, size = 8 }: LoadingDotsProps) {
+export default function LoadingDots({
+  color,
+  size = 8,
+  compact = false,
+  style,
+}: LoadingDotsProps) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, compact && styles.rowCompact, style]}>
       <Dot color={color} size={size} delay={0} />
       <Dot color={color} size={size} delay={140} />
       <Dot color={color} size={size} delay={280} />
@@ -79,5 +87,9 @@ const styles = StyleSheet.create({
     gap: 5,
     minHeight: 40,
     justifyContent: 'center',
+  },
+  rowCompact: {
+    minHeight: 0,
+    gap: 4,
   },
 });

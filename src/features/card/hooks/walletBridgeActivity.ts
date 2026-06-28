@@ -43,8 +43,22 @@ function parseAmount(raw: string | null | undefined): number {
 
 export function normalizeFiatDeposit(d: DepositResult): WalletTx {
   const statusMeta = DEPOSIT_STATUS[d.status];
-  const amountRaw = d.netAmount ?? d.amount;
-  const currency = (d.currency ?? 'usd').toUpperCase();
+  const sourceCurrency = (d.currency ?? 'usd').toUpperCase();
+  const grossSource = parseAmount(d.amount);
+  const net = parseAmount(d.netAmount);
+  const isUsdSource = sourceCurrency === 'USD';
+
+  // Bridge `amount` is gross source fiat; `netAmount` is post-fee credited USDC when conversion ran.
+  // For non-USD rails, net can still echo source fiat — only treat net as USD when magnitude matches USDC.
+  let usdAmount = 0;
+  let sourceFiat = grossSource;
+  if (isUsdSource) {
+    usdAmount = net || grossSource;
+  } else if (net > 0 && grossSource > 0 && net < grossSource * 0.5) {
+    usdAmount = net;
+  } else if (grossSource === 0 && net > 0) {
+    sourceFiat = net;
+  }
 
   return {
     id: `fiat-deposit-${d.depositId}`,
@@ -52,18 +66,20 @@ export function normalizeFiatDeposit(d: DepositResult): WalletTx {
     hash: d.destinationTxHash ?? '',
     timestamp: d.createdAt,
     direction: 'in',
-    counterparty: currency,
+    counterparty: sourceCurrency,
     counterpartyName: null,
-    tokenSymbol: currency,
-    tokenDecimals: 2,
+    tokenSymbol: 'USDC',
+    tokenDecimals: 6,
     tokenIconUrl: null,
-    amount: parseAmount(amountRaw),
-    rawValue: amountRaw ?? '0',
+    amount: usdAmount,
+    rawValue: d.netAmount ?? d.amount ?? '0',
     statusLabelKey: statusMeta?.labelKey,
     statusColor: statusMeta?.color ?? '#9CA3AF',
     statusPending: !d.completed,
     bridgeReferenceId: d.depositId,
-    grossAmountLabel: d.amount ? `${d.amount} ${currency}` : undefined,
+    sourceFiatAmount: sourceFiat > 0 ? sourceFiat : undefined,
+    sourceFiatCurrency: sourceFiat > 0 ? sourceCurrency : undefined,
+    grossAmountLabel: d.amount ? `${d.amount} ${sourceCurrency}` : undefined,
     exchangeFee: d.exchangeFeeAmount,
     developerFee: d.developerFeeAmount,
     gasFee: d.gasFee,

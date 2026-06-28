@@ -1,3 +1,4 @@
+import LoadingDots from '../../../../shared/components/LoadingDots';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -6,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +23,7 @@ import { splitDisplayName } from '../../../../lib/auth/oauthDisplayName';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import { makeModalStyles } from '../modalStyles';
+import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 import {
   accountTypeForCurrency,
@@ -158,6 +159,7 @@ export function FiatWithdrawPanel({
 }: FiatWithdrawPanelProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const money = useMoneyFormat();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const st = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -194,6 +196,7 @@ export function FiatWithdrawPanel({
   const [pixKey, setPixKey] = useState('');
   const [documentNumber, setDocumentNumber] = useState('');
   const [clabe, setClabe] = useState('');
+  const [breBKey, setBreBKey] = useState('');
   // Account holder address (required for USD only)
   const [street1, setStreet1] = useState('');
   const [street2, setStreet2] = useState('');
@@ -313,6 +316,7 @@ export function FiatWithdrawPanel({
     setPixKey('');
     setDocumentNumber('');
     setClabe('');
+    setBreBKey('');
     setStreet1('');
     setStreet2('');
     setCity('');
@@ -563,6 +567,13 @@ export function FiatWithdrawPanel({
       setError(t('card.ibanRequired'));
       return;
     }
+    if (currency === 'cop') {
+      const key = breBKey.trim();
+      if (key.length < 10) {
+        setError(t('card.breBKeyRequired'));
+        return;
+      }
+    }
     if (requiresBillingAddress(currency)) {
       if (
         !street1.trim() ||
@@ -575,7 +586,11 @@ export function FiatWithdrawPanel({
       }
     }
     const address =
-      street1.trim() && city.trim() && postalCode.trim() && country.trim()
+      requiresBillingAddress(currency) &&
+      street1.trim() &&
+      city.trim() &&
+      postalCode.trim() &&
+      country.trim()
         ? {
             street_line_1: street1.trim(),
             street_line_2: street2.trim() || undefined,
@@ -601,6 +616,7 @@ export function FiatWithdrawPanel({
           pixKey: pixKey.trim() || undefined,
           documentNumber: documentNumber.trim() || undefined,
           clabe: clabe.trim() || undefined,
+          breBKey: breBKey.trim() || undefined,
           iban: iban.trim() || undefined,
           bic: bic.trim() || undefined,
           address,
@@ -618,7 +634,7 @@ export function FiatWithdrawPanel({
     } finally {
       setSavingBank(false);
     }
-  }, [currency, firstName, lastName, accountNumber, routingNumber, sortCode, pixKey, documentNumber, clabe, bankName, iban, bic, street1, street2, city, region, postalCode, country, resetForm, slideAnim, t]);
+  }, [currency, firstName, lastName, accountNumber, routingNumber, sortCode, pixKey, documentNumber, clabe, breBKey, bankName, iban, bic, street1, street2, city, region, postalCode, country, resetForm, slideAnim, t]);
 
   const validateAmount = useCallback((): number | null => {
     const value = Number(amount);
@@ -666,8 +682,8 @@ export function FiatWithdrawPanel({
   const fiatName = (code: FiatCurrency) =>
     t(`card.fiatName${code.charAt(0).toUpperCase()}${code.slice(1)}`);
 
-  const bankAccountLabel = (account: ExternalAccountResult) =>
-    account.bankName || account.accountOwnerName || t('card.bankAccount');
+  const recipientLabel = (account: ExternalAccountResult) =>
+    account.accountOwnerName || account.bankName || t('card.recipient');
 
   const bankAccountMeta = (account: ExternalAccountResult) => {
     const railLabel = selectedPayoutOption
@@ -686,10 +702,10 @@ export function FiatWithdrawPanel({
     return (
       <View style={st.bankHero}>
         <View style={st.bankHeroIcon}>
-          <Ionicons name="business" size={22} color={colors.primary} />
+          <Ionicons name="person-circle-outline" size={24} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={st.bankHeroName}>{bankAccountLabel(selectedAccount)}</Text>
+          <Text style={st.bankHeroName}>{recipientLabel(selectedAccount)}</Text>
           <Text style={st.bankHeroSub}>{bankAccountMeta(selectedAccount)}</Text>
           {screen === 'amount' ? (
             <Text style={st.available}>
@@ -703,7 +719,7 @@ export function FiatWithdrawPanel({
 
   const renderLoading = () => (
     <View style={st.center}>
-      <ActivityIndicator color={colors.primary} />
+      <LoadingDots color={colors.primary} size={8}   />
     </View>
   );
 
@@ -741,8 +757,8 @@ export function FiatWithdrawPanel({
     }
     return (
       <View>
-        <Text style={st.fieldLabel}>{t('card.selectCurrency')}</Text>
-        <Text style={st.stepSub}>{t('card.selectBankCurrencySub')}</Text>
+        <Text style={st.fieldLabel}>{t('card.selectRecipientCurrency')}</Text>
+        <Text style={st.stepSub}>{t('card.selectRecipientCurrencySub')}</Text>
         {addBankCurrencies.map((c) => (
           <TouchableOpacity
             key={c.code}
@@ -877,6 +893,20 @@ export function FiatWithdrawPanel({
             style={st.monoInput}
           />
         </>
+      ) : currency === 'cop' ? (
+        <>
+          <Text style={st.fieldLabel}>{t('card.breBKey')}</Text>
+          <TextInput
+            value={breBKey}
+            onChangeText={setBreBKey}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder={t('card.breBKeyPlaceholder')}
+            placeholderTextColor={colors.textFaint}
+            style={st.monoInput}
+          />
+          <Text style={st.fieldHint}>{t('card.breBKeyHint')}</Text>
+        </>
       ) : (
         <>
           <Text style={st.fieldLabel}>IBAN</Text>
@@ -891,7 +921,7 @@ export function FiatWithdrawPanel({
           {currency === 'usd' ? t('card.bankName') : t('card.bankNameOptional')}
         </Text>
         {currency === 'usd' && lookingUpBankName ? (
-          <ActivityIndicator size="small" color={colors.textMuted} />
+          <LoadingDots compact color={colors.textMuted} size={6}    />
         ) : null}
       </View>
       <TextInput
@@ -905,25 +935,25 @@ export function FiatWithdrawPanel({
         style={st.textInput}
       />
 
-      <Text style={[st.fieldLabel, { marginTop: 14 }]}>
-        {requiresBillingAddress(currency)
-          ? t('card.billingAddress')
-          : t('card.billingAddressOptional')}
-      </Text>
-      <TextInput value={street1} onChangeText={setStreet1} placeholder={t('card.streetLine1')} placeholderTextColor={colors.textFaint} style={st.textInput} />
-      <TextInput value={street2} onChangeText={setStreet2} placeholder={t('card.streetLine2Optional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
-      <View style={st.addrRow}>
-        <TextInput value={city} onChangeText={setCity} placeholder={t('card.city')} placeholderTextColor={colors.textFaint} style={[st.textInput, st.addrCol]} />
-        <TextInput value={postalCode} onChangeText={setPostalCode} placeholder={t('card.postalCode')} placeholderTextColor={colors.textFaint} style={[st.monoInput, st.addrCol]} />
-      </View>
-      <TextInput value={region} onChangeText={setRegion} placeholder={t('card.stateProvinceOptional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
-      <TextInput value={country} onChangeText={setCountry} autoCapitalize="characters" maxLength={3} placeholder={t('card.countryPlaceholder')} placeholderTextColor={colors.textFaint} style={st.monoInput} />
+      {requiresBillingAddress(currency) ? (
+        <>
+          <Text style={[st.fieldLabel, { marginTop: 14 }]}>{t('card.billingAddress')}</Text>
+          <TextInput value={street1} onChangeText={setStreet1} placeholder={t('card.streetLine1')} placeholderTextColor={colors.textFaint} style={st.textInput} />
+          <TextInput value={street2} onChangeText={setStreet2} placeholder={t('card.streetLine2Optional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
+          <View style={st.addrRow}>
+            <TextInput value={city} onChangeText={setCity} placeholder={t('card.city')} placeholderTextColor={colors.textFaint} style={[st.textInput, st.addrCol]} />
+            <TextInput value={postalCode} onChangeText={setPostalCode} placeholder={t('card.postalCode')} placeholderTextColor={colors.textFaint} style={[st.monoInput, st.addrCol]} />
+          </View>
+          <TextInput value={region} onChangeText={setRegion} placeholder={t('card.stateProvinceOptional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
+          <TextInput value={country} onChangeText={setCountry} autoCapitalize="characters" maxLength={3} placeholder={t('card.countryPlaceholder')} placeholderTextColor={colors.textFaint} style={st.monoInput} />
+        </>
+      ) : null}
 
       {error ? <Text style={s.errorText}>{error}</Text> : null}
 
       <TouchableOpacity onPress={saveBank} disabled={savingBank} activeOpacity={0.85} style={st.primaryBtn}>
         <LinearGradient colors={['#7C3AED', '#4F46E5']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.primaryBtnInner}>
-          {savingBank ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={st.primaryBtnText}>{t('card.saveBankAccount')}</Text>}
+          {savingBank ? <LoadingDots compact color="#FFF" size={6}    /> : <Text style={st.primaryBtnText}>{t('card.saveRecipient')}</Text>}
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -951,11 +981,11 @@ export function FiatWithdrawPanel({
       return (
         <TouchableOpacity style={st.addBankRow} onPress={openAddBank} activeOpacity={0.7}>
           <View style={st.addBankIcon}>
-            <Ionicons name="add" size={20} color={colors.primary} />
+            <Ionicons name="person-add-outline" size={20} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={st.addBankLabel}>{t('card.newBankAccount')}</Text>
-            <Text style={st.addBankSub}>{t('card.fiveCurrencies')}</Text>
+            <Text style={st.addBankLabel}>{t('card.newRecipient')}</Text>
+            <Text style={st.addBankSub}>{t('card.newRecipientSub')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
         </TouchableOpacity>
@@ -982,7 +1012,7 @@ export function FiatWithdrawPanel({
           </Text>
           {hasAnyPayoutOptions && selectedAccount ? (
             <TouchableOpacity style={st.secondaryBtn} onPress={openAddBank}>
-              <Text style={st.secondaryBtnText}>{t('card.newBankAccount')}</Text>
+              <Text style={st.secondaryBtnText}>{t('card.newRecipient')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={st.secondaryBtn} onPress={() => void refreshCustomer()}>
@@ -1028,7 +1058,7 @@ export function FiatWithdrawPanel({
     if (loadingPayoutAddress || !payoutAddress) {
       return (
         <View style={st.center}>
-          <ActivityIndicator color={colors.primary} />
+          <LoadingDots color={colors.primary} size={8}   />
           <Text style={[st.stepSub, { marginTop: 12, marginBottom: 0 }]}>
             {t('card.payoutSettingUpAddress')}
           </Text>
@@ -1084,7 +1114,7 @@ export function FiatWithdrawPanel({
             <Text style={st.gasValue}>
               {gasEstimating
                 ? t('card.estimatingGas')
-                : t('card.gasUsdcValue', { gas: gasReserve.toFixed(2) })}
+                : t('card.gasUsdcValue', { gas: money.value(gasReserve) })}
             </Text>
           </View>
         ) : null}
@@ -1130,7 +1160,7 @@ export function FiatWithdrawPanel({
 
         <View style={st.summaryBox}>
           <ConfirmRow label={t('card.youSend')} value={`${amount} USDC`} valueStyle={st.amountValue} />
-          <ConfirmRow label={t('card.toBankAccount')} value={bankAccountLabel(selectedAccount!)} />
+          <ConfirmRow label={t('card.toRecipient')} value={recipientLabel(selectedAccount!)} />
           <ConfirmRow
             label={t('card.payoutSelectMethod')}
             value={`${railLabel} · ${activeCurrency.toUpperCase()}`}
@@ -1144,7 +1174,7 @@ export function FiatWithdrawPanel({
                 ? t('card.feeSponsored')
                 : gasEstimating
                   ? t('card.estimatingGas')
-                  : t('card.gasUsdcValue', { gas: gasReserve.toFixed(2) })
+                  : t('card.gasUsdcValue', { gas: money.value(gasReserve) })
             }
           />
         </View>
@@ -1158,7 +1188,7 @@ export function FiatWithdrawPanel({
           style={[st.confirmBtn, (submitting || isSending) && st.submitBtnDisabled]}
         >
           {submitting || isSending ? (
-            <ActivityIndicator color="#FFF" size="small" />
+            <LoadingDots compact color="#FFF" size={6}    />
           ) : (
             <>
               <Ionicons name="arrow-up-outline" size={18} color="#FFF" />
@@ -1202,9 +1232,9 @@ export function FiatWithdrawPanel({
       case 'success':
         return 'card.withdrawalSubmitted';
       case 'addBankCurrency':
-        return 'card.selectCurrency';
+        return 'card.selectRecipientCurrency';
       case 'addBankForm':
-        return 'card.addBankAccountTitle';
+        return 'card.addRecipientTitle';
       case 'amount':
       default:
         if (selectedAccount && railsForAccount.length > 1 && !selectedRail) {
@@ -1418,6 +1448,7 @@ function makeStyles(c: ThemeColors) {
 
     stepSub: { color: c.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 16, marginTop: -2 },
     fieldLabel: { color: c.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
+    fieldHint: { color: c.textFaint, fontSize: 12, lineHeight: 17, marginTop: -10, marginBottom: 18 },
     currencyFlag: { fontSize: 24, lineHeight: 30, width: 36, textAlign: 'center' },
     textInput: {
       backgroundColor: c.surface,

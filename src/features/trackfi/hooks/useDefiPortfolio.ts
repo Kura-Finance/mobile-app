@@ -22,6 +22,7 @@ import {
   fetchDeBankProtocols,
   fetchDeBankTokens,
 } from '../../../lib/api/debank/client';
+import { userFacingApiError } from '../../../lib/api/userFacingError';
 import type {
   DeBankProtocol,
   DeBankToken,
@@ -51,6 +52,8 @@ export interface DefiToken {
   amount: number;
   usdValue: number;
   isVerified: boolean;
+  /** DeBank protocol link — empty when wallet-held spot. */
+  protocolId: string;
 }
 
 export interface ProtocolPortfolioItem {
@@ -141,6 +144,7 @@ function mapBackendToken(t: DeBankToken): DefiToken {
     amount: t.amount,
     usdValue,
     isVerified: true,
+    protocolId: t.protocolId || '',
   };
 }
 
@@ -309,7 +313,7 @@ export function useDefiPortfolio() {
           setWalletData((prev) => ({ ...prev, [key]: { ...data, address: wallet.address } }));
           setRateLimitInfo((prev) => ({ ...prev, [key]: limitInfo }));
         } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Failed to load';
+          const msg = userFacingApiError(err, 'trackfi.defiPortfolio.loadFailed');
           Logger.warn(TAG, 'Wallet fetch failed', { address: wallet.address, err: msg });
           setWalletData((prev) => ({
             ...prev,

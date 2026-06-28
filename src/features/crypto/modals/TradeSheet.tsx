@@ -1,8 +1,9 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * TradeSheet
  *
  * Compact bottom-sheet swap UI: USDC ↔ token with a flip control.
- * Fetches a live Li.Fi quote (auto-refreshing every 5s) and executes through
+ * Fetches a live Li.Fi quote (auto-refreshing every 20s) and executes through
  * the ERC-4337 smart account.
  */
 import React, {
@@ -13,7 +14,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -32,14 +32,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { parseUnits } from 'viem';
 
 import { fetchSwapQuote, SwapQuote } from '../../../lib/api/bridge/lifiSwapClient';
+import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
 import { USDC_BASE, PAY_GAS_IN_USDC, GAS_RESERVE_FALLBACK_USDC } from '../../card/config/cardWalletConfig';
 import { BLUE_CHIPS, type BluechipToken } from '../config/blueChips';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { formatSensitiveUsd, HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
+import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
+import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
 import TokenLogo from '../components/TokenLogo';
 
@@ -56,15 +56,10 @@ export type TradeSide = 'buy' | 'sell';
 
 function formatTokenAmount(n: number): string {
   if (n === 0) return '0.00';
-  if (n < 0.0001) return n.toExponential(2);
+  if (n > 0 && n < 0.000001) return '<0.000001';
   if (n < 1) return n.toFixed(6);
   if (n < 1000) return n.toFixed(4);
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-}
-
-function formatToken(n: number, symbol: string): string {
-  if (n === 0) return `0 ${symbol}`;
-  return `${formatTokenAmount(n)} ${symbol}`;
 }
 
 function toWei(amount: string, decimals: number): string {
@@ -135,7 +130,7 @@ export default function TradeSheet({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const st = useStyles();
-  const hideBalance = useHideBalance();
+  const money = useMoneyFormat();
 
   const [direction, setDirection] = useState<TradeSide>('buy');
   const [amountInput, setAmountInput] = useState('');
@@ -224,8 +219,8 @@ export default function TradeSheet({
         setGasUsdc(null);
         estimateSwapGasUsdc(q).then(setGasUsdc).catch(() => setGasUsdc(null));
       }
-    } catch (e: any) {
-      setQuoteError(e?.message ?? t('crypto.quoteFailed'));
+    } catch (e: unknown) {
+      setQuoteError(userFacingTransactionError(e, 'crypto.quoteFailed'));
       setQuote(null);
       setGasUsdc(null);
     } finally {
@@ -252,8 +247,8 @@ export default function TradeSheet({
       setTxHash(hash);
       if (timerRef.current) clearTimeout(timerRef.current);
       onTraded?.();
-    } catch (e: any) {
-      setExecError(e?.message ?? t('crypto.transactionFailed'));
+    } catch (e: unknown) {
+      setExecError(userFacingTransactionError(e));
     }
   }, [quote, executeSwap, onTraded, t]);
 
@@ -282,16 +277,9 @@ export default function TradeSheet({
     if (!hasValidAmount) return '0.00';
     if (quoteLoading && !quote) return '…';
     if (quoteError || !quote) return '0.00';
-    if (isSell) return formatSensitiveUsd(toAmountHuman, hideBalance).replace(/^\$/, '');
+    if (isSell) return money.value(toAmountHuman);
     return formatTokenAmount(toAmountHuman);
-  }, [hasValidAmount, quoteLoading, quote, quoteError, isSell, toAmountHuman, hideBalance]);
-
-  const successFromText = isSell
-    ? formatToken(amountNum, tokenSymbol)
-    : formatSensitiveUsd(amountNum, hideBalance);
-  const successToText = isSell
-    ? formatSensitiveUsd(toAmountHuman, hideBalance)
-    : formatToken(toAmountHuman, tokenSymbol);
+  }, [hasValidAmount, quoteLoading, quote, quoteError, isSell, toAmountHuman, money]);
 
   if (!token || !fromToken || !toToken) return null;
 
@@ -307,7 +295,10 @@ export default function TradeSheet({
             <View style={st.handle} />
           </View>
           <View style={st.titleRow}>
-            <Text style={st.title}>{t('crypto.swap')}</Text>
+            <View style={st.titleGroup}>
+              <Text style={st.title}>{t('crypto.swap')}</Text>
+              <LegalDisclaimerInfoButton variant="swap" />
+            </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -317,9 +308,6 @@ export default function TradeSheet({
             <View style={st.successBox}>
               <Ionicons name="checkmark-circle" size={40} color="#10B981" />
               <Text style={st.successTitle}>{t('crypto.swapSubmitted')}</Text>
-              <Text style={st.successSub}>
-                {t('crypto.swapSummary', { from: successFromText, to: successToText })}
-              </Text>
               <TouchableOpacity onPress={onClose} style={st.doneBtn} activeOpacity={0.85}>
                 <Text style={st.doneBtnText}>{t('crypto.done')}</Text>
               </TouchableOpacity>
@@ -354,7 +342,6 @@ export default function TradeSheet({
                       placeholder="0.00"
                       placeholderTextColor={colors.textFaint}
                       keyboardType="decimal-pad"
-                      returnKeyType="done"
                     />
                   </View>
                 </View>
@@ -375,7 +362,7 @@ export default function TradeSheet({
                   <View style={st.swapCardHeader}>
                     <Text style={st.swapLabel}>{t('crypto.to')}</Text>
                     {quoteLoading && hasValidAmount ? (
-                      <ActivityIndicator size="small" color={colors.textMuted} />
+                      <LoadingDots compact color={colors.textMuted} size={6}    />
                     ) : null}
                   </View>
                   <View style={st.swapCardBody}>
@@ -420,7 +407,9 @@ export default function TradeSheet({
                   <View style={st.quoteContent}>
                     <View style={st.quoteRow}>
                       <Text style={st.quoteLabel}>{t('crypto.fee')}</Text>
-                      <Text style={st.quoteValueSub}>{t('crypto.feeValue', { fee: quote.feeUSD })}</Text>
+                      <Text style={st.quoteValueSub}>
+                        {t('crypto.feeValue', { fee: money.price(parseFloat(quote.feeUSD) || 0) })}
+                      </Text>
                     </View>
                     <View style={st.quoteRow}>
                       <Text style={st.quoteLabel}>{t('crypto.networkFee')}</Text>
@@ -428,7 +417,7 @@ export default function TradeSheet({
                         {!PAY_GAS_IN_USDC
                           ? t('crypto.gasSponsored')
                           : gasUsdc != null
-                            ? t('crypto.gasUsdcValue', { gas: gasUsdc.toFixed(2) })
+                            ? t('crypto.gasUsdcValue', { gas: money.value(gasUsdc) })
                             : t('crypto.estimatingGas')}
                       </Text>
                     </View>
@@ -450,12 +439,11 @@ export default function TradeSheet({
                 activeOpacity={0.85}
               >
                 {isExecutingSwap ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <LoadingDots compact color="#FFFFFF" size={6}    />
                 ) : (
                   <Text style={st.execBtnText}>{t('crypto.swap')}</Text>
                 )}
               </TouchableOpacity>
-              <LegalDisclaimer variant="swap" style={st.thirdPartyDisclaimer} />
             </>
           )}
         </View>
@@ -485,6 +473,7 @@ function makeStyles(c: ThemeColors) {
       justifyContent: 'space-between',
       marginBottom: 16,
     },
+    titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     title: { color: c.text, fontSize: 20, fontWeight: '700' },
     closeBtn: {
       width: 32,
@@ -581,14 +570,9 @@ function makeStyles(c: ThemeColors) {
     },
     execBtnDisabled: { backgroundColor: c.surfaceInput },
     execBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    thirdPartyDisclaimer: {
-      marginTop: 10,
-      paddingHorizontal: 8,
-    },
 
     successBox: { alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 24 },
     successTitle: { color: c.text, fontSize: 22, fontWeight: '700' },
-    successSub: { color: c.textMuted, fontSize: 14, textAlign: 'center' },
     doneBtn: {
       marginTop: 8,
       height: 52,

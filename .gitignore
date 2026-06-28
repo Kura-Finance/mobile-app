@@ -44,6 +44,10 @@ yarn-error.*
 
 # build artifacts — never commit
 *.ipa
+*.apk
+*.aab
+*.bundle.map
+**/android/app/build/
 Payload/
 Payload.ipa
 eas.json

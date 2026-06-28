@@ -172,7 +172,7 @@ export default function ExportWalletKeyScreen({ onClose }: Props) {
 
           <Step number={1} title={t('walletHowItWorks.step1Title')}>
             {t('walletHowItWorks.step1Before')}
-            <Text style={s.stepHighlight}>wallet.privy.io</Text>
+            <Text style={s.stepHighlight}>home.privy.io</Text>
             {t('walletHowItWorks.step1After')}
           </Step>
 

@@ -14,7 +14,7 @@ What the **open-source client** connects to — the trust boundary between code 
 
 | Type | Examples | Config / code |
 |------|----------|---------------|
-| **Kura backend** | Auth, Plaid, DeBank, Dinari, passkeys, GP proxy | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
+| **Kura backend** | Auth, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
 | **Third-party (your keys)** | Privy, Pimlico, Reown, Li.Fi, MoonPay, logo.dev | `.env` → `src/config/env.ts` |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
 | **Public RPC / CDN** | Base chain, logo images | RPC URL + logo.dev token |
@@ -31,8 +31,7 @@ What the **open-source client** connects to — the trust boundary between code 
 | DeBank DeFi portfolio | **Yes** | Backend proxy | Client normalizes in `debank/normalize.ts` |
 | Dinari stocks | **Yes** | Feature flag `dinariStocks` | Currently off in `features.ts` |
 | Morpho Earn | No | `morphoEarn` + Pimlico | Public Morpho GraphQL; vault list in `src/config/earn.ts` |
-| Gnosis Pay card (proxy) | **Yes** | — | Backend holds GP JWT |
-| Gnosis Pay (direct SIWE) | No | `EXPO_PUBLIC_GP_*` | Whitelisted SIWE domain |
+| Kura Card (waitlist UI) | No | — | Card manager + waitlist; no GP API in OSS client |
 | MoonPay buy crypto | No | `EXPO_PUBLIC_MOONPAY_*` | WebView to MoonPay |
 | Stock/crypto logos | No | `EXPO_PUBLIC_LOGODEV_TOKEN` | Falls back to glyphs |
 
@@ -47,7 +46,6 @@ What the **open-source client** connects to — the trust boundary between code 
 | MoonPay | [dashboard.moonpay.com](https://dashboard.moonpay.com) | Fiat on-ramp |
 | Li.Fi | [li.fi](https://li.fi) | Bridge / swap aggregator |
 | Morpho | [docs.morpho.org](https://docs.morpho.org) | Vault listings + APY (public GraphQL) |
-| Gnosis Pay | [docs.gnosispay.com](https://docs.gnosispay.com) | Card onboarding (direct mode) |
 
 ### Base RPC
 
@@ -99,8 +97,7 @@ See [local-release.md](local-release.md).
 | TrackFi / Plaid | **是** | Passkey |
 | DeBank | **是** | 后端代理 |
 | Dinari 股票 | **是** | 功能开关（当前默认关） |
-| Gnosis Pay 代理 | **是** | — |
-| Gnosis Pay 直连 | 否 | GP SIWE 配置 |
+| Kura Card | 否 | 卡片 UI + waitlist |
 | MoonPay | 否 | MoonPay Key |
 | logo.dev 图标 | 否 | `EXPO_PUBLIC_LOGODEV_TOKEN` |
 

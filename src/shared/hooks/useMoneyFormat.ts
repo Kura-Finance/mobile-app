@@ -8,6 +8,7 @@
  * Returns memoized formatters:
  *   value(usd)        → "$1,234.56" / "NT$38,889" (base-decimal aware)
  *   compact(usd)      → "$1.2M" / "¥18.5K"
+ *   signedCompact(usd) → "+$1.2K" / "-NT$45.00" (P&L lines)
  *   price(usd)        → magnitude-adaptive decimals for asset prices
  */
 import { useCallback, useMemo } from 'react';
@@ -78,6 +79,22 @@ export function useMoneyFormat() {
     [convert, symbol, baseDecimals, hideBalance],
   );
 
+  /** Signed compact amount for P&L lines (e.g. +NT$1.2K / -€45.00). */
+  const signedCompact = useCallback(
+    (usd: number) => {
+      if (hideBalance) return HIDDEN_BALANCE_TEXT;
+      const v = convert(usd);
+      const sign = v >= 0 ? '+' : '-';
+      const abs = Math.abs(v);
+      if (abs >= 1e12) return `${sign}${symbol}${(abs / 1e12).toFixed(2)}T`;
+      if (abs >= 1e9) return `${sign}${symbol}${(abs / 1e9).toFixed(2)}B`;
+      if (abs >= 1e6) return `${sign}${symbol}${(abs / 1e6).toFixed(2)}M`;
+      if (abs >= 1e3) return `${sign}${symbol}${(abs / 1e3).toFixed(1)}K`;
+      return `${sign}${symbol}${abs.toFixed(baseDecimals)}`;
+    },
+    [convert, symbol, baseDecimals, hideBalance],
+  );
+
   const price = useCallback(
     (usd: number) => {
       const v = convert(usd);
@@ -92,5 +109,5 @@ export function useMoneyFormat() {
     [convert, symbol, locale],
   );
 
-  return { value, compact, price, symbol, baseCurrency, hideBalance };
+  return { value, compact, signedCompact, price, symbol, baseCurrency, hideBalance };
 }

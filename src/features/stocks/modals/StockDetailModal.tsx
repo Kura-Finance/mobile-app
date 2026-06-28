@@ -27,12 +27,11 @@ import { stockGeckoId } from '../config/dinariStocks';
 import { getStockPrice, getStockQuote, DinariStockQuote } from '../../../lib/api/dinari/client';
 import PriceChart from '../../crypto/components/PriceChart';
 import { TIMEFRAMES, Timeframe, useTokenDetail } from '../../crypto/hooks/useTokenDetail';
+import { formatChartTimeframe } from '../../crypto/utils/tokenDisplay';
 import { useStockChart } from '../hooks/useStockChart';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 
@@ -147,12 +146,12 @@ export default function StockDetailModal({
   const st = useStyles();
   const { colors } = useTheme();
   const money = useMoneyFormat();
-  const hideBalance = useHideBalance();
   const favorites = useFavoritesStore((s) => s.favorites);
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const [tradeSide, setTradeSide] = useState<TradeSide | null>(null);
   const [quote, setQuote] = useState<DinariStockQuote | null>(null);
   const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>('24H');
 
   const geckoId = stock ? stockGeckoId(stock.symbol) : null;
@@ -193,23 +192,27 @@ export default function StockDetailModal({
   useEffect(() => {
     if (!visible || !stock) {
       setLivePrice(null);
-      return;
-    }
-    if (stock.price > 0) {
-      setLivePrice(stock.price);
+      setPriceLoading(false);
       return;
     }
     let active = true;
     setLivePrice(null);
+    setPriceLoading(true);
     getStockPrice(stock.id)
       .then((p) => {
-        if (active) setLivePrice(typeof p.price === 'number' ? p.price : Number(p.price) || 0);
+        if (!active) return;
+        const next = typeof p.price === 'number' ? p.price : Number(p.price) || 0;
+        setLivePrice(next > 0 ? next : null);
       })
-      .catch(() => { /* price is best-effort */ });
+      .catch(() => { /* Dinari price is best-effort */ })
+      .finally(() => {
+        if (active) setPriceLoading(false);
+      });
     return () => { active = false; };
-  }, [visible, stock]);
+  }, [visible, stock?.id]);
 
-  const displayPrice = livePrice ?? stock?.price ?? 0;
+  const displayPrice = livePrice ?? 0;
+  const tradeStock = stock && displayPrice > 0 ? { ...stock, price: displayPrice } : stock;
 
   const normalizedChart = useMemo(
     () => normalizeChartToPrice(prices, displayPrice),
@@ -246,11 +249,11 @@ export default function StockDetailModal({
 
   if (!stock) return null;
 
-  const holdingValue = stock.holdings * stock.price;
+  const holdingValue = stock.holdings * displayPrice;
   const canSell = stock.holdings > 0;
   const isPositive = (change24h ?? 0) >= 0;
-  const dollarChange = change24h != null && stock.price > 0
-    ? stock.price - stock.price / (1 + change24h / 100)
+  const dollarChange = change24h != null && displayPrice > 0
+    ? displayPrice - displayPrice / (1 + change24h / 100)
     : null;
   const holdingChange24h = change24h != null
     ? holdingValue - holdingValue / (1 + change24h / 100)
@@ -290,7 +293,7 @@ export default function StockDetailModal({
             </View>
             <Text style={st.assetName}>{stock.name}</Text>
             <Text style={st.bigPrice}>
-              {stock.price > 0 ? money.price(stock.price) : '—'}
+              {priceLoading ? '—' : displayPrice > 0 ? money.price(displayPrice) : '—'}
             </Text>
             {change24h != null && dollarChange != null && (
               <View style={st.changeLine}>
@@ -331,7 +334,9 @@ export default function StockDetailModal({
                       style={[st.tfBtn, activeTf && st.tfBtnActive]}
                       activeOpacity={0.7}
                     >
-                      <Text style={[st.tfText, activeTf && st.tfTextActive]}>{tf}</Text>
+                      <Text style={[st.tfText, activeTf && st.tfTextActive]}>
+                        {formatChartTimeframe(t, tf)}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -340,7 +345,7 @@ export default function StockDetailModal({
 
           <View style={st.balanceCard}>
             <Text style={st.balanceLabel}>{t('crypto.balance')}</Text>
-            <Text style={st.balanceValue}>{formatSensitiveUsd(holdingValue, hideBalance)}</Text>
+            <Text style={st.balanceValue}>{money.value(holdingValue)}</Text>
             <Text style={st.balanceSub}>{formatHoldings(stock.holdings, stock.symbol)}</Text>
             <View style={st.balanceDivider} />
             <View style={st.balanceFooter}>
@@ -366,7 +371,7 @@ export default function StockDetailModal({
           <View style={st.statsCard}>
             <StatRow
               label={t('crypto.stockLastPrice')}
-              value={stock.price > 0 ? money.price(stock.price) : '—'}
+              value={priceLoading ? '—' : displayPrice > 0 ? money.price(displayPrice) : '—'}
             />
             <StatRow
               label={t('crypto.stockBid')}
@@ -440,7 +445,7 @@ export default function StockDetailModal({
         <StockTradeSheet
           visible={tradeSide !== null}
           side={tradeSide ?? 'buy'}
-          stock={stock}
+          stock={tradeStock}
           usdcBalance={usdcBalance}
           scaAddress={scaAddress}
           signTypedData={signTypedData}

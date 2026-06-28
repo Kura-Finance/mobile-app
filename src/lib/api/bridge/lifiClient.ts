@@ -4,7 +4,7 @@
  * Docs: https://docs.li.fi/li.fi-api/li.fi-api
  */
 
-import { LIFI_API, lifiHeaders, applyIntegratorParams } from "../bridge/lifiCommon";
+import { LIFI_API, lifiHeaders, applyIntegratorParams, LIFI_DEFAULT_SLIPPAGE } from "../bridge/lifiCommon";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Supported destination chains 
@@ -97,7 +97,7 @@ export async function fetchBridgeQuote(params: {
   toAddress: string;
   slippage?: number;
 }): Promise<LiFiBridgeQuote> {
-  const { fromChainId, toChainId, fromAmountWei, fromAddress, toAddress, slippage = 0.005 } = params;
+  const { fromChainId, toChainId, fromAmountWei, fromAddress, toAddress, slippage = LIFI_DEFAULT_SLIPPAGE } = params;
 
   const fromToken = USDC_BY_CHAIN[fromChainId] ?? 'USDC';
   const toToken = USDC_BY_CHAIN[toChainId] ?? 'USDC';

@@ -347,10 +347,14 @@ export async function getMorphoVaultPositions(userAddress: string): Promise<Morp
 
   const positions = data.userByAddress?.vaultPositions ?? [];
   return positions
-    .filter((p) => p.state && p.state.assetsUsd > 0)
+    .filter((p) => {
+      if (!p.state) return false;
+      const shares = BigInt(p.state.shares || '0');
+      return p.state.assetsUsd > 0 || shares > 0n;
+    })
     .map((p) => ({
       vaultAddress: p.vault.address.toLowerCase(),
-      assetsUsd: p.state!.assetsUsd,
+      assetsUsd: p.state!.assetsUsd ?? 0,
       shares: p.state!.shares,
     }));
 }

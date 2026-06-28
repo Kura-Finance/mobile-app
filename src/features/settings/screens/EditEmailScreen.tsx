@@ -1,7 +1,8 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  TextInput, Alert, ActivityIndicator,
+  TextInput, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLinkEmail, useUpdateEmail } from '@privy-io/expo';
@@ -140,7 +141,7 @@ export default function EditEmailScreen({ onClose }: Props) {
         >
           {isLoading ? (
             <>
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <LoadingDots compact color="#FFFFFF" size={6}    />
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
                 {t('settings.sending')}
               </Text>

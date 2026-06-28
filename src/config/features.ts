@@ -2,8 +2,8 @@
  * Feature flags for the open-source client.
  *
  * Core wallet + WalletConnect work without the proprietary Kura backend.
- * TrackFi, Plaid, DeBank, Dinari, and backend-proxied Gnosis Pay require
- * EXPO_PUBLIC_API_BASE_URL (official or self-hosted).
+ * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL
+ * (official or self-hosted).
  *
  * Morpho Earn uses Morpho's public API (no Kura backend) but needs Pimlico
  * for on-chain deposits — see src/config/earn.ts.
@@ -28,11 +28,8 @@ export const features = {
   /** DeBank proxy (/api/debank/*). */
   debank: hasKuraBackend(),
 
-  /** Dinari dShares in Discover → US Stock tab. */
-  dinariStocks: false,
-
-  /** Gnosis Pay card — direct SIWE mode or backend proxy. */
-  gnosisPay: env.gpDirectEnabled || hasKuraBackend(),
+  /** Dinari dShares in Invest → US Stock tab. */
+  dinariStocks: hasKuraBackend(),
 
   /** MoonPay ramp widget. */
   moonPay: env.moonpayApiKey.length > 0,

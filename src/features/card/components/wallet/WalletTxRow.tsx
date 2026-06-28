@@ -1,48 +1,43 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import LoadingDots from '../../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import type { WalletTx } from '../../hooks/useWalletHistory';
+import type { CryptoContact } from '../../hooks/useCryptoContacts';
 import {
-  formatTxAmount,
   formatTxRelativeTime,
+  formatTxListAmount,
   getTxAccentColor,
-  getTxAmountPrefix,
+  getTxSubtitleLines,
   getTxTypeLabel,
-  truncateAddress,
 } from '../../utils/walletTxDisplay';
+import WalletTxIcon from './WalletTxIcon';
 import { useHideBalance } from '../../../../shared/hooks/useHideBalance';
+import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 import { HIDDEN_BALANCE_TEXT } from '../../../../shared/utils/privacyDisplay';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
 interface Props {
   tx: WalletTx;
+  contacts?: CryptoContact[];
   onPress?: (tx: WalletTx) => void;
 }
 
-export default function WalletTxRow({ tx, onPress }: Props) {
-  const { t } = useTranslation();
+export default function WalletTxRow({ tx, contacts = [], onPress }: Props) {
   const { colors } = useTheme();
   const hideBalance = useHideBalance();
+  const money = useMoneyFormat();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const isBridge = tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit';
 
   const accent = getTxAccentColor(tx, colors);
   const typeLabel = getTxTypeLabel(tx);
-  const amountPrefix = getTxAmountPrefix(tx);
-  const subtitle = tx.statusLabelKey
-    ? t(tx.statusLabelKey)
-    : (tx.counterpartyName ?? truncateAddress(tx.counterparty));
+  const subtitleLines = getTxSubtitleLines(tx, contacts);
   const subtitleColor = tx.statusLabelKey ? (tx.statusColor ?? colors.textMuted) : colors.textMuted;
 
-  const directionIcon: string = isBridge
-    ? 'arrow-down-outline'
-    : tx.direction === 'self'
-      ? 'swap-horizontal-outline'
-      : tx.direction === 'in'
-        ? 'arrow-down-outline'
-        : 'arrow-up-outline';
+  const displayAmount = hideBalance
+    ? HIDDEN_BALANCE_TEXT
+    : formatTxListAmount(tx, money.value);
 
   const handlePress = useCallback(() => {
     onPress?.(tx);
@@ -56,31 +51,34 @@ export default function WalletTxRow({ tx, onPress }: Props) {
       disabled={!onPress}
     >
       <View style={[s.iconWrap, { backgroundColor: `${accent}1A` }]}>
-        <Ionicons name={directionIcon as any} size={18} color={accent} />
+        <WalletTxIcon tx={tx} size={18} color={accent} />
       </View>
       <View style={s.info}>
         <Text style={s.label}>{typeLabel}</Text>
         <View style={s.subtitleRow}>
           {tx.statusPending ? (
-            <ActivityIndicator size="small" color={subtitleColor} style={s.subtitleSpinner} />
+            <LoadingDots compact color={subtitleColor} size={6}   style={s.subtitleSpinner}  />
           ) : null}
-          <Text
-            style={[
-              s.counterparty,
-              tx.statusLabelKey ? { color: subtitleColor } : s.counterpartyMono,
-            ]}
-            numberOfLines={1}
-          >
-            {subtitle}
-          </Text>
+          <View style={s.subtitleCol}>
+            <Text
+              style={[
+                s.counterparty,
+                tx.statusLabelKey ? { color: subtitleColor } : null,
+              ]}
+              numberOfLines={1}
+            >
+              {subtitleLines.primary}
+            </Text>
+            {subtitleLines.secondary ? (
+              <Text style={s.counterpartySub} numberOfLines={1}>
+                {subtitleLines.secondary}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </View>
       <View style={s.right}>
-        <Text style={[s.amount, { color: accent }]}>
-          {hideBalance
-            ? HIDDEN_BALANCE_TEXT
-            : `${amountPrefix}${formatTxAmount(tx.amount, tx.tokenSymbol)}`}
-        </Text>
+        <Text style={[s.amount, { color: accent }]}>{displayAmount}</Text>
         <Text style={s.time}>{formatTxRelativeTime(tx.timestamp)}</Text>
       </View>
       {onPress ? (
@@ -110,10 +108,11 @@ function makeStyles(c: ThemeColors) {
     },
     info: { flex: 1 },
     label: { color: c.text, fontSize: 13, fontWeight: '600', marginBottom: 3 },
-    subtitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    subtitleSpinner: { transform: [{ scale: 0.75 }] },
+    subtitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    subtitleCol: { flex: 1, gap: 2 },
+    subtitleSpinner: { transform: [{ scale: 0.75 }], marginTop: 2 },
     counterparty: { color: c.textMuted, fontSize: 11, flexShrink: 1 },
-    counterpartyMono: { fontFamily: 'monospace' },
+    counterpartySub: { color: c.textFaint, fontSize: 10, fontFamily: 'monospace' },
     right: { alignItems: 'flex-end' },
     amount: { fontSize: 13, fontWeight: '700', marginBottom: 3 },
     time: { color: c.textFaint, fontSize: 11 },

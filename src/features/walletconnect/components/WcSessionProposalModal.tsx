@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { WalletKitTypes } from '@reown/walletkit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { BASE_CAIP2 } from '../../../lib/walletconnect/constants';
+import { requiredEip155ChainsSatisfied } from '../../../lib/walletconnect/constants';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 
@@ -29,13 +29,10 @@ export default function WcSessionProposalModal({
 
   const dappName = proposal?.params.proposer.metadata.name ?? t('walletConnect.unknownDapp');
   const dappUrl = proposal?.params.proposer.metadata.url ?? '';
-  const chains = useMemo(() => {
+  const canApprove = useMemo(() => {
     const required = proposal?.params.requiredNamespaces.eip155?.chains ?? [];
-    const optional = proposal?.params.optionalNamespaces.eip155?.chains ?? [];
-    return [...new Set([...required, ...optional])];
+    return requiredEip155ChainsSatisfied(required);
   }, [proposal]);
-
-  const supportsBase = chains.length === 0 || chains.includes(BASE_CAIP2);
 
   return (
     <Modal
@@ -66,7 +63,7 @@ export default function WcSessionProposalModal({
             <LegalDisclaimer variant="walletConnect" style={styles.dappDisclaimer} />
           </View>
 
-          {!supportsBase && (
+          {!canApprove && (
             <Text style={[styles.warning, { color: colors.warning }]}>
               {t('walletConnect.baseOnlyWarning')}
             </Text>
@@ -82,8 +79,8 @@ export default function WcSessionProposalModal({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onApprove}
-              disabled={!supportsBase || !smartAddress}
-              style={[styles.primaryBtn, { backgroundColor: supportsBase && smartAddress ? colors.text : colors.border }]}
+              disabled={!canApprove || !smartAddress}
+              style={[styles.primaryBtn, { backgroundColor: canApprove && smartAddress ? colors.text : colors.border }]}
               activeOpacity={0.8}
             >
               <Text style={[styles.primaryText, { color: colors.background }]}>{t('walletConnect.approve')}</Text>

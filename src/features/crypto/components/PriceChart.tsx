@@ -6,7 +6,8 @@
  * the trend (green up / red down).
  */
 import React, { useMemo } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import LoadingDots from '../../../shared/components/LoadingDots';
 import Svg, {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -59,7 +60,7 @@ export default function PriceChart({ prices, width, height, loading, positive }:
   if (loading && prices.length === 0) {
     return (
       <View style={[styles.center, { width, height }]}>
-        <ActivityIndicator size="small" color="#8B5CF6" />
+        <LoadingDots compact color="#8B5CF6" size={6}    />
       </View>
     );
   }

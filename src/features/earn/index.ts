@@ -1,5 +1,5 @@
 /**
- * Morpho Earn feature — public exports for Discover / Portfolio integration.
+ * Morpho Earn feature — public exports for Invest / Portfolio integration.
  */
 export { default as EarnView } from './screens/EarnView';
 export { default as EarnDetailModal } from './modals/EarnDetailModal';

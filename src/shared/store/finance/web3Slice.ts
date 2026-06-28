@@ -1,6 +1,7 @@
 import { StateCreator } from 'zustand';
 import { Web3State, SyncWalletPayload, Investment, InvestmentAccount, ChainMarketMeta, FinanceState } from './types';
 import Logger from '../../utils/Logger';
+import { coingeckoFetch } from '../../../lib/api/coingecko/client';
 
 // ============================================================================
 // Constants
@@ -83,64 +84,51 @@ async function getCoinPrice(
     }
   }
 
-  // 從 CoinGecko 獲取價格（帶重試）
-  const maxRetries = 3;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // 一次請求所有貨幣
-      const currencyList = SUPPORTED_CURRENCIES.join(',');
-      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=${currencyList}&include_24hr_change=true`;
+  // 從 CoinGecko 獲取價格（shared client handles 429 retry + in-flight dedup）
+  try {
+    const currencyList = SUPPORTED_CURRENCIES.join(',');
+    const url =
+      `/simple/price?ids=${coingeckoId}&vs_currencies=${currencyList}&include_24hr_change=true`;
+    const response = await coingeckoFetch(url);
 
-      const response = await fetch(url);
+    if (response.ok) {
+      const data = await response.json();
 
-      if (response.status === 429) {
-        // 限流 - 等待後重試
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        Logger.warn('Web3Slice', `⚠️ CoinGecko rate limited (429), retrying in ${delay}ms`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
+      if (data[coingeckoId]) {
+        const prices: Record<string, number> = {};
+        const changes: Record<string, number> = {};
 
-      if (response.ok) {
-        const data = await response.json();
-
-        if (data[coingeckoId]) {
-          const prices: Record<string, number> = {};
-          const changes: Record<string, number> = {};
-
-          SUPPORTED_CURRENCIES.forEach((curr) => {
-            prices[curr] = data[coingeckoId][curr] ?? 0;
-            changes[curr] = data[coingeckoId][`${curr}_24h_change`] ?? 0;
-          });
-
-          // 更新快取
-          PRICE_CACHE[cacheKey] = { prices, changes, timestamp: now };
-
-          Logger.info('Web3Slice', `💰 Price from CoinGecko: ${prices[currency].toFixed(2)} ${currency.toUpperCase()}`, {
-            coingeckoId,
-            currency,
-          });
-
-          return {
-            price: prices[currency],
-            change24h: changes[currency],
-          };
-        }
-      }
-
-      Logger.warn('Web3Slice', `⚠️ CoinGecko HTTP ${response.status}`);
-      break;
-    } catch (err) {
-      if (attempt === maxRetries) {
-        Logger.error('Web3Slice', '❌ Price fetch failed', {
-          error: err instanceof Error ? err.message : String(err),
+        SUPPORTED_CURRENCIES.forEach((curr) => {
+          prices[curr] = data[coingeckoId][curr] ?? 0;
+          changes[curr] = data[coingeckoId][`${curr}_24h_change`] ?? 0;
         });
-      } else {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        Logger.info('Web3Slice', `🔄 Retry in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+
+        PRICE_CACHE[cacheKey] = { prices, changes, timestamp: now };
+
+        Logger.info('Web3Slice', `💰 Price from CoinGecko: ${prices[currency].toFixed(2)} ${currency.toUpperCase()}`, {
+          coingeckoId,
+          currency,
+        });
+
+        return {
+          price: prices[currency],
+          change24h: changes[currency],
+        };
       }
     }
+
+    Logger.warn('Web3Slice', `⚠️ CoinGecko HTTP ${response.status}`);
+  } catch (err) {
+    Logger.error('Web3Slice', '❌ Price fetch failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  if (cached) {
+    return {
+      price: cached.prices[currency] ?? 0,
+      change24h: cached.changes[currency] ?? 0,
+    };
   }
 
   return { price: 0, change24h: 0 };

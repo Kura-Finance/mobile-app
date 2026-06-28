@@ -16,3 +16,7 @@ export function getAssetHistoryDaysLimit(label: string): number {
     ? BASIC_ASSET_HISTORY_DAYS
     : FULL_ASSET_HISTORY_DAYS;
 }
+
+export function isBasicMembership(label: string): boolean {
+  return parseMembershipTier(label) === 'basic';
+}

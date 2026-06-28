@@ -8,7 +8,7 @@ import {
   signScaTypedData,
   type TypedDataInput,
 } from '../wallet/smartAccountClient';
-import { BASE_CAIP2, BASE_CHAIN_ID_HEX } from './constants';
+import { BASE_CAIP2, BASE_CHAIN_ID_HEX, SUPPORTED_WC_CHAINS } from './constants';
 import Logger from '../../shared/utils/Logger';
 
 const TAG = 'WcSessionRouter';
@@ -143,7 +143,7 @@ export function buildSupportedNamespaces(scaAddress: string) {
   const account = `${BASE_CAIP2}:${scaAddress}`;
   return {
     eip155: {
-      chains: [BASE_CAIP2],
+      chains: [...SUPPORTED_WC_CHAINS],
       methods: [...[
         'eth_accounts',
         'eth_requestAccounts',

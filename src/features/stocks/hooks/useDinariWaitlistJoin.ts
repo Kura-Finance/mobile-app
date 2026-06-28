@@ -6,9 +6,9 @@ import { KuraApiError } from '../../../lib/api/errors';
 import { WAITLIST_PRODUCTS } from '../../../lib/api/waitlist';
 import { useWaitlistJoin } from '../../waitlist/hooks/useWaitlistJoin';
 
-export function useDinariWaitlistJoin() {
+export function useDinariWaitlistJoin(enabled = false) {
   const { t } = useTranslation();
-  const waitlist = useWaitlistJoin(WAITLIST_PRODUCTS.DINARI);
+  const waitlist = useWaitlistJoin(WAITLIST_PRODUCTS.DINARI, { enabled });
 
   const handleJoin = useCallback(async () => {
     if (!waitlist.hasRealEmail) {

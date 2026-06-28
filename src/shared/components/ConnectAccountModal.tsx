@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ActivityIndicator, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import LoadingDots from './LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import Logger from '../utils/Logger';
 import { useTheme } from '../theme/ThemeContext';
@@ -217,7 +218,7 @@ export default function ConnectAccountModal({
 
                     {/* Spinner or Arrow */}
                     {isConnecting === 'plaid' ? (
-                      <ActivityIndicator color="#8B5CF6" size="small" />
+                      <LoadingDots compact color="#8B5CF6" size={6}    />
                     ) : (
                       <Ionicons name="chevron-forward" size={20} color="#8B5CF6" />
                     )}
@@ -260,7 +261,7 @@ export default function ConnectAccountModal({
 
                     {/* Spinner or Arrow */}
                     {isConnecting === 'web3' ? (
-                      <ActivityIndicator color="#3B82F6" size="small" />
+                      <LoadingDots compact color="#3B82F6" size={6}    />
                     ) : (
                       <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
                     )}
@@ -303,7 +304,7 @@ export default function ConnectAccountModal({
 
                     {/* Spinner or Arrow */}
                     {isConnecting === 'exchange' ? (
-                      <ActivityIndicator color="#22C55E" size="small" />
+                      <LoadingDots compact color="#22C55E" size={6}    />
                     ) : (
                       <Ionicons name="chevron-forward" size={20} color="#22C55E" />
                     )}

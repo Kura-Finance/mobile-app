@@ -6,7 +6,7 @@ import * as locales from './index';
 // indistinguishable from React's `use` hook to eslint-plugin-react-hooks.
 i18n.use(initReactI18next).init({
   resources: locales.resources,
-  lng: 'zh-TW',
+  lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
   ns: ['common'],

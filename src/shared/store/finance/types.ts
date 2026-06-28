@@ -47,6 +47,8 @@ export interface Account {
   plaidLogo?: string;
   apy?: number;
   mask?: string;
+  /** Credit card limit when provided by Plaid. */
+  creditLimit?: number;
   cachedAt?: string;
 }
 

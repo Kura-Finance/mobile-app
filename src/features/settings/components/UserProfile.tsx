@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
+import LoadingDots from '../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 
@@ -38,7 +39,7 @@ export default function UserProfile({ displayName, email, avatarUrl, onAvatarPre
         )}
         {isLoadingAvatar ? (
           <View style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <LoadingDots compact color="#FFFFFF" size={6}    />
           </View>
         ) : (
           <View style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0)', alignItems: 'center', justifyContent: 'center' }}>

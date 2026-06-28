@@ -21,7 +21,9 @@ import QRCode from 'react-native-qrcode-svg';
 
 import TokenLogo from '../components/TokenLogo';
 import type { BluechipToken } from '../config/blueChips';
+import { getTokenLocalizedName } from '../utils/tokenDisplay';
 import { makeModalStyles } from '../../card/modals/modalStyles';
+import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
@@ -64,9 +66,12 @@ export default function TokenDepositModal({ visible, token, scaAddress, onClose 
           <View style={st.handle} />
           <View style={st.titleRow}>
             <View style={st.navBtn} />
-            <Text style={st.title} numberOfLines={1}>
-              {t('crypto.depositToken', { symbol: token.displayName })}
-            </Text>
+            <View style={st.titleGroup}>
+              <Text style={st.title} numberOfLines={1}>
+                {t('crypto.depositToken', { symbol: token.displayName })}
+              </Text>
+              <LegalDisclaimerInfoButton variant="deposit" size={18} />
+            </View>
             <TouchableOpacity onPress={handleClose} style={st.navBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
@@ -77,7 +82,7 @@ export default function TokenDepositModal({ visible, token, scaAddress, onClose 
           <View style={st.tokenHero}>
             <TokenLogo token={token} size={48} />
             <View style={{ flex: 1 }}>
-              <Text style={st.tokenName}>{token.name}</Text>
+              <Text style={st.tokenName}>{getTokenLocalizedName(token)}</Text>
               <View style={st.chipRow}>
                 <View style={st.chip}>
                   <Text style={st.chipText}>Base</Text>
@@ -154,7 +159,15 @@ function makeStyles(c: ThemeColors) {
       alignSelf: 'center', marginTop: 12, marginBottom: 14,
     },
     titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-    title: { flex: 1, textAlign: 'center', color: c.text, fontSize: 18, fontWeight: '700' },
+    titleGroup: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      paddingHorizontal: 4,
+    },
+    title: { flexShrink: 1, textAlign: 'center', color: c.text, fontSize: 18, fontWeight: '700' },
     navBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     content: { paddingHorizontal: 24, paddingBottom: 32 },
 

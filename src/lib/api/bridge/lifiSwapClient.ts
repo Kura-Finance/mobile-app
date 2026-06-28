@@ -5,7 +5,7 @@
  */
 
 import { USDC_BASE } from '../../../features/card/config/cardWalletConfig';
-import { LIFI_API, lifiHeaders, applyIntegratorParams } from '../bridge/lifiCommon';
+import { LIFI_API, lifiHeaders, applyIntegratorParams, integratorFeeUsdFromQuote, LIFI_DEFAULT_SLIPPAGE } from '../bridge/lifiCommon';
 
 const BASE_CHAIN_ID = 8453;
 
@@ -19,8 +19,10 @@ export interface SwapQuote {
   toAmountMin: string;
   /** Estimated USD value of output */
   toAmountUSD?: string;
-  /** Fee in USD */
+  /** Total protocol fees in USD (Li.Fi + integrator when configured) */
   feeUSD: string;
+  /** Integrator share in USD when EXPO_PUBLIC_LIFI_* is configured */
+  integratorFeeUSD: string;
   /** Tools/DEXes used */
   tools: string[];
   /** Approval spender (the Li.Fi router, must be USDC-approved before tx) */
@@ -52,7 +54,7 @@ export async function fetchSwapQuote(params: {
     fromAddress,
     fromTokenAddress = USDC_BASE,
     toTokenAddress,
-    slippage = 0.005,
+    slippage = LIFI_DEFAULT_SLIPPAGE,
   } = params;
 
   const qs = new URLSearchParams({
@@ -91,6 +93,7 @@ export async function fetchSwapQuote(params: {
   const feeUSD = feeCosts
     .reduce((sum: number, f: any) => sum + parseFloat(f.amountUSD ?? '0'), 0)
     .toFixed(4);
+  const integratorFeeUSD = integratorFeeUsdFromQuote(json).toFixed(4);
 
   const tools: string[] = (json.includedSteps ?? [])
     .map((s: any) => s.tool as string)
@@ -112,6 +115,7 @@ export async function fetchSwapQuote(params: {
     toAmountMin: est.toAmountMin ?? '0',
     toAmountUSD: est.toAmountUSD,
     feeUSD,
+    integratorFeeUSD,
     tools,
     approvalAddress: est.approvalAddress ?? tr.to,
     transactionRequest: {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import i18n from '../../../shared/locales/i18n';
+import { coingeckoJson } from '../../../lib/api/coingecko/client';
 import { BLUE_CHIPS, GECKO_IDS, BluechipToken } from '../config/blueChips';
 import type { TokenBalances } from './useBaseBalances';
 
@@ -11,33 +12,45 @@ export interface PortfolioToken {
   token: BluechipToken;
   price: number;
   change24h: number;
+  marketCap: number;
   holdings: number;
   value: number;
 }
 
+type PriceRow = { usd: number; usd_24h_change: number; usd_market_cap?: number };
+type PriceMap = Record<string, PriceRow>;
+
 // ─────────────────────────────────────────────────────────────────────────────
-// CoinGecko price fetch (free tier, no key required)
+// CoinGecko price fetch (free tier, optional API key via env)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COINGECKO_URL =
-  `https://api.coingecko.com/api/v3/simple/price` +
-  `?ids=${GECKO_IDS}&vs_currencies=usd&include_24hr_change=true`;
+  `/simple/price` +
+  `?ids=${GECKO_IDS}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`;
 
-const CACHE_TTL_MS = 60_000; // 1 minute
+const CACHE_TTL_MS = 3 * 60_000; // 3 minutes — free tier is ~10–30 req/min
 
-let priceCache: Record<string, { usd: number; usd_24h_change: number }> | null = null;
+let priceCache: PriceMap | null = null;
 let lastFetchAt = 0;
+let fetchPromise: Promise<PriceMap> | null = null;
 
-async function fetchPrices(): Promise<Record<string, { usd: number; usd_24h_change: number }>> {
+async function fetchPrices(force = false): Promise<PriceMap> {
   const now = Date.now();
-  if (priceCache && now - lastFetchAt < CACHE_TTL_MS) return priceCache;
+  if (!force && priceCache && now - lastFetchAt < CACHE_TTL_MS) return priceCache;
 
-  const res = await fetch(COINGECKO_URL);
-  if (!res.ok) throw new Error(`CoinGecko ${res.status}`);
-  const data = await res.json();
-  priceCache = data;
-  lastFetchAt = now;
-  return data;
+  if (!force && fetchPromise) return fetchPromise;
+
+  fetchPromise = coingeckoJson<PriceMap>(COINGECKO_URL)
+    .then((data) => {
+      priceCache = data;
+      lastFetchAt = Date.now();
+      return data;
+    })
+    .finally(() => {
+      fetchPromise = null;
+    });
+
+  return fetchPromise;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,27 +67,26 @@ export function usePortfolio(tokenBalances: TokenBalances) {
   const balancesRef = useRef(tokenBalances);
   balancesRef.current = tokenBalances;
 
-  // Recompute when on-chain balances arrive or change (initial mount often has {}).
   const holdingsKey = useMemo(
     () => BLUE_CHIPS.map((token) => tokenBalances[token.symbol] ?? 0).join('|'),
     [tokenBalances],
   );
 
-  const applyPrices = useCallback((
-    prices: Record<string, { usd: number; usd_24h_change: number }>,
-  ) => {
+  const applyPrices = useCallback((prices: PriceMap) => {
     const balances = balancesRef.current;
 
     const result: PortfolioToken[] = BLUE_CHIPS.map((token) => {
       const priceData = prices[token.geckoId];
       const price = priceData?.usd ?? 0;
       const change24h = priceData?.usd_24h_change ?? 0;
+      const marketCap = priceData?.usd_market_cap ?? 0;
       const holdings = balances[token.symbol] ?? 0;
 
       return {
         token,
         price,
         change24h,
+        marketCap,
         holdings,
         value: holdings * price,
       };
@@ -90,32 +102,40 @@ export function usePortfolio(tokenBalances: TokenBalances) {
     setIsLoading(false);
   }, []);
 
-  const load = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (opts?: { refresh?: boolean; force?: boolean }) => {
+    const isRefresh = opts?.refresh ?? false;
+    const force = opts?.force ?? false;
+
     if (isRefresh) setIsRefreshing(true);
     setError(null);
     try {
-      const prices = await fetchPrices();
+      const prices = await fetchPrices(force);
       applyPrices(prices);
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n.t('crypto.failedLoadPrices'));
+      const message = err instanceof Error ? err.message : i18n.t('crypto.failedLoadPrices');
+      if (priceCache) {
+        applyPrices(priceCache);
+        if (!message.includes('429')) setError(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [applyPrices]);
 
+  // Fetch on mount; balance changes only recompute from cache (no extra API call).
   useEffect(() => {
-    const now = Date.now();
-    if (priceCache && now - lastFetchAt < CACHE_TTL_MS) {
-      applyPrices(priceCache);
-      return;
-    }
     void load();
-  }, [holdingsKey, load, applyPrices]);
+  }, [load]);
+
+  useEffect(() => {
+    if (priceCache) applyPrices(priceCache);
+  }, [holdingsKey, applyPrices]);
 
   const refresh = useCallback(() => {
-    priceCache = null; // bust cache on manual refresh
-    load(true);
+    void load({ refresh: true, force: true });
   }, [load]);
 
   return { tokens, totalValue, isLoading, isRefreshing, error, refresh };

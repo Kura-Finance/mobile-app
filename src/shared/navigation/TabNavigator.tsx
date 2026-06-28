@@ -1,34 +1,42 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import KuraCardScreen from '../../features/card/screens/KuraCardScreen';
-import DiscoverScreen from '../../features/crypto/screens/DiscoverScreen';
+import InvestScreen from '../../features/crypto/screens/InvestScreen';
+import BorrowScreen from '../../features/borrow/screens/BorrowScreen';
 import PortfolioScreen from '../../features/crypto/screens/PortfolioScreen';
 import TrackFiScreen from '../../features/trackfi/screens/TrackFiScreen';
 import { TabNavigatorProvider } from './TabNavigatorContext';
 import { useTheme } from '../theme/ThemeContext';
 import { useHeaderStore } from '../store/useHeaderStore';
 import { features } from '../../config/features';
+import { setTrackFiHeaderHandlers } from '../../features/trackfi/navigation/trackFiHeaderHandlers';
 
-const Stack = createNativeStackNavigator();
-
-export type TabName = 'Home' | 'Discover' | 'Portfolio' | 'TrackFi';
+export type TabName = 'Home' | 'Invest' | 'Borrow' | 'Portfolio' | 'TrackFi';
 export type InvestmentCategory = 'Transaction' | 'Stock' | 'Crypto' | 'DeFi';
 
 interface TabOption {
   name: TabName;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   labelKey: string;
 }
 
+const TAB_SCREENS: Record<TabName, React.ComponentType> = {
+  Home: KuraCardScreen,
+  Invest: InvestScreen,
+  Borrow: BorrowScreen,
+  Portfolio: PortfolioScreen,
+  TrackFi: TrackFiScreen,
+};
+
 const TABS: TabOption[] = [
-  { name: 'Home',      icon: 'home-outline',        labelKey: 'nav.home'      },
-  { name: 'Discover',  icon: 'compass-outline',     labelKey: 'nav.discover'  },
-  { name: 'Portfolio', icon: 'pie-chart-outline',   labelKey: 'nav.portfolio' },
+  { name: 'Home',      icon: 'home-outline',       labelKey: 'nav.home'      },
+  { name: 'Invest',    icon: 'stats-chart-outline', labelKey: 'nav.invest'    },
+  { name: 'Borrow',    icon: 'arrow-down-circle-outline', labelKey: 'nav.borrow' },
+  { name: 'Portfolio', icon: 'pie-chart-outline',  labelKey: 'nav.portfolio' },
   { name: 'TrackFi',   icon: 'trending-up-outline', labelKey: 'nav.trackFi'   },
 ];
 
@@ -38,37 +46,59 @@ export default function TabNavigator() {
   const { colors, scheme } = useTheme();
   const { t } = useTranslation();
   const setScrolled = useHeaderStore((s) => s.setScrolled);
+  const setHeaderContent = useHeaderStore((s) => s.setHeaderContent);
+  const setTrackFiToolbar = useHeaderStore((s) => s.setTrackFiToolbar);
 
   const visibleTabs = useMemo(
-    () => TABS.filter((tab) => tab.name !== 'TrackFi' || features.trackFi),
+    () => TABS.filter((tab) => {
+      if (tab.name === 'TrackFi' && !features.trackFi) return false;
+      if (tab.name === 'Borrow' && !features.morphoEarn) return false;
+      return true;
+    }),
     [],
   );
+
+  /** Mount each tab once visited so TrackFi passkey state survives tab switches. */
+  const [mountedTabs, setMountedTabs] = useState<Set<TabName>>(() => new Set(['Home']));
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === 'TrackFi' && !features.trackFi) {
       setActiveTab('Home');
+    } else if (activeTab === 'Borrow' && !features.morphoEarn) {
+      setActiveTab('Home');
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'Portfolio') {
+      setHeaderContent(t('nav.portfolio'), t('crypto.portfolioSubtitle'));
+    } else if (activeTab === 'Invest') {
+      setHeaderContent(t('nav.invest'), t('crypto.investSubtitle'));
+    } else if (activeTab === 'Borrow') {
+      setHeaderContent(t('crypto.borrow'), t('crypto.borrowSubtitle'));
+    } else if (activeTab !== 'TrackFi') {
+      setHeaderContent(null, null);
+    }
+
+    if (activeTab !== 'TrackFi') {
+      setTrackFiToolbar(null);
+      setTrackFiHeaderHandlers(null);
+    }
+  }, [activeTab, setHeaderContent, setTrackFiToolbar, t]);
 
   const handleSelectTab = (name: TabName) => {
     setScrolled(false);
     setActiveTab(name);
   };
-
-  const ScreenComponent = useMemo(() => {
-    switch (activeTab) {
-      case 'Home':
-        return KuraCardScreen;
-      case 'Discover':
-        return DiscoverScreen;
-      case 'Portfolio':
-        return PortfolioScreen;
-      case 'TrackFi':
-        return TrackFiScreen;
-      default:
-        return KuraCardScreen;
-    }
-  }, [activeTab]);
 
   const renderTabItems = () => (
     <View style={styles.tabContainer}>
@@ -84,7 +114,7 @@ export default function TabNavigator() {
             ]}
           >
             <Ionicons
-              name={tab.icon as any}
+              name={tab.icon}
               size={20}
               color={isActive ? colors.primary : colors.text}
             />
@@ -104,13 +134,23 @@ export default function TabNavigator() {
   );
 
   return (
-    <TabNavigatorProvider switchToTab={handleSelectTab}>
+    <TabNavigatorProvider activeTab={activeTab} switchToTab={handleSelectTab}>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-          <Stack.Screen name="TabContent">
-            {() => <ScreenComponent />}
-          </Stack.Screen>
-        </Stack.Navigator>
+        <View style={{ flex: 1 }}>
+          {Array.from(mountedTabs).map((tabName) => {
+            const Screen = TAB_SCREENS[tabName];
+            const isActive = activeTab === tabName;
+            return (
+              <View
+                key={tabName}
+                style={{ flex: 1, display: isActive ? 'flex' : 'none' }}
+                pointerEvents={isActive ? 'auto' : 'none'}
+              >
+                <Screen />
+              </View>
+            );
+          })}
+        </View>
 
         <View
           style={[

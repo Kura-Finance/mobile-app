@@ -20,7 +20,7 @@ If credentials were ever committed to git, shared in chat, or built into a leake
 | logo.dev publishable key | [logo.dev](https://logo.dev) | Stock/crypto logos |
 | MoonPay API key | [dashboard.moonpay.com](https://dashboard.moonpay.com) | Fiat on-ramp |
 | Li.Fi integrator / API key | [li.fi](https://li.fi) | Swap / bridge fees |
-| Gnosis Pay partner / SIWE | Gnosis Pay support | Card direct mode |
+| Morpho fee recipient / wrappers | Your deployment | Earn yield fees |
 | Base RPC provider key | Alchemy / Infura dashboard | On-chain reads |
 | Android keystore passwords | Generate new keystore if compromised | Play Store signing |
 | Kura backend JWT secret | Kura ops (not in this repo) | If backend leaked |

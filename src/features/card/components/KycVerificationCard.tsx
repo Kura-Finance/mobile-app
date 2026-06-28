@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * KycVerificationCard
  *
@@ -19,7 +20,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -280,7 +280,7 @@ function PrimaryButton({
         style={c.primaryBtnInner}
       >
         {loading ? (
-          <ActivityIndicator color="#FFF" size="small" />
+          <LoadingDots compact color="#FFF" size={6}    />
         ) : (
           <>
             <Ionicons name={icon} size={17} color="#FFF" />

@@ -18,6 +18,7 @@ import { makeModalStyles } from '../modalStyles';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import ChainPickerSheet from './ChainPickerSheet';
+import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 
 const BRIDGE_GAS_PROBE_USDC = 1;
@@ -45,6 +46,7 @@ export default function SendView({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const money = useMoneyFormat();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const st = useMemo(() => makeStyles(colors), [colors]);
   const [chain, setChain] = useState<ChainOption>(initialChain);
@@ -172,7 +174,7 @@ export default function SendView({
               <Text style={st.gasValue}>
                 {gasEstimating
                   ? t('card.estimatingGas')
-                  : t('card.gasUsdcValue', { gas: gasReserve.toFixed(2) })}
+                  : t('card.gasUsdcValue', { gas: money.value(gasReserve) })}
               </Text>
             </View>
           ) : null}

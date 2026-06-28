@@ -1,7 +1,8 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  TextInput, Alert, ActivityIndicator,
+  TextInput, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIdentityToken, useLinkEmail, usePrivy, usePrivyClient, useUpdateEmail } from '@privy-io/expo';
@@ -138,7 +139,7 @@ export default function VerifyEmailChangeScreen({ newEmail, mode, onClose }: Pro
         >
           {isLoading ? (
             <>
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <LoadingDots compact color="#FFFFFF" size={6}    />
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
                 {t('settings.verifying')}
               </Text>

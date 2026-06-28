@@ -27,11 +27,13 @@ Typical changes:
 | `bundleId` | `com.example.mywallet` (unique on stores) |
 | `scheme` | Deep link scheme, e.g. `mywallet://` |
 | `homepage` | `https://example.com` |
-| `webCredentialsHost` | Passkey / web credentials host |
+| `webCredentialsHost` | Passkey RP ID / web credentials host |
+| `passkeyRpName` | WebAuthn relying party display name |
+| `walletKitDescription` | WalletConnect WalletKit metadata |
 | `universalLinkHost` | App Links / Universal Links host |
 | `walletId` | Stable ID for Reown WalletGuide |
 
-Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png`, `favicon.png`.
+Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png` (web favicon reuses `icon.png`).
 
 Update [`app.config.js`](../app.config.js) `version` when shipping releases.
 
@@ -66,14 +68,15 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs if unset; see logo.dev domain restrictions in [official-services.md](official-services.md) |
 | `EXPO_PUBLIC_MOONPAY_*` | Buy crypto | Optional |
 | `EXPO_PUBLIC_LIFI_*` | Integrator fee on swaps | Optional |
-| `EXPO_PUBLIC_MORPHO_EARN_ENABLED` | Discover → Earn tab | Default on when Pimlico key set |
+| `EXPO_PUBLIC_MORPHO_EARN_ENABLED` | Invest → Earn tab | Default on when Pimlico key set |
 | `EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST` | Vault addresses (JSON array) | Default Steakhouse USDC + Gauntlet EURC Balanced + USDC |
 | `EXPO_PUBLIC_MORPHO_EARN_FEE` | Optional performance fee on yield | Requires fee-wrapper + recipient |
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` | Inner vault → wrapper address map (JSON) | See `src/config/earnFeeWrapper.ts` |
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` | Query Morpho for matching wrappers | Default `true`; set `false` for overrides-only |
-| `EXPO_PUBLIC_GP_*` | Gnosis Pay direct SIWE | See below |
 
 Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari automatically. Earn vault list → [`src/config/earn.ts`](../src/config/earn.ts). Fee-wrapper routing → [`src/config/earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts).
+
+> **Earn fee defaults:** `src/config/earnFeeWrapper.ts` ships Kura-deployed fee-wrapper addresses for the official app. Forks should set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` and `EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT` to their own contracts, or set `EXPO_PUBLIC_MORPHO_EARN_FEE=0` to disable yield fees.
 
 Store builds: production values in `.env` **before** `prebuild` — [local-release.md](local-release.md).
 
@@ -114,17 +117,7 @@ Register your wallet in [Reown WalletGuide](https://walletguide.walletconnect.ne
 
 Set `EXPO_PUBLIC_KURA_WALLET_ICON_URL` or rely on `branding.defaultIconUrl`.
 
-### 5. Gnosis Pay (optional)
-
-Direct SIWE (`EXPO_PUBLIC_GP_DIRECT_ENABLED=true`):
-
-1. Obtain `EXPO_PUBLIC_GP_PARTNER_ID` from Gnosis Pay
-2. Set `EXPO_PUBLIC_GP_SIWE_DOMAIN` and `EXPO_PUBLIC_GP_SIWE_URI` to **whitelisted** values
-3. JWT TTL: `EXPO_PUBLIC_GP_JWT_TTL_SECONDS` (default 12h, max 24h)
-
-Without direct mode, card flows use the Kura backend proxy when `EXPO_PUBLIC_API_BASE_URL` is set.
-
-### 6. Verify locally
+### 5. Verify locally
 
 ```bash
 npm install
@@ -134,7 +127,7 @@ npx tsc --noEmit
 npx expo run:ios    # or run:android
 ```
 
-### 7. Security before publishing
+### 6. Security before publishing
 
 - [ ] Rotate any keys ever committed — [secrets-rotation.md](secrets-rotation.md)
 - [ ] Never commit `.env`, keystores, `android/gradle.properties`, `android/local.properties`
@@ -178,16 +171,14 @@ npx expo prebuild --clean
 
 `kuraWalletListing.ts` 与 `AppKitConfig.ts` 自动使用 branding。可在 Reown WalletGuide 注册钱包。
 
-### 5. Gnosis Pay
+Earn 收益费默认地址见 `earnFeeWrapper.ts`；fork 请改 env 或设 `EXPO_PUBLIC_MORPHO_EARN_FEE=0`。
 
-直连 SIWE 需 partner ID 与白名单域名；否则使用 Kura 后端代理。
-
-### 6. 验证
+### 5. 验证
 
 ```bash
 npm run lint && npm test && npx tsc --noEmit
 ```
 
-### 7. 发布前
+### 6. 发布前
 
 轮换泄露密钥、勿提交敏感文件、更新 SECURITY 联系邮箱、遵守 GPL-3.0。

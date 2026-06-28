@@ -20,12 +20,15 @@ export default function BankAccountRow({ account, flag, onPress, onDelete }: Pro
   const st = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef = useRef<Swipeable>(null);
 
-  const title = account.bankName || account.accountOwnerName || t('card.bankAccount');
+  const title = account.accountOwnerName || account.bankName || t('card.recipient');
+  const subtitle = account.bankName && account.accountOwnerName && account.bankName !== account.accountOwnerName
+    ? account.bankName
+    : null;
 
   const row = (
     <TouchableOpacity style={st.row} onPress={onPress} activeOpacity={0.7}>
       <View style={st.bankIcon}>
-        <Ionicons name="business" size={20} color={colors.primary} />
+        <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
       </View>
       <View style={st.info}>
         <Text style={st.name} numberOfLines={1}>{title}</Text>
@@ -33,7 +36,8 @@ export default function BankAccountRow({ account, flag, onPress, onDelete }: Pro
           <Text style={st.flag}>{flag}</Text>
           <Text style={st.metaText}>
             {(account.currency ?? '').toUpperCase()}
-            {account.last4 ? ` · ${account.last4}` : ''}
+            {account.last4 ? ` · •••• ${account.last4}` : ''}
+            {subtitle ? ` · ${subtitle}` : ''}
           </Text>
         </View>
       </View>

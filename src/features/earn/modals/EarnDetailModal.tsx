@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * EarnDetailModal
  *
@@ -7,7 +8,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   ScrollView,
@@ -38,13 +38,13 @@ import {
 import { useKuraCardWallet } from '../../card/context/KuraCardWalletContext';
 import PriceChart from '../../crypto/components/PriceChart';
 import { TIMEFRAMES, type Timeframe } from '../../crypto/hooks/useTokenDetail';
+import { formatChartTimeframe } from '../../crypto/utils/tokenDisplay';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
+import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
+import { earnFavoriteKey } from '../utils/earnFavorites';
 
 const SCREEN_W = Dimensions.get('window').width;
 const CHART_H = 200;
@@ -74,10 +74,6 @@ function formatHoldings(n: number, symbol: string): string {
   if (n < 0.0001) return `${n.toExponential(2)} ${symbol}`;
   if (n < 1) return `${n.toFixed(6)} ${symbol}`;
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${symbol}`;
-}
-
-function earnFavoriteKey(vault: MorphoVault): string {
-  return `earn:${vault.address.toLowerCase()}`;
 }
 
 function StatRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -115,7 +111,6 @@ export default function EarnDetailModal({
   const insets = useSafeAreaInsets();
   const st = useStyles();
   const money = useMoneyFormat();
-  const hideBalance = useHideBalance();
   const wallet = useKuraCardWallet();
 
   const favorites = useFavoritesStore((s) => s.favorites);
@@ -152,14 +147,16 @@ export default function EarnDetailModal({
 
   const starred = v ? favorites.includes(earnFavoriteKey(v)) : false;
   const grossNetApy = v?.netApy ?? 0;
-  const appliesServiceFee = appliesEarnServiceFee(v?.address ?? '');
   const depositRouting = useMemo(
     () => resolveMorphoDepositFromMap(v?.address ?? '', MORPHO_FEE_WRAPPER_OVERRIDES),
     [v?.address],
   );
+  const appliesServiceFee =
+    appliesEarnServiceFee(v?.address ?? '') || depositRouting.usesFeeWrapper;
   const displayNetApy = effectiveEarnNetApy(grossNetApy, appliesServiceFee);
-  const displayBalance = position.assetsFormatted > 0 ? position.assetsFormatted : depositedUsd;
-  const hasDeposit = displayBalance > 0;
+  const balanceUsd = depositedUsd > 0 ? depositedUsd : position.assetsFormatted;
+  const tokenBalance = position.assetsFormatted > 0 ? position.assetsFormatted : depositedUsd;
+  const hasDeposit = balanceUsd > 0;
 
   const chartUp = apys.length >= 2 ? apys[apys.length - 1] >= apys[0] : displayNetApy >= 0;
   const chartMin = apys.length ? Math.min(...apys) : 0;
@@ -198,7 +195,10 @@ export default function EarnDetailModal({
             <TouchableOpacity onPress={onClose} style={st.iconBtn} activeOpacity={0.7}>
               <Ionicons name="chevron-back" size={22} color={colors.text} />
             </TouchableOpacity>
-            <Text style={st.topTitle}>{topTitle}</Text>
+            <View style={st.topTitleGroup}>
+              <Text style={st.topTitle}>{topTitle}</Text>
+              <LegalDisclaimerInfoButton variant="earn" size={18} />
+            </View>
             <View style={st.topRight}>
               <TouchableOpacity
                 onPress={() => toggleFavorite(earnFavoriteKey(v))}
@@ -221,7 +221,7 @@ export default function EarnDetailModal({
               </View>
               <Text style={st.assetName}>{v.name}</Text>
               {detailLoading ? (
-                <ActivityIndicator style={{ marginTop: 8 }} color={colors.primary} />
+                <LoadingDots color={colors.primary} size={8} style={{ marginTop: 8 }}   />
               ) : (
                 <Text style={st.bigPrice}>{formatApy(displayNetApy)}</Text>
               )}
@@ -231,7 +231,7 @@ export default function EarnDetailModal({
                     {isPositive ? '↗' : '↘'} {isPositive ? '+' : '−'}
                     {Math.abs(apyDelta).toFixed(2)}%
                   </Text>
-                  <Text style={st.changeMuted}>{timeframe}</Text>
+                  <Text style={st.changeMuted}>{formatChartTimeframe(t, timeframe)}</Text>
                 </View>
               )}
               {!apyDelta && (
@@ -267,7 +267,9 @@ export default function EarnDetailModal({
                     style={[st.tfBtn, activeTf && st.tfBtnActive]}
                     activeOpacity={0.7}
                   >
-                    <Text style={[st.tfText, activeTf && st.tfTextActive]}>{tf}</Text>
+                    <Text style={[st.tfText, activeTf && st.tfTextActive]}>
+                      {formatChartTimeframe(t, tf)}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
@@ -276,10 +278,10 @@ export default function EarnDetailModal({
             <View style={st.balanceCard}>
               <Text style={st.balanceLabel}>{t('crypto.balance')}</Text>
               <Text style={st.balanceValue}>
-                {formatSensitiveUsd(displayBalance, hideBalance)}
+                {money.value(balanceUsd)}
               </Text>
               <Text style={st.balanceSub}>
-                {formatHoldings(displayBalance, v.asset.symbol)}
+                {formatHoldings(tokenBalance, v.asset.symbol)}
               </Text>
               <View style={st.balanceDivider} />
               <View style={st.balanceFooter}>
@@ -317,8 +319,6 @@ export default function EarnDetailModal({
             <Text style={st.aboutText}>
               {v.description?.trim() || t('crypto.earnAboutFallback', { name: v.name, symbol: v.asset.symbol })}
             </Text>
-
-            <LegalDisclaimer variant="earn" style={st.legal} />
           </ScrollView>
 
           <View style={[st.actionBar, { paddingBottom: insets.bottom + 10 }]}>
@@ -381,6 +381,11 @@ function makeStyles(c: ThemeColors) {
       justifyContent: 'space-between',
       paddingHorizontal: 16,
       paddingBottom: 8,
+    },
+    topTitleGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     topTitle: { color: c.text, fontSize: 17, fontWeight: '700' },
     topRight: { flexDirection: 'row', gap: 8, width: 40, justifyContent: 'flex-end' },
@@ -508,11 +513,6 @@ function makeStyles(c: ThemeColors) {
       fontSize: 14,
       lineHeight: 21,
       paddingHorizontal: 20,
-    },
-    legal: {
-      marginTop: 20,
-      marginHorizontal: 20,
-      marginBottom: 8,
     },
 
     actionBar: {

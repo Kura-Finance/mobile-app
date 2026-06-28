@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import LoadingDots from '../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -71,7 +72,7 @@ export default function MetalCardDmPage({
         activeOpacity={0.85}
       >
         {notifyLoading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <LoadingDots compact color="#FFFFFF" size={6}    />
         ) : (
           <Text style={s.ctaText}>
             {notifyJoined ? t('card.notifyJoined') : t('card.notifyMe')}

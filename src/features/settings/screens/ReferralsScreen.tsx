@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -7,10 +8,10 @@ import {
   Alert,
   Share,
   TextInput,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -40,6 +41,7 @@ type CashbackTab = CashbackStatus;
 export default function ReferralsScreen({ onClose }: Props) {
   const { t } = useAppTranslation();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const referCode = useAppStore((s) => s.userProfile.referCode);
   const referredByCode = useAppStore((s) => s.userProfile.referredByCode);
   const referralCount = useAppStore((s) => s.userProfile.referralCount ?? 0);
@@ -163,9 +165,14 @@ export default function ReferralsScreen({ onClose }: Props) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        style={{ flex: 1, paddingTop: 64, paddingHorizontal: 24 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: Math.max(insets.top, 16) + 48,
+          paddingHorizontal: 24,
+          paddingBottom: Math.max(insets.bottom, 16) + 48,
+        }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>
@@ -187,7 +194,7 @@ export default function ReferralsScreen({ onClose }: Props) {
         </View>
 
         {profileLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginBottom: 24 }} />
+          <LoadingDots color={colors.primary} size={8}  style={{ marginBottom: 24 }}  />
         ) : null}
 
         <Text style={{ color: colors.textMuted, fontSize: 14, lineHeight: 21, marginBottom: 24 }}>
@@ -349,7 +356,7 @@ export default function ReferralsScreen({ onClose }: Props) {
                 activeOpacity={0.75}
               >
                 {applyLoading ? (
-                  <ActivityIndicator color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <LoadingDots color="#FFFFFF" size={8}  style={{ marginRight: 8 }}  />
                 ) : null}
                 <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
                   {applyLoading ? t('settings.referralsApplying') : t('settings.referralsApplyButton')}
@@ -401,7 +408,7 @@ export default function ReferralsScreen({ onClose }: Props) {
           </View>
 
           {historyLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
+            <LoadingDots color={colors.primary} size={8}  style={{ marginVertical: 16 }}  />
           ) : historyItems.length === 0 ? (
             <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', paddingVertical: 16 }}>
               {t('settings.referralsCashbackEmpty')}

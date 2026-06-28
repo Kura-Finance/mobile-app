@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useMemo } from 'react';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Transaction } from '../../../../shared/store/useFinanceStore';
 import CurrencyDisplay from '../../../../shared/components/CurrencyDisplay';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
+import type { ThemeColors } from '../../../../shared/theme/theme';
 import { useTranslation } from 'react-i18next';
 
 interface TransactionsDetailModalProps {
@@ -23,6 +24,8 @@ export default function TransactionsDetailModal({
 }: TransactionsDetailModalProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const st = useMemo(() => makeStyles(colors), [colors]);
   if (!account) return null;
 
   const accountType = (account as any).type;
@@ -46,39 +49,19 @@ export default function TransactionsDetailModal({
 
   return (
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[st.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Header */}
-        <View
-          style={{
-            paddingHorizontal: 24,
-            paddingVertical: 16,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{t('dashboard.transactions')}</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: colors.surface,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
+        <View style={st.header}>
+          <Text style={st.headerTitle}>{t('dashboard.transactions')}</Text>
+          <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7}>
             <Ionicons name="close" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Content */}
-        <ScrollView 
-          style={{ flex: 1 }} 
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24 }}
+        <ScrollView
+          style={st.scroll}
+          contentContainerStyle={st.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Account Card */}
@@ -143,11 +126,9 @@ export default function TransactionsDetailModal({
 
           {/* All Accounts Header - when account type is 'all' */}
           {accountType === 'all' && (
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
-                {t('dashboard.allAccounts')}
-              </Text>
-              <Text style={{ fontSize: 12, color: colors.textMuted }}>
+            <View style={st.allAccountsHeader}>
+              <Text style={st.allAccountsTitle}>{t('dashboard.allAccounts')}</Text>
+              <Text style={st.allAccountsMeta}>
                 {t('dashboard.txCount', { count: transactions.length })}
               </Text>
             </View>
@@ -158,22 +139,10 @@ export default function TransactionsDetailModal({
             {transactions.length > 0 ? (
               transactions.map((transaction) => {
                 const isExpense = transaction.type === 'credit' || transaction.type === 'transfer';
+                const amount = Math.abs(Number(transaction.amount));
 
                 return (
-                  <View 
-                    key={transaction.id} 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: 14,
-                      paddingHorizontal: 12,
-                      borderRadius: 12,
-                      backgroundColor: colors.surface,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                    }}
-                  >
+                  <View key={transaction.id} style={st.txRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 16 }}>
                       {/* Icon */}
                       <View
@@ -211,60 +180,135 @@ export default function TransactionsDetailModal({
                       </View>
                     </View>
 
-                    {/* Amount */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text
-                        style={{
-                          color: isExpense ? colors.text : colors.success,
-                          fontSize: 14,
-                          fontWeight: '500',
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {isExpense ? '-' : '+'}
+                    <View style={st.txAmountRow}>
+                      <Text style={[st.txSign, { color: isExpense ? colors.text : colors.success }]}>
+                        {isExpense ? '−' : '+'}
                       </Text>
                       <CurrencyDisplay
-                        value={Number(transaction.amount)}
+                        value={amount}
                         fontSize={14}
                         color={isExpense ? colors.text : colors.success}
-                        style={{ fontFamily: 'monospace', fontWeight: '500' }}
+                        style={st.txAmount}
                       />
                     </View>
                   </View>
                 );
               })
             ) : (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <Text style={{ color: colors.textMuted, fontSize: 14 }}>No transactions found.</Text>
+              <View style={st.empty}>
+                <Text style={st.emptyText}>{t('dashboard.noActivity')}</Text>
               </View>
             )}
           </View>
         </ScrollView>
 
         {/* Footer */}
-        <View
-          style={{
-            paddingHorizontal: 24,
-            paddingVertical: 16,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-          }}
-        >
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              borderRadius: 12,
-              backgroundColor: colors.surface,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>{t('dashboard.done')}</Text>
+        <View style={st.footer}>
+          <TouchableOpacity onPress={onClose} style={st.doneBtn} activeOpacity={0.85}>
+            <Text style={st.doneText}>{t('dashboard.done')}</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
+}
+
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    header: {
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.text,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: c.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scroll: { flex: 1 },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingTop: 20,
+      paddingBottom: 24,
+    },
+    allAccountsHeader: {
+      marginBottom: 24,
+    },
+    allAccountsTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+      marginBottom: 4,
+    },
+    allAccountsMeta: {
+      fontSize: 12,
+      color: c.textMuted,
+    },
+    txRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: c.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    txAmountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    txSign: {
+      fontSize: 14,
+      fontWeight: '500',
+      fontFamily: 'monospace',
+    },
+    txAmount: {
+      fontFamily: 'monospace',
+      fontWeight: '500',
+    },
+    empty: {
+      paddingVertical: 40,
+      alignItems: 'center',
+    },
+    emptyText: {
+      color: c.textMuted,
+      fontSize: 14,
+    },
+    footer: {
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    doneBtn: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: c.surface,
+      alignItems: 'center',
+    },
+    doneText: {
+      color: c.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+  });
 }

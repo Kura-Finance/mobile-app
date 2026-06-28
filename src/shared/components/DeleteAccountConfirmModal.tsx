@@ -1,10 +1,10 @@
+import LoadingDots from './LoadingDots';
 import React, { useState } from 'react';
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
@@ -164,7 +164,7 @@ export const DeleteAccountConfirmModal: React.FC<DeleteAccountConfirmModalProps>
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="white" />
+                  <LoadingDots color="white" size={8}   />
                 ) : (
                   <Text
                     style={{

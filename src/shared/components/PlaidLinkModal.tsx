@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Modal, View, ActivityIndicator, Text, TouchableOpacity, Keyboard } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Keyboard } from 'react-native';
+import LoadingDots from './LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import { create, open, destroy, usePlaidEmitter } from 'react-native-plaid-link-sdk';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -525,7 +526,7 @@ export default function PlaidLinkModal({
           <View className="p-6">
             {isLoading || isInitializing ? (
               <View className="items-center py-8">
-                <ActivityIndicator size="large" color={colors.primary} />
+                <LoadingDots color={colors.primary} size={10}    />
                 <Text className="mt-4 text-center" style={{ color: colors.text }}>
                   {isInitializing ? 'Initializing Plaid Link...' : 'Processing...'}
                 </Text>

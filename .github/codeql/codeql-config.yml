@@ -1,0 +1,10 @@
+name: Kura mobile-app
+
+paths-ignore:
+  - node_modules
+  - android/app/build
+  - android/build
+  - android/.gradle
+  - ios/build
+  - ios/Pods
+  - '**/*.map'

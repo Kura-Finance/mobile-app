@@ -40,7 +40,7 @@ import { fetchExchangeRates, isCacheValid, type ExchangeRates } from '../../lib/
 import { resetTrackFiSyncPolicy } from '../../features/trackfi/utils/trackFiSyncPolicy';
 import { resetDefiPortfolioSession } from '../../features/trackfi/hooks/useDefiPortfolio';
 import { useFinanceStore } from './useFinanceStore';
-import { type Currency } from '../utils/currencyFormatter';
+import { type Currency, SUPPORTED_CURRENCIES } from '../utils/currencyFormatter';
 import { type ThemeMode } from '../theme/theme';
 import Logger from '../utils/Logger';
 import { waitForWebhookCompletion } from '../utils/webhookWait';
@@ -77,6 +77,8 @@ export interface UserPreferences {
 
 /** AsyncStorage key for the persisted theme mode. */
 const THEME_MODE_STORAGE_KEY = '@kura/themeMode';
+const LANGUAGE_STORAGE_KEY = '@kura/language';
+const BASE_CURRENCY_STORAGE_KEY = '@kura/baseCurrency';
 const SECURITY_PREFS_STORAGE_KEY = '@kura/securityPrefs';
 
 interface PersistedSecurityPrefs {
@@ -105,6 +107,14 @@ async function persistSecurityPrefs(prefs: Pick<UserPreferences, 'disableScreens
       hideBalance: prefs.hideBalance,
     }),
   );
+}
+
+function isLanguage(value: string | null): value is Language {
+  return value === 'en' || value === 'zh-TW';
+}
+
+function isBaseCurrency(value: string | null): value is BaseCurrency {
+  return SUPPORTED_CURRENCIES.includes(value as BaseCurrency);
 }
 
 interface AppState {
@@ -166,7 +176,7 @@ interface AppState {
 const DEFAULT_PREFERENCES: UserPreferences = {
   baseCurrency: 'USD',
   language: 'en',
-  themeMode: 'dark',
+  themeMode: 'light',
   disableScreenshot: false,
   hideBalance: false,
 };
@@ -207,6 +217,22 @@ export const useAppStore = create<AppState>((set, get) => {
     .then((stored) => {
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         set((state) => ({ preferences: { ...state.preferences, themeMode: stored } }));
+      }
+    })
+    .catch(() => {});
+
+  void AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
+    .then((stored) => {
+      if (isLanguage(stored)) {
+        set((state) => ({ preferences: { ...state.preferences, language: stored } }));
+      }
+    })
+    .catch(() => {});
+
+  void AsyncStorage.getItem(BASE_CURRENCY_STORAGE_KEY)
+    .then((stored) => {
+      if (isBaseCurrency(stored)) {
+        set((state) => ({ preferences: { ...state.preferences, baseCurrency: stored } }));
       }
     })
     .catch(() => {});
@@ -256,6 +282,8 @@ export const useAppStore = create<AppState>((set, get) => {
         preferences: {
           ...DEFAULT_PREFERENCES,
           themeMode: get().preferences.themeMode,
+          language: get().preferences.language,
+          baseCurrency: get().preferences.baseCurrency,
           disableScreenshot: get().preferences.disableScreenshot,
           hideBalance: get().preferences.hideBalance,
         },
@@ -385,11 +413,15 @@ export const useAppStore = create<AppState>((set, get) => {
 
     // ── Preferences ───────────────────────────────────────────────────────
 
-    setBaseCurrency: (baseCurrency) =>
-      set((state) => ({ preferences: { ...state.preferences, baseCurrency } })),
+    setBaseCurrency: (baseCurrency) => {
+      set((state) => ({ preferences: { ...state.preferences, baseCurrency } }));
+      void AsyncStorage.setItem(BASE_CURRENCY_STORAGE_KEY, baseCurrency).catch(() => {});
+    },
 
-    setLanguage: (language) =>
-      set((state) => ({ preferences: { ...state.preferences, language } })),
+    setLanguage: (language) => {
+      set((state) => ({ preferences: { ...state.preferences, language } }));
+      void AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language).catch(() => {});
+    },
 
     setThemeMode: (themeMode) => {
       set((state) => ({ preferences: { ...state.preferences, themeMode } }));

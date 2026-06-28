@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useAppStore } from '../store/useAppStore';
 import Logger from '../utils/Logger';
@@ -10,31 +10,40 @@ import Logger from '../utils/Logger';
  *   1. Encrypted Plaid finance snapshot
  *   2. Asset history (server-recorded, decrypted client-side)
  *
- * Both fetches are independent — a failure in one doesn't block the other.
+ * Re-runs with force when `unlockSeq` bumps after TrackFi passkey unlock.
  */
-export function useInitializePlaidData(enabled = true) {
+export function useInitializePlaidData(enabled = true, unlockSeq = 0) {
   const hydratePlaidFinanceData = useFinanceStore((state) => state.hydratePlaidFinanceData);
   const hydrateAssetHistory = useFinanceStore((state) => state.hydrateAssetHistory);
   const accounts = useFinanceStore((state) => state.accounts);
+  const investments = useFinanceStore((state) => state.investments);
+  const investmentAccounts = useFinanceStore((state) => state.investmentAccounts);
   const assetHistory = useFinanceStore((state) => state.assetHistory);
   const authToken = useAppStore((state) => state.authToken);
+  const prevUnlockSeqRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || !authToken) return;
 
+    const unlockedAgain = unlockSeq > 0 && unlockSeq !== prevUnlockSeqRef.current;
+    prevUnlockSeqRef.current = unlockSeq;
+
     const loadPlaid = async () => {
-      if (accounts.length > 0) return;
+      const hasBanking = accounts.length > 0;
+      const hasBroker = investments.length > 0
+        || investmentAccounts.some((a) => a.type !== 'Exchange' && a.type !== 'Web3 Wallet');
+      if (!unlockedAgain && hasBanking && hasBroker) return;
       try {
-        await hydratePlaidFinanceData(authToken);
+        await hydratePlaidFinanceData(authToken, unlockedAgain);
       } catch (error) {
         Logger.warn('useInitializePlaidData', 'Plaid hydration failed', { error: String(error) });
       }
     };
 
     const loadAssetHistory = async () => {
-      if (assetHistory.length > 0) return;
+      if (!unlockedAgain && assetHistory.length > 0) return;
       try {
-        await hydrateAssetHistory();
+        await hydrateAssetHistory(undefined, unlockedAgain);
       } catch (error) {
         Logger.warn('useInitializePlaidData', 'Asset history hydration failed', { error: String(error) });
       }
@@ -45,7 +54,10 @@ export function useInitializePlaidData(enabled = true) {
   }, [
     enabled,
     authToken,
+    unlockSeq,
     accounts.length,
+    investments.length,
+    investmentAccounts.length,
     assetHistory.length,
     hydratePlaidFinanceData,
     hydrateAssetHistory,

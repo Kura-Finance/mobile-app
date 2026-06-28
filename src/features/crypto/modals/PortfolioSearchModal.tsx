@@ -23,9 +23,16 @@ import type { BluechipToken } from '../config/blueChips';
 import TokenLogo from '../components/TokenLogo';
 import StockLogo from '../../stocks/components/StockLogo';
 import VaultLogo from '../../earn/components/VaultLogo';
+import { earnFavoriteKey } from '../../earn/utils/earnFavorites';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
+import {
+  normalizeSearchQuery,
+  matchesToken,
+  matchesStock,
+  matchesVault,
+} from '../utils/portfolioSearch';
 
 interface Props {
   visible: boolean;
@@ -45,33 +52,6 @@ type SearchResult =
   | { kind: 'crypto'; item: PortfolioToken }
   | { kind: 'stock'; item: StockItem }
   | { kind: 'vault'; item: MorphoVault };
-
-function normalizeQuery(q: string): string {
-  return q.trim().toLowerCase();
-}
-
-function matchesToken(item: PortfolioToken, query: string): boolean {
-  const { token } = item;
-  return (
-    token.symbol.toLowerCase().includes(query) ||
-    token.displayName.toLowerCase().includes(query)
-  );
-}
-
-function matchesStock(item: StockItem, query: string): boolean {
-  return (
-    item.symbol.toLowerCase().includes(query) ||
-    item.name.toLowerCase().includes(query)
-  );
-}
-
-function matchesVault(item: MorphoVault, query: string): boolean {
-  return (
-    item.name.toLowerCase().includes(query) ||
-    item.symbol.toLowerCase().includes(query) ||
-    item.asset.symbol.toLowerCase().includes(query)
-  );
-}
 
 export default function PortfolioSearchModal({
   visible,
@@ -96,7 +76,7 @@ export default function PortfolioSearchModal({
   const favoriteSet = useMemo(() => new Set(favoriteSymbols), [favoriteSymbols]);
 
   const results = useMemo(() => {
-    const q = normalizeQuery(query);
+    const q = normalizeSearchQuery(query);
     const list: SearchResult[] = [];
 
     if (assetClass === 'stock') {
@@ -106,6 +86,7 @@ export default function PortfolioSearchModal({
       }
     } else if (assetClass === 'earn') {
       for (const item of vaults) {
+        if (favoritesOnly && !favoriteSet.has(earnFavoriteKey(item))) continue;
         if (!q || matchesVault(item, q)) list.push({ kind: 'vault', item });
       }
     } else {

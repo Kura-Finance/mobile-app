@@ -86,14 +86,6 @@ export const env = {
   baseRpcUrl: readEnv('EXPO_PUBLIC_BASE_RPC_URL'),
   payGasInUsdc: envBool(readEnv('EXPO_PUBLIC_PAY_GAS_IN_USDC'), true),
 
-  gpDirectEnabled: envBool(readEnv('EXPO_PUBLIC_GP_DIRECT_ENABLED'), false),
-  gpApiUrl: readEnv('EXPO_PUBLIC_GP_API_URL') || 'https://app.gnosispay.com',
-  gpApiBaseUrl: readEnv('EXPO_PUBLIC_GP_API_BASE_URL') || 'https://api.gnosispay.com',
-  gpSiweDomain: readEnv('EXPO_PUBLIC_GP_SIWE_DOMAIN'),
-  gpSiweUri: readEnv('EXPO_PUBLIC_GP_SIWE_URI'),
-  gpPartnerId: readEnv('EXPO_PUBLIC_GP_PARTNER_ID'),
-  gpJwtTtlSeconds: readEnv('EXPO_PUBLIC_GP_JWT_TTL_SECONDS'),
-
   moonpayApiKey: readEnv('EXPO_PUBLIC_MOONPAY_API_KEY'),
   moonpayEnv: (readEnv('EXPO_PUBLIC_MOONPAY_ENV') || 'sandbox') as 'sandbox' | 'live',
   moonpayCurrencyCode: readEnv('EXPO_PUBLIC_MOONPAY_CURRENCY_CODE') || 'usdc_base',
@@ -101,21 +93,28 @@ export const env = {
   logodevToken:
     readEnv('EXPO_PUBLIC_LOGODEV_TOKEN') || readExtra('logodevToken'),
 
-  lifiIntegrator: readEnv('EXPO_PUBLIC_LIFI_INTEGRATOR'),
-  lifiFee: readEnv('EXPO_PUBLIC_LIFI_FEE'),
-  lifiApiKey: readEnv('EXPO_PUBLIC_LIFI_API_KEY'),
+  lifiIntegrator:
+    readEnv('EXPO_PUBLIC_LIFI_INTEGRATOR') || readExtra('lifiIntegrator'),
+  lifiFee: readEnv('EXPO_PUBLIC_LIFI_FEE') || readExtra('lifiFee'),
+  lifiApiKey:
+    readEnv('EXPO_PUBLIC_LIFI_API_KEY') || readExtra('lifiApiKey'),
+
+  /** Optional CoinGecko Demo API key — raises rate limits for price/chart calls. */
+  coingeckoApiKey:
+    readEnv('EXPO_PUBLIC_COINGECKO_API_KEY') || readExtra('coingeckoApiKey'),
 
   /** Morpho Earn — set to `false` to hide Earn tab (default: on when Pimlico key is set). */
   morphoEarnEnabled: readEnv('EXPO_PUBLIC_MORPHO_EARN_ENABLED'),
   /**
-   * JSON array of Morpho vault addresses on Base to list in Discover → Earn.
-   * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime when unset.
+   * JSON array of Morpho vault addresses on Base to list in Invest → Earn.
+   * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime + Gauntlet USDC Frontier when unset.
    */
   morphoEarnVaultAllowlist: readEnv('EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST'),
   /** Morpho Earn — Kura performance fee (0–1 decimal, default 0.1 = 10%). */
   morphoEarnFee: readEnv('EXPO_PUBLIC_MORPHO_EARN_FEE') || '0.1',
   /** Treasury address that receives Kura's Morpho earn performance fee. */
-  kuraEarnFeeRecipient: readEnv('EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT'),
+  kuraEarnFeeRecipient:
+    readEnv('EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT') || readExtra('kuraEarnFeeRecipient'),
   /**
    * Optional JSON map of inner vault → fee-wrapper vault addresses.
    * Example: {"0xee8f...":"0x002f..."}

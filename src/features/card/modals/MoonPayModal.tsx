@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Modal,
-  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -126,14 +126,14 @@ export default function MoonPayModal({
               mediaCapturePermissionGrantType="grant"
               renderLoading={() => (
                 <View style={st.center}>
-                  <ActivityIndicator color={colors.primary} />
+                  <LoadingDots color={colors.primary} size={8}   />
                 </View>
               )}
               onError={() => setError(t('card.moonpayCouldNotLoad'))}
             />
           ) : (
             <View style={st.center}>
-              <ActivityIndicator color={colors.primary} />
+              <LoadingDots color={colors.primary} size={8}   />
             </View>
           )}
         </View>

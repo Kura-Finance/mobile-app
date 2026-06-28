@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -5,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Dimensions,
   TextInput,
   KeyboardAvoidingView,
@@ -169,7 +169,7 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
     if (!permission) {
       return (
         <View style={st.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <LoadingDots color={colors.primary} size={10}    />
         </View>
       );
     }
@@ -301,7 +301,7 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
 
             {connecting && (
               <View style={st.connectingOverlay}>
-                <ActivityIndicator color="#FFFFFF" size="large" />
+                <LoadingDots color="#FFFFFF" size={10} />
                 <Text style={st.connectingText}>{t('walletConnect.connecting')}</Text>
               </View>
             )}
@@ -357,7 +357,7 @@ export default function WcPairScannerModal({ visible, onClose, onUri }: Props) {
                   disabled={connecting || !pasteValue.trim()}
                 >
                   {connecting ? (
-                    <ActivityIndicator color="#FFF" size="small" />
+                    <LoadingDots compact color="#FFF" size={6}    />
                   ) : (
                     <Text style={st.pasteConnectText}>{t('walletConnect.pasteConnect')}</Text>
                   )}

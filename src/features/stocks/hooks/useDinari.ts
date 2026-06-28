@@ -2,7 +2,7 @@
  * Dinari hooks.
  *
  *  useDinariGate   — KYC + wallet-connect gating state machine.
- *  useDinariStocks — full Dinari catalog index + lazy prices for featured / held / starred.
+ *  useDinariStocks — Dinari catalog + portfolio holdings (Yahoo quotes load in list UI).
  *  placeDinariOrder — prepare → SCA-sign → submit → poll until filled/failed.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ import type {
 import { isDinariWhitelistError } from '../../../lib/api/dinari/errors';
 import { KuraApiError } from '../../../lib/api/errors';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
-import { DEFAULT_STOCK_SYMBOLS } from '../config/dinariStocks';
+import { featuredStockSortIndex } from '../config/dinariStocks';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gating
@@ -45,7 +45,14 @@ export function useDinariGate(
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
-  const resolve = useCallback(async (): Promise<GateState> => {
+  const resolve = useCallback(async (force = false): Promise<GateState> => {
+    if (
+      !force
+      && (state === 'ready' || state === 'waitlist' || state === 'kyc' || state === 'connect')
+    ) {
+      return state;
+    }
+
     setError(null);
     setState('checking');
     try {
@@ -75,7 +82,7 @@ export function useDinariGate(
       setState('unsupported');
       return 'unsupported';
     }
-  }, [scaAddress]);
+  }, [scaAddress, state]);
 
   useEffect(() => {
     if (deferInitialCheck || !scaAddress) return;
@@ -135,6 +142,7 @@ export interface StockItem {
   symbol: string;
   name: string;
   price: number;
+  change24h: number | null;
   holdings: number;   // dShares held
   value: number;      // USD market value
 }
@@ -144,53 +152,20 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function featuredSortIndex(symbol: string): number {
-  const idx = DEFAULT_STOCK_SYMBOLS.indexOf(symbol.toUpperCase());
-  return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
-}
-
 function sortStockItems(items: StockItem[]): StockItem[] {
   return [...items].sort((a, b) => {
     if (a.value !== b.value) return b.value - a.value;
-    const featured = featuredSortIndex(a.symbol) - featuredSortIndex(b.symbol);
+    const featured = featuredStockSortIndex(a.symbol) - featuredStockSortIndex(b.symbol);
     if (featured !== 0) return featured;
     return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: 'base' });
   });
 }
 
-function symbolsNeedingPrice(
-  list: DinariStock[],
-  holdingBySymbol: Map<string, number>,
-  favoriteSymbols: string[],
-): DinariStock[] {
-  const targets = new Set<string>(DEFAULT_STOCK_SYMBOLS);
-  for (const sym of holdingBySymbol.keys()) targets.add(sym.toUpperCase());
-  for (const sym of favoriteSymbols) targets.add(sym.toUpperCase());
-
-  return list.filter((s) => targets.has(s.symbol.toUpperCase()));
-}
-
-async function fetchStockPrices(stocksToPrice: DinariStock[]): Promise<Map<string, number>> {
-  const prices = new Map<string, number>();
-  await Promise.all(
-    stocksToPrice.map(async (s) => {
-      try {
-        const p = await dinari.getStockPrice(s.id);
-        prices.set(String(s.id), num(p.price));
-      } catch {
-        prices.set(String(s.id), 0);
-      }
-    }),
-  );
-  return prices;
-}
-
 export function useDinariStocks(
   enabled: boolean,
-  options?: { includePortfolio?: boolean; favoriteSymbols?: string[] },
+  options?: { includePortfolio?: boolean },
 ) {
   const includePortfolio = options?.includePortfolio ?? true;
-  const favoriteSymbols = options?.favoriteSymbols ?? [];
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -217,29 +192,40 @@ export function useDinariStocks(
       const positions = (portfolio?.positions ?? []) as any[];
       const holdingByStock = new Map<string, number>();
       const holdingBySymbol = new Map<string, number>();
+      const valueByStock = new Map<string, number>();
+      const valueBySymbol = new Map<string, number>();
       for (const p of positions) {
         const qty = num(p.quantity);
-        if (p.stockId) holdingByStock.set(String(p.stockId), qty);
-        if (p.symbol) holdingBySymbol.set(String(p.symbol).toUpperCase(), qty);
+        const marketValue = num(p.marketValue);
+        if (p.stockId) {
+          holdingByStock.set(String(p.stockId), qty);
+          if (marketValue > 0) valueByStock.set(String(p.stockId), marketValue);
+        }
+        if (p.symbol) {
+          const sym = String(p.symbol).toUpperCase();
+          holdingBySymbol.set(sym, qty);
+          if (marketValue > 0) valueBySymbol.set(sym, marketValue);
+        }
       }
 
-      // Price only featured watchlist tickers + anything the user holds.
-      const stocksToPrice = symbolsNeedingPrice(list, holdingBySymbol, favoriteSymbols);
-      const priceById = await fetchStockPrices(stocksToPrice);
-
       const indexed = list.map((s: DinariStock) => {
+        const sym = String(s.symbol).toUpperCase();
         const holdings =
           holdingByStock.get(String(s.id)) ??
-          holdingBySymbol.get(String(s.symbol).toUpperCase()) ??
+          holdingBySymbol.get(sym) ??
           0;
-        const price = priceById.get(String(s.id)) ?? 0;
+        const value =
+          valueByStock.get(String(s.id)) ??
+          valueBySymbol.get(sym) ??
+          0;
         return {
           id: s.id,
           symbol: s.symbol,
           name: s.name,
-          price,
+          price: 0,
+          change24h: null,
           holdings,
-          value: holdings * price,
+          value,
         } as StockItem;
       });
 
@@ -256,7 +242,7 @@ export function useDinariStocks(
       setLoading(false);
       setRefreshing(false);
     }
-  }, [favoriteSymbols, includePortfolio]);
+  }, [includePortfolio]);
 
   useEffect(() => {
     if (!enabled) return;

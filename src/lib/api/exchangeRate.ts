@@ -19,6 +19,10 @@ export interface ExchangeRates {
   CNY: number;
   JPY: number;
   NGN: number;
+  GBP: number;
+  BRL: number;
+  MXN: number;
+  COP: number;
   lastUpdated: number; // Unix timestamp
 }
 
@@ -67,11 +71,15 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
 
     const rates: ExchangeRates = {
       USD: 1.0,
-      EUR: data.rates.EUR || 0.92, // fallback to hardcoded if API fails
+      EUR: data.rates.EUR || 0.92,
       TWD: data.rates.TWD || 31.5,
       CNY: data.rates.CNY || 7.1,
       JPY: data.rates.JPY || 150,
       NGN: data.rates.NGN || 1600,
+      GBP: data.rates.GBP || 0.79,
+      BRL: data.rates.BRL || 5.6,
+      MXN: data.rates.MXN || 17.2,
+      COP: data.rates.COP || 4100,
       lastUpdated: Date.now(),
     };
 
@@ -95,6 +103,10 @@ export async function fetchExchangeRates(): Promise<ExchangeRates> {
       CNY: 7.1,
       JPY: 150,
       NGN: 1600,
+      GBP: 0.79,
+      BRL: 5.6,
+      MXN: 17.2,
+      COP: 4100,
       lastUpdated: Date.now(),
     };
   }

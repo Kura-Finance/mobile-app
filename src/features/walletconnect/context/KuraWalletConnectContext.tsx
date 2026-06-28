@@ -11,6 +11,7 @@ import {
   registerWalletConnectSessionHandlers,
   unregisterWalletConnectSessionHandlers,
 } from '../../../lib/walletconnect/wcInboundPairing';
+import { requiredEip155ChainsSatisfied } from '../../../lib/walletconnect/constants';
 import {
   buildSupportedNamespaces,
   executeWalletConnectRequest,
@@ -200,6 +201,18 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
 
     try {
       const kit = await getKuraWalletKit();
+      const requiredChains = pendingProposal.params.requiredNamespaces.eip155?.chains ?? [];
+      if (!requiredEip155ChainsSatisfied(requiredChains)) {
+        Logger.warn(TAG, 'Rejecting WC proposal — unsupported required chains', {
+          required: requiredChains,
+        });
+        await kit.rejectSession({
+          id: pendingProposal.id,
+          reason: getSdkError('UNSUPPORTED_CHAINS'),
+        });
+        return;
+      }
+
       const approvedNamespaces = buildApprovedNamespaces({
         proposal: pendingProposal.params,
         supportedNamespaces: buildSupportedNamespaces(sca),

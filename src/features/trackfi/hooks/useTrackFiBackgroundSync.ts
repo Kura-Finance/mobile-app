@@ -15,7 +15,7 @@ import {
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useFinanceStore } from '../../../shared/store/useFinanceStore';
 import { useExchangeStore } from '../../../shared/store/useExchangeStore';
-import { getCryptoSession } from '../../../lib/crypto/session';
+import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
 import Logger from '../../../shared/utils/Logger';
 
 const TAG = 'TrackFiBackgroundSync';
@@ -38,12 +38,15 @@ export function useTrackFiBackgroundSync({ enabled, unlockSeq }: Options): void 
 
     const needsPlaid = shouldAutoSyncTrackFi('plaid', { force });
     const needsHistory = shouldAutoSyncTrackFi('assetHistory', { force });
-    const exchangeAccounts = useExchangeStore.getState().exchangeAccounts;
-    const needsAnyExchange = exchangeAccounts.some((account) =>
-      shouldAutoSyncTrackFi('exchange', { key: account.id, force }),
-    );
+    const exchangeAccountsSnapshot = useExchangeStore.getState().exchangeAccounts;
+    const needsBrokerRefresh =
+      force ||
+      exchangeAccountsSnapshot.length === 0 ||
+      exchangeAccountsSnapshot.some((account) =>
+        shouldAutoSyncTrackFi('exchange', { key: account.id, force }),
+      );
 
-    if (!needsPlaid && !needsHistory && !needsAnyExchange) {
+    if (!force && !needsPlaid && !needsHistory && !needsBrokerRefresh) {
       return;
     }
 
@@ -63,20 +66,9 @@ export function useTrackFiBackgroundSync({ enabled, unlockSeq }: Options): void 
         markTrackFiSynced('assetHistory');
       }
 
-      if (needsAnyExchange && getCryptoSession()) {
-        const fetchExchangeBalances = useExchangeStore.getState().fetchExchangeBalances;
-        for (const account of exchangeAccounts) {
-          if (!shouldAutoSyncTrackFi('exchange', { key: account.id, force })) continue;
-          try {
-            await fetchExchangeBalances(account.id, authToken, force);
-            markTrackFiSynced('exchange', account.id);
-          } catch (error) {
-            Logger.warn(TAG, 'Exchange sync failed', {
-              accountId: account.id,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
+      if (needsBrokerRefresh) {
+        Logger.debug(TAG, 'Syncing broker holdings', { force });
+        await refreshTrackFiBrokerData(authToken, { force });
       }
     } catch (error) {
       Logger.warn(TAG, 'Background sync failed', {

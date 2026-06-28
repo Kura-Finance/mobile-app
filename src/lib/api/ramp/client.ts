@@ -553,7 +553,7 @@ export async function listAccountDeposits(
 // 3b. Off-ramp (stablecoin → fiat)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ExternalAccountType = 'us' | 'iban' | 'gb' | 'pix' | 'clabe';
+export type ExternalAccountType = 'us' | 'iban' | 'gb' | 'pix' | 'clabe' | 'bre_b';
 
 export interface ExternalAccountAddress {
   street_line_1: string;
@@ -580,6 +580,8 @@ export interface ExternalAccountFormInput {
   documentNumber?: string;
   /** MXN SPEI — 18-digit CLABE. */
   clabe?: string;
+  /** COP Bre-B — recipient key (phone, email, etc.). */
+  breBKey?: string;
   iban?: string;
   bic?: string;
   address?: ExternalAccountAddress;
@@ -600,6 +602,7 @@ export interface ExternalAccountRequest {
   pixKey?: string;
   documentNumber?: string;
   clabe?: string;
+  breBKey?: string;
   iban?: string;
   bic?: string;
   address?: ExternalAccountAddress;
@@ -615,6 +618,8 @@ export function accountTypeForCurrency(currency: FiatCurrency): ExternalAccountT
       return 'pix';
     case 'mxn':
       return 'clabe';
+    case 'cop':
+      return 'bre_b';
     default:
       return 'iban';
   }
@@ -666,12 +671,19 @@ export function buildExternalAccountBody(
         ...base,
         clabe: input.clabe!.trim().replace(/\D/g, ''),
       };
-    default:
+    case 'cop':
+      return {
+        ...base,
+        breBKey: input.breBKey!.trim(),
+      };
+    case 'eur':
       return {
         ...base,
         iban: input.iban!.trim().replace(/\s/g, '').toUpperCase(),
         ...(input.bic?.trim() ? { bic: input.bic.trim().toUpperCase() } : {}),
       };
+    default:
+      return base;
   }
 }
 

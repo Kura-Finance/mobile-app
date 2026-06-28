@@ -13,13 +13,16 @@ import { BLUE_CHIPS, BluechipToken } from '../config/blueChips';
 export type TokenBalances = Record<string, number>; // symbol → human-readable amount
 
 const REFRESH_INTERVAL_MS = 30_000;
+const TX_REFRESH_DELAYS_MS = [0, 1200, 3000, 6000];
 
 const publicClient = createPublicClient({
   chain: base,
   transport: createBaseTransport(),
 });
 
-async function fetchBalances(address: `0x${string}`): Promise<TokenBalances> {
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function fetchBaseBalances(address: `0x${string}`): Promise<TokenBalances> {
   const erc20Tokens = BLUE_CHIPS.filter((t) => t.baseAddress !== null && t.trackBalance !== false);
   const nativeTokens = BLUE_CHIPS.filter((t) => t.baseAddress === null && t.trackBalance !== false);
 
@@ -65,6 +68,30 @@ async function fetchBalances(address: `0x${string}`): Promise<TokenBalances> {
   return balances;
 }
 
+/** Poll all token balances after a UserOp — RPC state can lag behind the bundler receipt. */
+export async function refreshBaseBalancesAfterTx(
+  address: `0x${string}`,
+  onUpdate?: (balances: TokenBalances) => void,
+): Promise<TokenBalances> {
+  let balances: TokenBalances = {};
+
+  for (let i = 0; i < TX_REFRESH_DELAYS_MS.length; i++) {
+    if (i > 0) await sleep(TX_REFRESH_DELAYS_MS[i] - TX_REFRESH_DELAYS_MS[i - 1]);
+    try {
+      balances = await fetchBaseBalances(address);
+      onUpdate?.(balances);
+    } catch {
+      // Best-effort — keep polling.
+    }
+  }
+
+  return balances;
+}
+
+export function usdcBalanceFrom(balances: TokenBalances): number {
+  return balances.USDC ?? 0;
+}
+
 export function useBaseBalances(scaAddress: string | null) {
   const [balances, setBalances] = useState<TokenBalances>({});
   const [loading, setLoading] = useState(false);
@@ -73,8 +100,9 @@ export function useBaseBalances(scaAddress: string | null) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const refresh = useCallback(async (options?: { silent?: boolean }) => {
-    if (!scaAddress) {
+  const refresh = useCallback(async (options?: { silent?: boolean; address?: string | null }) => {
+    const target = options?.address ?? scaAddress;
+    if (!target) {
       setBalances({});
       setHasLoaded(false);
       hasLoadedRef.current = false;
@@ -86,7 +114,7 @@ export function useBaseBalances(scaAddress: string | null) {
     }
     setError(null);
     try {
-      const result = await fetchBalances(scaAddress as `0x${string}`);
+      const result = await fetchBaseBalances(target as `0x${string}`);
       setBalances(result);
       setHasLoaded(true);
       hasLoadedRef.current = true;
@@ -97,6 +125,12 @@ export function useBaseBalances(scaAddress: string | null) {
     }
   }, [scaAddress]);
 
+  const refreshAfterTx = useCallback(async (address?: string | null) => {
+    const target = address ?? scaAddress;
+    if (!target) return;
+    await refreshBaseBalancesAfterTx(target as `0x${string}`, setBalances);
+  }, [scaAddress]);
+
   useEffect(() => {
     void refresh();
     timerRef.current = setInterval(() => { void refresh({ silent: true }); }, REFRESH_INTERVAL_MS);
@@ -105,7 +139,7 @@ export function useBaseBalances(scaAddress: string | null) {
     };
   }, [refresh]);
 
-  return { balances, loading, hasLoaded, refresh, error };
+  return { balances, loading, hasLoaded, refresh, refreshAfterTx, error };
 }
 
 export type { BluechipToken };

@@ -10,9 +10,9 @@ const USD_PEGGED = new Set(['USDC', 'USDT', 'DAI', 'USDBC', 'USD+', 'EURC', 'USD
 
 /** Base blue-chip tickers we show even at small notionals (aligned with crypto/config/blueChips). */
 const KNOWN_SYMBOLS = new Set([
-  'USDC', 'USDT', 'DAI', 'EURC', 'ETH', 'WETH', 'CBBTC', 'CBETH',
+  'USDC', 'USDT', 'DAI', 'EURC', 'XSGD', 'AUDD', 'BRZ', 'MXNE', 'ETH', 'WETH', 'CBBTC', 'CBDOGE', 'CBETH',
   'AERO', 'WSTETH', 'MORPHO', 'USDY', 'OUSG', 'SUSDS', 'USR',
-  'VIRTUAL', 'DEGEN',
+  'VIRTUAL', 'DEGEN', 'SOL',
 ]);
 
 /** Minimum display amount for a token symbol (same ~$0.01 intent as portfolio dust). */
@@ -21,12 +21,16 @@ export function minWalletTxAmount(symbol: string): number {
   if (USD_PEGGED.has(sym)) return MIN_DISPLAY_TOKEN_USD;
   if (sym === 'ETH' || sym === 'WETH') return MIN_DISPLAY_TOKEN_USD / 2000;
   if (sym === 'CBBTC' || sym === 'WBTC' || sym === 'BTC') return MIN_DISPLAY_TOKEN_USD / 60_000;
+  if (sym === 'CBDOGE' || sym === 'DOGE') return MIN_DISPLAY_TOKEN_USD / 0.25;
+  if (sym === 'SOL') return MIN_DISPLAY_TOKEN_USD / 150;
   if (KNOWN_SYMBOLS.has(sym)) return MIN_DISPLAY_TOKEN_USD;
   // Outgoing unknown tokens — still apply a small floor.
   return 1;
 }
 
 export function shouldDisplayWalletTx(tx: WalletTx): boolean {
+  if (tx.activityKind === 'bridge_out') return false;
+
   if (tx.source !== 'chain') return true;
 
   const abs = Math.abs(tx.amount);

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import i18n from '../../../shared/locales/i18n';
 import { features } from '../../../config/features';
-import { filterEarnVaultAllowlist, isEarnVaultAllowed } from '../../../config/earn';
+import { filterEarnVaultAllowlist, resolveEarnPositionVaultKey } from '../../../config/earn';
 import {
   getMorphoVaultPositions,
   listEarnMorphoVaults,
   type MorphoVault,
   type MorphoVaultPosition,
 } from '../../../lib/api/morpho/client';
+import { loadEarnVaultPositionsOnChain } from '../utils/earnVaultPositions';
 
 const CACHE_TTL_MS = 60_000;
 
@@ -47,14 +48,30 @@ export function useMorphoVaults(userAddress: string | null, enabled = features.m
       }
 
       let positions: MorphoVaultPosition[] = [];
+      let onChainByVault: Record<string, MorphoVaultPosition> = {};
       if (userAddress) {
-        positions = await getMorphoVaultPositions(userAddress).catch(() => []);
+        [positions, onChainByVault] = await Promise.all([
+          getMorphoVaultPositions(userAddress).catch(() => []),
+          loadEarnVaultPositionsOnChain(userAddress, list),
+        ]);
       }
 
       const byVault: Record<string, MorphoVaultPosition> = {};
       for (const p of positions) {
-        if (isEarnVaultAllowed(p.vaultAddress)) {
-          byVault[p.vaultAddress] = p;
+        const key = resolveEarnPositionVaultKey(p.vaultAddress);
+        if (!key) continue;
+
+        const existing = byVault[key];
+        byVault[key] = {
+          vaultAddress: key,
+          assetsUsd: (existing?.assetsUsd ?? 0) + p.assetsUsd,
+          shares: existing?.shares ?? p.shares,
+        };
+      }
+
+      for (const [key, p] of Object.entries(onChainByVault)) {
+        if (p.assetsUsd > 0) {
+          byVault[key] = p;
         }
       }
 

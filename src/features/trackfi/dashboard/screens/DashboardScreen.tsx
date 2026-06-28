@@ -1,11 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Text, RefreshControl, StyleSheet } from 'react-native';
+import { ScrollView, RefreshControl, StyleSheet } from 'react-native';
+import { View as SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
-import AccountsList from '../components/AccountsList';
-import ActivityContainer from '../components/ActivityContainer';
+import BankingAccountsOverview from '../components/BankingAccountsOverview';
+import BankingAccountList from '../components/BankingAccountList';
+import BankingRecentTransactions from '../components/BankingRecentTransactions';
+import BankingInsights from '../components/BankingInsights';
+import InsightsModal from '../components/InsightsModal';
 import TransactionsDetailModal from '../components/TransactionsDetailModal';
-import BudgetModal from '../components/BudgetModal';
+import TrackFiLegalFooter from '../../components/TrackFiLegalFooter';
 import { useInitializePlaidData } from '../../../../shared/hooks/useInitializePlaidData';
 import { useRefreshDashboardData } from '../hooks/useRefreshDashboardData';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
@@ -13,51 +17,27 @@ import { useTheme } from '../../../../shared/theme/ThemeContext';
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
-  // State Management - UI control
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('all');
-  const [showAllTransactions, setShowAllTransactions] = useState(false);
-  const [showBudget, setShowBudget] = useState(false);
+  const st = useMemo(() => makeStyles(colors), [colors]);
 
-  // Data Management - from Zustand stores
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
+
   const accounts = useFinanceStore((state) => state.accounts);
   const transactions = useFinanceStore((state) => state.transactions);
-  const isAiOptedIn = useFinanceStore((state) => state.isAiOptedIn);
 
-  // Data Refresh - custom hooks handling all logic
-  useInitializePlaidData(); // Load data on first mount
-  const { refreshing, handleRefresh } = useRefreshDashboardData(); // Pull-to-refresh
+  useInitializePlaidData();
+  const { refreshing, handleRefresh } = useRefreshDashboardData();
 
-  const totalBalance = useMemo(() => {
-    return accounts.reduce((sum, account) => {
-      return account.type === 'credit' ? sum - account.balance : sum + account.balance;
-    }, 0);
-  }, [accounts]);
-
-  const selectedAccount = selectedAccountId === 'all'
-    ? { id: 'all', type: 'all' as const, name: t('dashboard.allAccounts') }
-    : accounts.find((account) => account.id === selectedAccountId);
-
-  const transactionHeader = selectedAccount?.type === 'all'
-    ? t('dashboard.recentTransactions')
-    : selectedAccount?.type === 'credit'
-      ? t('dashboard.transactionHistory')
-      : selectedAccount?.type === 'saving'
-        ? t('dashboard.savingsTransactions')
-        : t('dashboard.transferRecords');
-
-  const displayTransactions = useMemo(() => {
-    if (selectedAccountId === 'all') {
-      return transactions;
-    }
-
-    return transactions.filter((transaction) => transaction.accountId === selectedAccountId);
-  }, [transactions, selectedAccountId]);
+  const bankingAccounts = useMemo(
+    () => accounts.filter((a) => a.type === 'checking' || a.type === 'saving' || a.type === 'credit'),
+    [accounts],
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* 帳戶卡片容器 + 交易容器 包裹 */}
-      <ScrollView 
-        style={{ flex: 1 }} 
+    <SafeAreaView style={st.root}>
+      <ScrollView
+        style={st.scroll}
+        contentContainerStyle={st.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -67,68 +47,43 @@ export default function DashboardScreen() {
           />
         }
       >
-        <View style={{ marginTop: 40 }}>
-          <AccountsList 
-            accounts={accounts}
-            selectedAccountId={selectedAccountId}
-            onSelectAccount={setSelectedAccountId}
-            totalBalance={totalBalance}
-          />
-        </View>
-        
-        {/* 交易容器 - 在 ScrollView 內部，可跟隨滾動 */}
-        <View style={{ marginTop: 16 }}>
-          <ActivityContainer 
-            transactions={displayTransactions}
-            transactionHeader={transactionHeader}
-            isAiOptedIn={isAiOptedIn}
-            onToggleAiOptIn={() => {}}
-            onViewAll={() => setShowAllTransactions(true)}
-          />
-        </View>
-
-        {/* Budget 入口卡片 */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setShowBudget(true)}
-          style={{
-            marginHorizontal: 16,
-            marginTop: 16,
-            marginBottom: 32,
-            paddingHorizontal: 20,
-            paddingVertical: 20,
-            borderRadius: 20,
-            backgroundColor: colors.surfaceAlt,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.border,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 }}>{t('dashboard.budget')}</Text>
-            <Text style={{ fontSize: 11, fontWeight: '500', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{t('dashboard.manageSpending')}</Text>
-          </View>
-          <Text style={{ fontSize: 24, color: colors.primary }}>→</Text>
-        </TouchableOpacity>
-
-        {/* 為 TabNavigator 留空白 */}
-        <View style={{ height: 100 }} />
+        <BankingAccountsOverview accounts={bankingAccounts} />
+        <BankingAccountList accounts={bankingAccounts} />
+        <BankingRecentTransactions
+          transactions={transactions}
+          onViewAll={() => setShowAllTransactions(true)}
+        />
+        <BankingInsights onPress={() => setShowInsights(true)} />
+        <TrackFiLegalFooter />
       </ScrollView>
+
+      <InsightsModal
+        isOpen={showInsights}
+        onClose={() => setShowInsights(false)}
+        transactions={transactions}
+      />
 
       <TransactionsDetailModal
         isOpen={showAllTransactions}
         onClose={() => setShowAllTransactions(false)}
-        account={selectedAccount}
-        transactions={displayTransactions}
-      />
-
-      <BudgetModal
-        isOpen={showBudget}
-        onClose={() => setShowBudget(false)}
+        account={{ id: 'all', type: 'all', name: t('dashboard.allAccounts') }}
         transactions={transactions}
       />
-    </View>
+    </SafeAreaView>
   );
+}
+
+function makeStyles(c: { background: string }) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scroll: { flex: 1 },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 120,
+    },
+  });
 }

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
+import type { ThemeColors } from '../../../shared/theme/theme';
 import type { Language } from '../../../shared/store/useAppStore';
+import PreferencePickerModal from './PreferencePickerModal';
 
 interface LanguageSelectorProps {
   selectedLanguage: Language;
@@ -16,61 +18,63 @@ const SUPPORTED_LANGUAGES: { code: Language; name: string; nativeName: string }[
 ];
 
 export default function LanguageSelector({ selectedLanguage, onSelectLanguage }: LanguageSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const { t } = useAppTranslation();
   const { colors } = useTheme();
-
-  const handleSelectLanguage = (language: Language) => {
-    onSelectLanguage(language);
-    setIsOpen(false);
-  };
+  const st = useMemo(() => makeStyles(colors), [colors]);
 
   const currentLanguage = SUPPORTED_LANGUAGES.find((lang) => lang.code === selectedLanguage);
 
   return (
-    <View style={{ marginBottom: 12, position: 'relative' }}>
+    <>
       <TouchableOpacity
-        onPress={() => setIsOpen(!isOpen)}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.primarySoft }}
+        onPress={() => setModalVisible(true)}
+        style={st.row}
+        activeOpacity={0.7}
       >
-        <View>
-          <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.language')}</Text>
-          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{t('settings.languageDescription')}</Text>
+        <View style={st.copy}>
+          <Text style={st.label}>{t('settings.language')}</Text>
+          <Text style={st.description}>{t('settings.languageDescription')}</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.primary }}>{currentLanguage?.nativeName}</Text>
-          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
+        <View style={st.valueRow}>
+          <Text style={st.value}>{currentLanguage?.nativeName}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
         </View>
       </TouchableOpacity>
 
-      {isOpen && (
-        <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 8, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.primarySoft, zIndex: 1000, overflow: 'hidden' }}>
-          {SUPPORTED_LANGUAGES.map((language, index) => (
-            <TouchableOpacity
-              key={language.code}
-              onPress={() => handleSelectLanguage(language.code)}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                backgroundColor: selectedLanguage === language.code ? colors.primarySoft : colors.surface,
-                borderBottomWidth: index < SUPPORTED_LANGUAGES.length - 1 ? 1 : 0,
-                borderBottomColor: colors.border,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <View>
-                <Text style={{ color: colors.text, fontWeight: '500', fontSize: 14 }}>{language.nativeName}</Text>
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{language.name}</Text>
-              </View>
-              {selectedLanguage === language.code && (
-                <Ionicons name="checkmark" size={18} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
+      <PreferencePickerModal
+        visible={modalVisible}
+        title={t('settings.language')}
+        selectedId={selectedLanguage}
+        options={SUPPORTED_LANGUAGES.map((language) => ({
+          id: language.code,
+          title: language.nativeName,
+          subtitle: language.name,
+        }))}
+        onSelect={(id) => onSelectLanguage(id as Language)}
+        onClose={() => setModalVisible(false)}
+      />
+    </>
   );
+}
+
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      backgroundColor: c.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.primarySoft,
+      marginBottom: 12,
+    },
+    copy: { flex: 1, marginRight: 12 },
+    label: { color: c.text, fontWeight: '500' },
+    description: { fontSize: 12, color: c.textMuted, marginTop: 2 },
+    valueRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    value: { fontSize: 14, fontWeight: '700', color: c.primary },
+  });
 }

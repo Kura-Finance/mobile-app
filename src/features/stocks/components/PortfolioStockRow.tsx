@@ -9,12 +9,10 @@ import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import type { StockItem } from '../hooks/useDinari';
 import StockLogo from './StockLogo';
 
+import { formatTokenQuantity } from '../../../shared/utils/formatQuantity';
+
 export function formatStockHoldings(n: number, symbol: string): string {
-  if (n === 0) return `0 ${symbol}`;
-  if (n < 0.001) return `${n.toExponential(2)} ${symbol}`;
-  if (n < 1) return `${n.toFixed(4)} ${symbol}`;
-  if (n < 1000) return `${n.toFixed(2)} ${symbol}`;
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${symbol}`;
+  return formatTokenQuantity(n, symbol);
 }
 
 interface Props {

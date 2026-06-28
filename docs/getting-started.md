@@ -56,11 +56,11 @@ Edit `.env` — all runtime config is read through [`src/config/env.ts`](../src/
 
 | Variable | Enables |
 |----------|---------|
-| `EXPO_PUBLIC_API_BASE_URL` | Privy→Kura JWT exchange, TrackFi, Plaid, DeBank, Dinari, Gnosis Pay proxy |
+| `EXPO_PUBLIC_API_BASE_URL` | Privy→Kura JWT exchange, TrackFi, Plaid, DeBank, Dinari |
 
 Leave `EXPO_PUBLIC_API_BASE_URL` **empty** to hide TrackFi and Dinari — see [`features.ts`](../src/config/features.ts).
 
-Other optional keys: MoonPay, Li.Fi integrator fee, Gnosis Pay direct SIWE — see [`.env.example`](../.env.example) and [official-services.md](official-services.md).
+Other optional keys: MoonPay, Li.Fi integrator fee, Morpho Earn — see [`.env.example`](../.env.example) and [official-services.md](official-services.md).
 
 ### 2. Install and prebuild
 

@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * Shared Dinari KYC / wallet-connect gate UI.
  * Used by {@link DinariGateModal} (overlay) and {@link DinariKycScreen} (stack).
@@ -7,7 +8,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,7 +30,7 @@ export default function DinariGateFlow({ gate }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [showKyc, setShowKyc] = useState(false);
-  const waitlist = useDinariWaitlistJoin();
+  const waitlist = useDinariWaitlistJoin(gate.state === 'waitlist');
 
   const handleStartKyc = useCallback(() => setShowKyc(true), []);
 
@@ -39,7 +39,7 @@ export default function DinariGateFlow({ gate }: Props) {
       <View style={s.content}>
         {gate.state === 'checking' || gate.state === 'idle' ? (
           <View style={s.centered}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <LoadingDots color={colors.primary} size={10}    />
             <Text style={s.loadingText}>{t('crypto.dinariChecking')}</Text>
           </View>
         ) : gate.state === 'waitlist' ? (
@@ -62,7 +62,7 @@ export default function DinariGateFlow({ gate }: Props) {
                 : t('crypto.dinariComingSoonBody')
             }
             cta={t('crypto.dinariRetry')}
-            onPress={() => { void gate.resolve(); }}
+            onPress={() => { void gate.resolve(true); }}
           />
         ) : gate.state === 'kyc' ? (
           <GatePanel
@@ -131,7 +131,7 @@ function GatePanel({
         activeOpacity={0.85}
       >
         {busy ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <LoadingDots compact color="#FFFFFF" size={6}    />
         ) : (
           <Text style={s.panelBtnText}>{cta}</Text>
         )}

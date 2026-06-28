@@ -20,7 +20,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import i18n from '../../../shared/locales/i18n';
 import {
   authenticatePasskeyForDek,
   getPasskeyStatus,
@@ -37,6 +36,7 @@ import {
 } from '../../../lib/crypto/dataKeySession';
 import { establishCryptoSession } from '../../../lib/crypto/keypairManager';
 import { clearCryptoSession, getCryptoSession } from '../../../lib/crypto/session';
+import { userFacingApiError } from '../../../lib/api/userFacingError';
 import { useAppStore } from '../../../shared/store/useAppStore';
 
 export type DataKeyState =
@@ -149,7 +149,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
           })
           .catch((err) => {
             if (cancelled) return;
-            setErrorMessage(err instanceof Error ? err.message : i18n.t('trackfi.authError'));
+            setErrorMessage(userFacingApiError(err, 'trackfi.authError'));
             setState('error');
           });
         return () => {
@@ -168,7 +168,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       })
       .catch((err) => {
         if (cancelled) return;
-        setErrorMessage(err instanceof Error ? err.message : i18n.t('trackfi.statusCheckFailed'));
+        setErrorMessage(userFacingApiError(err, 'trackfi.statusCheckFailed'));
         setState('error');
       });
 
@@ -202,7 +202,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : i18n.t('trackfi.authError'));
+      setErrorMessage(userFacingApiError(err, 'trackfi.authError'));
       setState('error');
     }
   }, [startTtlTicker]);
@@ -232,7 +232,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : i18n.t('trackfi.registerError'));
+      setErrorMessage(userFacingApiError(err, 'trackfi.registerError'));
       setState('error');
     }
   }, [userProfile.displayName, userProfile.email, startTtlTicker]);
@@ -286,7 +286,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : i18n.t('trackfi.resetFailed'));
+      setErrorMessage(userFacingApiError(err, 'trackfi.resetFailed'));
       // If reset ran but register failed, server has no passkey → unregistered
       // If reset itself failed, leave in error so user can retry
       setState('error');

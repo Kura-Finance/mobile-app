@@ -16,6 +16,8 @@ import {
   WALLET_IMPORTED_KEY,
 } from '../../features/card/config/cardWalletConfig';
 
+import { userFacingTransactionError } from './userFacingTransactionError';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyClient = any;
 
@@ -196,6 +198,29 @@ export async function fetchWalletBalances(address: `0x${string}`): Promise<{ usd
   return { usdc, weth };
 }
 
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Poll balances after a UserOp — RPC state can lag behind the bundler receipt. */
+export async function refreshWalletBalancesAfterTx(
+  address: `0x${string}`,
+  onUpdate?: (balances: { usdc: number; weth: number }) => void,
+): Promise<{ usdc: number; weth: number }> {
+  const delaysMs = [0, 1200, 3000, 6000];
+  let balances = { usdc: 0, weth: 0 };
+
+  for (let i = 0; i < delaysMs.length; i++) {
+    if (i > 0) await sleep(delaysMs[i] - delaysMs[i - 1]);
+    try {
+      balances = await fetchWalletBalances(address);
+      onUpdate?.(balances);
+    } catch {
+      // Best-effort — keep polling.
+    }
+  }
+
+  return balances;
+}
+
 export function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
@@ -262,13 +287,7 @@ function insufficientUsdcError(balanceRaw: bigint, outflowRaw: bigint, gasReserv
 }
 
 export function formatScaTransactionError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (/transfer amount exceeds balance|ERC20:/i.test(msg)) {
-    return PAY_GAS_IN_USDC
-      ? 'Insufficient USDC balance for this transaction and network fees. Leave extra USDC in your wallet when gas is paid in USDC.'
-      : 'Token transfer amount exceeds your balance.';
-  }
-  return msg;
+  return userFacingTransactionError(err, 'crypto.transactionFailed');
 }
 
 async function estimateUsdcGasReserveForCalls(

@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * KycWebViewModal
  *
@@ -11,7 +12,6 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -105,14 +105,14 @@ export default function KycWebViewModal({ visible, getUrl, onCheck, onClose }: P
               style={{ backgroundColor: colors.background }}
               renderLoading={() => (
                 <View style={st.center}>
-                  <ActivityIndicator color={colors.primary} />
+                  <LoadingDots color={colors.primary} size={8}   />
                 </View>
               )}
               onError={() => setError('Could not load verification. Please try again.')}
             />
           ) : (
             <View style={st.center}>
-              <ActivityIndicator color={colors.primary} />
+              <LoadingDots color={colors.primary} size={8}   />
             </View>
           )}
         </View>

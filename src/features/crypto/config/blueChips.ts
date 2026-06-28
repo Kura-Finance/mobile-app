@@ -23,10 +23,14 @@ export interface BluechipToken {
   badge?: string;
   /** Whether this can be a swap target from USDC */
   swappable: boolean;
-  /** When false, list in Discover but skip on-chain balance reads (no Base deployment). */
+  /** When false, list in Invest but skip on-chain balance reads (no Base deployment). */
   trackBalance?: boolean;
   /** Ticker used for the logo.dev crypto logo (defaults to `symbol`). */
   logoSymbol?: string;
+  /** Fallback when logo.dev has no asset (e.g. CoinGecko CDN). */
+  logoUrl?: string;
+  /** CoinGecko id for About copy when `geckoId` has no description (e.g. bridged tokens). */
+  aboutGeckoId?: string;
 }
 
 export const BLUE_CHIPS: BluechipToken[] = [
@@ -117,6 +121,18 @@ export const BLUE_CHIPS: BluechipToken[] = [
     logoSymbol: 'dai',
   },
   {
+    geckoId: 'ethena-usde',
+    symbol: 'USDe',
+    name: 'Ethena USDe',
+    displayName: 'USDe',
+    color: '#111111',
+    emoji: '$',
+    baseAddress: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34',
+    decimals: 18,
+    swappable: true,
+    logoSymbol: 'usde',
+  },
+  {
     geckoId: 'euro-coin',
     symbol: 'EURC',
     name: 'Euro Coin',
@@ -127,6 +143,58 @@ export const BLUE_CHIPS: BluechipToken[] = [
     decimals: 6,
     swappable: true,
     logoSymbol: 'euroc',
+  },
+  {
+    geckoId: 'xsgd',
+    symbol: 'XSGD',
+    name: 'XSGD',
+    displayName: 'XSGD',
+    color: '#EF3340',
+    emoji: 'S$',
+    baseAddress: '0x0A4C9cb2778aB3302996A34BeFCF9a8Bc288C33b',
+    decimals: 6,
+    swappable: true,
+    logoSymbol: 'xsgd',
+    logoUrl: 'https://coin-images.coingecko.com/coins/images/12832/large/XSGD_Logo_Full_Colour_1.png?1772634156',
+  },
+  {
+    geckoId: 'novatti-australian-digital-dollar',
+    symbol: 'AUDD',
+    name: 'Australian Digital Dollar',
+    displayName: 'AUDD',
+    color: '#00843D',
+    emoji: 'A$',
+    baseAddress: '0x449b3317a6d1efb1bc3ba0700c9eaa4ffff4ae65',
+    decimals: 6,
+    swappable: true,
+    logoSymbol: 'audd',
+    logoUrl: 'https://coin-images.coingecko.com/coins/images/33263/large/AUDD-Logo-Blue_512.png?1701319895',
+  },
+  {
+    geckoId: 'brz',
+    symbol: 'BRZ',
+    name: 'Brazilian Digital Token',
+    displayName: 'BRZ',
+    color: '#009C3B',
+    emoji: 'R$',
+    baseAddress: '0xE9185Ee218cae427aF7B9764A011bb89FeA761B4',
+    decimals: 18,
+    swappable: true,
+    logoSymbol: 'brz',
+    logoUrl: 'https://coin-images.coingecko.com/coins/images/8472/large/MicrosoftTeams-image_%286%29.png?1696508657',
+  },
+  {
+    geckoId: 'real-mxn',
+    symbol: 'MXNe',
+    name: 'Real MXN',
+    displayName: 'MXNe',
+    color: '#006847',
+    emoji: 'MX$',
+    baseAddress: '0x269cae7dc59803e5c596c95756faeebb6030e0af',
+    decimals: 6,
+    swappable: true,
+    logoSymbol: 'mxne',
+    logoUrl: 'https://coin-images.coingecko.com/coins/images/54735/large/mxne-logo-200.png?1741253834',
   },
   {
     geckoId: 'wrapped-steth',
@@ -225,6 +293,72 @@ export const BLUE_CHIPS: BluechipToken[] = [
     swappable: true,
     logoSymbol: 'degen',
   },
+  // ── Extended crypto (Base swap) ───────────────────────────────────────────
+  {
+    geckoId: 'ripple',
+    symbol: 'XRP',
+    name: 'XRP',
+    displayName: 'XRP',
+    color: '#23292F',
+    emoji: '✕',
+    baseAddress: '0xcb585250f852C6c6bf90434AB21A00f02833a4af',
+    decimals: 6,
+    badge: 'cb',
+    swappable: true,
+    logoSymbol: 'xrp',
+  },
+  {
+    geckoId: 'cardano',
+    symbol: 'ADA',
+    name: 'Cardano',
+    displayName: 'ADA',
+    color: '#0033AD',
+    emoji: '₳',
+    baseAddress: '0xcbADA732173e39521CDBE8bf59a6Dc85A9fc7b8c',
+    decimals: 6,
+    badge: 'cb',
+    swappable: true,
+    logoSymbol: 'ada',
+  },
+  {
+    geckoId: 'litecoin',
+    symbol: 'LTC',
+    name: 'Litecoin',
+    displayName: 'LTC',
+    color: '#345D9D',
+    emoji: 'Ł',
+    baseAddress: '0xcb17C9Db87B595717C857a08468793f5bAb6445F',
+    decimals: 8,
+    badge: 'cb',
+    swappable: true,
+    logoSymbol: 'ltc',
+  },
+  {
+    geckoId: 'base-bridged-sol-base',
+    symbol: 'SOL',
+    name: 'Solana',
+    displayName: 'SOL',
+    color: '#9945FF',
+    emoji: '◎',
+    baseAddress: '0x311935Cd80B76769bF2ecC9D8Ab7635b2139cf82',
+    decimals: 9,
+    swappable: true,
+    logoSymbol: 'sol',
+    aboutGeckoId: 'solana',
+  },
+  {
+    geckoId: 'dogecoin',
+    symbol: 'cbDOGE',
+    name: 'Coinbase Wrapped DOGE',
+    displayName: 'cbDOGE',
+    color: '#C2A633',
+    emoji: 'Ð',
+    baseAddress: '0xcbD06E5A2B0C65597161de254AA074E489dEb510',
+    decimals: 8,
+    badge: 'cb',
+    swappable: true,
+    logoSymbol: 'doge',
+  },
 ];
 
 /** Tron USDT ramp deposit — display-only (not a Base blue-chip). */
@@ -248,6 +382,7 @@ export const GECKO_IDS = [...new Set(BLUE_CHIPS.map((t) => t.geckoId))].join(','
  * configured (callers fall back to the emoji glyph).
  */
 export function cryptoLogoUrl(token: BluechipToken, size = 64): string | null {
+  if (token.logoUrl) return token.logoUrl;
   const sym = token.logoSymbol ?? token.symbol;
   if (!sym) return null;
   return logoDevCryptoUrl(sym, size);

@@ -8,14 +8,13 @@ import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 import { useFavoritesStore } from '../store/useFavoritesStore';
 import type { PortfolioToken } from '../hooks/usePortfolio';
 import type { BluechipToken } from '../config/blueChips';
+import { isStablecoinSymbol } from '../config/portfolioAssetClasses';
 import TokenLogo from './TokenLogo';
 
+import { formatTokenQuantity } from '../../../shared/utils/formatQuantity';
+
 export function formatTokenHoldings(n: number, symbol: string): string {
-  if (n === 0) return `0 ${symbol}`;
-  if (n < 0.001) return `${n.toExponential(2)} ${symbol}`;
-  if (n < 1) return `${n.toFixed(4)} ${symbol}`;
-  if (n < 1000) return `${n.toFixed(2)} ${symbol}`;
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${symbol}`;
+  return formatTokenQuantity(n, symbol);
 }
 
 interface Props {
@@ -23,6 +22,10 @@ interface Props {
   onPress: (token: BluechipToken) => void;
   showFavorite?: boolean;
   dimUnheld?: boolean;
+  /** Invest: holdings under name; price + change on the right. */
+  layout?: 'portfolio' | 'invest';
+  /** Portfolio groups: show Base network badge and 24h change for stables. */
+  showNetworkBadge?: boolean;
 }
 
 export default function PortfolioTokenRow({
@@ -30,6 +33,8 @@ export default function PortfolioTokenRow({
   onPress,
   showFavorite = true,
   dimUnheld = true,
+  layout = 'portfolio',
+  showNetworkBadge = false,
 }: Props) {
   const { colors } = useTheme();
   const st = useMemo(() => makeStyles(colors), [colors]);
@@ -38,8 +43,11 @@ export default function PortfolioTokenRow({
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const { token, price, change24h, holdings, value } = item;
   const hasHoldings = holdings > 0;
+  const showChange = showNetworkBadge || !isStablecoinSymbol(token.symbol);
   const isPositive = change24h >= 0;
   const isFav = favorites.includes(token.symbol);
+
+  const isInvest = layout === 'invest';
 
   return (
     <TouchableOpacity
@@ -59,25 +67,51 @@ export default function PortfolioTokenRow({
       <View style={st.mid}>
         <View style={st.nameRow}>
           <Text style={st.symbol}>{token.displayName}</Text>
+          {showNetworkBadge && (
+            <View style={st.networkBadge}>
+              <Text style={st.networkBadgeText}>Base</Text>
+            </View>
+          )}
         </View>
-        <View style={st.priceRow}>
-          <Text style={st.price}>{money.price(price)}</Text>
-          <Text style={[st.change, isPositive ? st.changePos : st.changeNeg]}>
-            {isPositive ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}%
-          </Text>
-        </View>
-      </View>
-
-      <View style={st.right}>
-        {hasHoldings ? (
-          <>
-            <Text style={st.value}>{money.compact(value)}</Text>
-            <Text style={st.holdings}>{formatTokenHoldings(holdings, token.displayName)}</Text>
-          </>
+        {isInvest ? (
+          hasHoldings ? (
+            <Text style={st.holdingsValue}>{money.compact(value)}</Text>
+          ) : (
+            <Text style={st.noHoldingsSub}>—</Text>
+          )
         ) : (
-          <Text style={st.noHoldings}>—</Text>
+          <View style={st.priceRow}>
+            <Text style={st.price}>{money.price(price)}</Text>
+            {showChange ? (
+              <Text style={[st.change, isPositive ? st.changePos : st.changeNeg]}>
+                {isPositive ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}%
+              </Text>
+            ) : null}
+          </View>
         )}
       </View>
+
+      {isInvest ? (
+        <View style={st.right}>
+          <Text style={st.value}>{money.price(price)}</Text>
+          {showChange ? (
+            <Text style={[st.change, isPositive ? st.changePos : st.changeNeg]}>
+              {isPositive ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}%
+            </Text>
+          ) : null}
+        </View>
+      ) : (
+        <View style={st.right}>
+          {hasHoldings || showNetworkBadge ? (
+            <>
+              <Text style={st.value}>{money.compact(value)}</Text>
+              <Text style={st.holdings}>{formatTokenHoldings(holdings, token.displayName)}</Text>
+            </>
+          ) : (
+            <Text style={st.noHoldings}>—</Text>
+          )}
+        </View>
+      )}
 
       {showFavorite && (
         <TouchableOpacity
@@ -128,7 +162,20 @@ function makeStyles(c: ThemeColors) {
       fontWeight: '800',
       letterSpacing: 0.2,
     },
-    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+    networkBadge: {
+      backgroundColor: c.surface,
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    networkBadgeText: {
+      color: c.textFaint,
+      fontSize: 10,
+      fontWeight: '600',
+    },
     mid: { flex: 1, gap: 4 },
     symbol: { color: c.text, fontSize: 15, fontWeight: '700' },
     priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -139,6 +186,8 @@ function makeStyles(c: ThemeColors) {
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     right: { alignItems: 'flex-end', gap: 3 },
     value: { color: c.text, fontSize: 15, fontWeight: '700' },
+    holdingsValue: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
+    noHoldingsSub: { color: c.textFaint, fontSize: 12, fontWeight: '500' },
     holdings: {
       color: c.textMuted,
       fontSize: 12,

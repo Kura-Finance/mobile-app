@@ -12,7 +12,7 @@ export interface StockMeta {
   geckoId?: string;
 }
 
-/** Curated tickers shown in the portfolio watchlist section (priced on load). */
+/** Curated tickers — sort priority in lists and UI metadata (logo / chart). */
 export const DEFAULT_STOCK_SYMBOLS = [
   'AAPL',
   'TSLA',
@@ -53,9 +53,15 @@ export function stockGeckoId(symbol: string): string | null {
 
 const DEFAULT_STOCK_SYMBOL_SET = new Set(DEFAULT_STOCK_SYMBOLS);
 
-/** Whether a ticker is in the curated portfolio watchlist section. */
+/** Whether a ticker is in the curated default list (sort priority). */
 export function isFeaturedStockSymbol(symbol: string): boolean {
   return DEFAULT_STOCK_SYMBOL_SET.has(symbol?.toUpperCase());
+}
+
+/** Lower index = higher priority in browse lists. Unknown tickers sort last. */
+export function featuredStockSortIndex(symbol: string): number {
+  const idx = DEFAULT_STOCK_SYMBOLS.indexOf(symbol.toUpperCase());
+  return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
 }
 
 export function stockColor(symbol: string): string {

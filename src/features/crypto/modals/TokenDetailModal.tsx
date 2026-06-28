@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * TokenDetailModal
  *
@@ -9,7 +10,6 @@
  */
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   ScrollView,
@@ -25,10 +25,15 @@ import { Ionicons } from '@expo/vector-icons';
 import PriceChart from '../components/PriceChart';
 import TokenLogo from '../components/TokenLogo';
 import TradeSheet from './TradeSheet';
+import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
 import TokenDepositModal from './TokenDepositModal';
 import TokenWithdrawModal from './TokenWithdrawModal';
 import { useTokenDetail, TIMEFRAMES, Timeframe } from '../hooks/useTokenDetail';
+import { formatChartTimeframe, getTokenLocalizedName } from '../utils/tokenDisplay';
 import type { BluechipToken } from '../config/blueChips';
+import { formatTokenQuantity } from '../../../shared/utils/formatQuantity';
+import i18n from '../../../shared/locales/i18n';
+import { isStablecoinSymbol, stablecoinPegKey } from '../config/portfolioAssetClasses';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -57,13 +62,6 @@ function formatNumCompact(n: number | null): string {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 }
 
-function formatHoldings(n: number, symbol: string): string {
-  if (n === 0) return `0 ${symbol}`;
-  if (n < 0.0001) return `${n.toExponential(2)} ${symbol}`;
-  if (n < 1) return `${n.toFixed(6)} ${symbol}`;
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${symbol}`;
-}
-
 function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -71,7 +69,7 @@ function stripHtml(s: string): string {
 function formatDate(iso: string | null): string {
   if (!iso) return '';
   try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString(i18n.language, { month: 'short', year: 'numeric' });
   } catch {
     return '';
   }
@@ -234,6 +232,7 @@ export default function TokenDetailModal({
   const { prices, chartLoading, stats } = useTokenDetail(
     visible && token ? token.geckoId : null,
     timeframe,
+    visible && token ? token.aboutGeckoId : null,
   );
 
   const isPositive = tokenChange24h >= 0;
@@ -274,7 +273,7 @@ export default function TokenDetailModal({
       await wrapEthToWeth(tokenHoldings);
       onTraded?.();
     } catch (err) {
-      setWrapError(err instanceof Error ? err.message : t('crypto.transactionFailed'));
+      setWrapError(userFacingTransactionError(err));
     }
   }, [tokenHoldings, wrapEthToWeth, onTraded, t]);
 
@@ -282,6 +281,7 @@ export default function TokenDetailModal({
 
   const isNativeEth = token.symbol === 'ETH' && token.baseAddress === null;
   const isCash = !token.swappable && !isNativeEth;
+  const isStable = isStablecoinSymbol(token.symbol);
   const aboutText = stats?.description ? stripHtml(stats.description) : null;
   const canWithdraw = tokenHoldings > 0 && (isNativeEth || !!token.baseAddress);
 
@@ -323,17 +323,19 @@ export default function TokenDetailModal({
                 </View>
               )}
             </View>
-            <Text style={st.assetName}>{token.name}</Text>
+            <Text style={st.assetName}>{getTokenLocalizedName(token)}</Text>
             <Text style={st.bigPrice}>{money.price(tokenPrice)}</Text>
-            <View style={st.changeLine}>
-              <Text style={[st.changeText, isPositive ? st.green : st.red]}>
-                {isPositive ? '+' : '-'}{money.compact(Math.abs(dollarChange))}
-              </Text>
-              <Text style={[st.changeText, isPositive ? st.green : st.red]}>
-                {isPositive ? '↗' : '↘'} {Math.abs(tokenChange24h).toFixed(2)}%
-              </Text>
-              <Text style={st.changeMuted}>{t('crypto.last24Hours')}</Text>
-            </View>
+            {!isStable ? (
+              <View style={st.changeLine}>
+                <Text style={[st.changeText, isPositive ? st.green : st.red]}>
+                  {isPositive ? '+' : '-'}{money.compact(Math.abs(dollarChange))}
+                </Text>
+                <Text style={[st.changeText, isPositive ? st.green : st.red]}>
+                  {isPositive ? '↗' : '↘'} {Math.abs(tokenChange24h).toFixed(2)}%
+                </Text>
+                <Text style={st.changeMuted}>{t('crypto.last24Hours')}</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* ── Chart ── */}
@@ -364,7 +366,9 @@ export default function TokenDetailModal({
                   style={[st.tfBtn, active && st.tfBtnActive]}
                   activeOpacity={0.7}
                 >
-                  <Text style={[st.tfText, active && st.tfTextActive]}>{tf}</Text>
+                  <Text style={[st.tfText, active && st.tfTextActive]}>
+                    {formatChartTimeframe(t, tf)}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -377,7 +381,7 @@ export default function TokenDetailModal({
                 <Text style={st.balanceLabel}>{t('crypto.balance')}</Text>
                 <Text style={st.balanceValue}>{money.compact(holdingValue)}</Text>
                 <Text style={st.balanceSub}>
-                  {formatHoldings(tokenHoldings, token.displayName)}
+                  {formatTokenQuantity(tokenHoldings, token.displayName)}
                 </Text>
               </View>
               <View style={st.balanceActions}>
@@ -394,23 +398,32 @@ export default function TokenDetailModal({
                 />
               </View>
             </View>
-            <View style={st.balanceDivider} />
-            <View style={st.balanceFooter}>
-              <Text style={st.balanceFooterLabel}>{t('crypto.change24h')}</Text>
-              <Text style={[st.balanceFooterVal, isPositive ? st.green : st.red]}>
-                {isPositive ? '+' : '-'}{money.compact(Math.abs(holdingChange24h))}
-                {'  '}
-                {isPositive ? '↗' : '↘'} {Math.abs(tokenChange24h).toFixed(2)}%
-              </Text>
-            </View>
+            {!isStable ? (
+              <>
+                <View style={st.balanceDivider} />
+                <View style={st.balanceFooter}>
+                  <Text style={st.balanceFooterLabel}>{t('crypto.change24h')}</Text>
+                  <Text style={[st.balanceFooterVal, isPositive ? st.green : st.red]}>
+                    {isPositive ? '+' : '-'}{money.compact(Math.abs(holdingChange24h))}
+                    {'  '}
+                    {isPositive ? '↗' : '↘'} {Math.abs(tokenChange24h).toFixed(2)}%
+                  </Text>
+                </View>
+              </>
+            ) : null}
           </View>
 
           {/* ── Stablecoin note (cash token only) ── */}
-          {isCash && (
+          {(isCash || isStable) && (
             <View style={st.noteCard}>
               <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
               <Text style={st.noteText}>
-                {t('crypto.stablecoinNote', { symbol: token.displayName })}
+                {isStable
+                  ? t('crypto.stablecoinNote', {
+                      symbol: token.displayName,
+                      peg: t(`crypto.${stablecoinPegKey(token.symbol)}`),
+                    })
+                  : t('crypto.purchaseUnavailableNote')}
               </Text>
             </View>
           )}
@@ -447,18 +460,22 @@ export default function TokenDetailModal({
               value={money.price(stats?.ath ?? 0)}
               sub={formatDate(stats?.athDate ?? null) || undefined}
             />
-            <RangeRow
-              label={t('crypto.range24h')}
-              low={stats?.low24h ?? null}
-              high={stats?.high24h ?? null}
-              current={tokenPrice}
-            />
-            <RangeRow
-              label={t('crypto.range1y')}
-              low={stats?.low52w ?? null}
-              high={stats?.high52w ?? null}
-              current={tokenPrice}
-            />
+            {!isStable ? (
+              <>
+                <RangeRow
+                  label={t('crypto.range24h')}
+                  low={stats?.low24h ?? null}
+                  high={stats?.high24h ?? null}
+                  current={tokenPrice}
+                />
+                <RangeRow
+                  label={t('crypto.range1y')}
+                  low={stats?.low52w ?? null}
+                  high={stats?.high52w ?? null}
+                  current={tokenPrice}
+                />
+              </>
+            ) : null}
           </View>
 
           {/* ── About ── */}
@@ -483,7 +500,7 @@ export default function TokenDetailModal({
               activeOpacity={0.85}
             >
               {isSending ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <LoadingDots compact color="#FFFFFF" size={6}    />
               ) : (
                 <>
                   <Ionicons name="swap-horizontal-outline" size={20} color="#FFFFFF" />

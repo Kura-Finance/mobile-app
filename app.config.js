@@ -4,7 +4,7 @@ module.exports = {
   expo: {
     name: brand.appName,
     slug: brand.slug,
-    version: "0.2.2",
+    version: "0.2.10",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -47,7 +47,7 @@ module.exports = {
         NSBonjourServiceTypes: ["_http._tcp", "_https._tcp"],
         NSFaceIDUsageDescription: `${brand.appName} uses Face ID to unlock the app after it has been in the background.`,
         NSCameraUsageDescription:
-          "Kura uses the camera to scan QR codes when sending crypto or connecting to dApps. When you choose, it is also used to take a profile photo or capture images during identity verification with our partners.",
+          `${brand.appName} uses the camera to scan QR codes when sending crypto or connecting to dApps. When you choose, it is also used to take a profile photo or capture images during identity verification with our partners.`,
         NSMicrophoneUsageDescription: "Microphone access is required to record video for liveness verification during identity checks.",
         NSPhotoLibraryUsageDescription: "Photo library access is required to upload document images for identity verification or select a profile picture.",
         NSLocationWhenInUseUsageDescription: "Location access is used to detect your country for identity verification.",
@@ -108,7 +108,7 @@ module.exports = {
       ]
     },
     web: {
-      favicon: "./assets/favicon.png",
+      favicon: "./assets/icon.png",
     },
     extra: {
       walletConnectProjectId:
@@ -128,6 +128,11 @@ module.exports = {
       logodevToken: process.env.EXPO_PUBLIC_LOGODEV_TOKEN || "",
       pimlicoApiKey: process.env.EXPO_PUBLIC_PIMLICO_API_KEY || "",
       alchemyApiKey: process.env.EXPO_PUBLIC_ALCHEMY_API_KEY || "",
+      kuraEarnFeeRecipient: process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT || "",
+      morphoEarnFee: process.env.EXPO_PUBLIC_MORPHO_EARN_FEE || "0.1",
+      lifiIntegrator: process.env.EXPO_PUBLIC_LIFI_INTEGRATOR || "",
+      lifiFee: process.env.EXPO_PUBLIC_LIFI_FEE || "",
+      lifiApiKey: process.env.EXPO_PUBLIC_LIFI_API_KEY || "",
     },
   },
 };

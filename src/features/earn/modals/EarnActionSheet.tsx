@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * Bottom sheet for Morpho vault deposit / withdraw.
  * Two-step flow: amount input → confirm (Swap-style UX).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -35,10 +35,11 @@ import type {
 } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
-import { formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
+import { HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
+import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
+import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
+import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -113,7 +114,7 @@ export default function EarnActionSheet({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const st = useStyles();
-  const hideBalance = useHideBalance();
+  const money = useMoneyFormat();
 
   const [step, setStep] = useState<Step>('input');
   const [amountInput, setAmountInput] = useState('');
@@ -260,8 +261,7 @@ export default function EarnActionSheet({
       setTxHash(hash);
       onCompleted?.();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('crypto.transactionFailed');
-      setExecError(msg);
+      setExecError(userFacingTransactionError(e));
     }
   }, [
     earnParams,
@@ -288,7 +288,7 @@ export default function EarnActionSheet({
   const renderGasValue = () => {
     if (!PAY_GAS_IN_USDC) return t('crypto.gasSponsored');
     if (gasLoading || gasUsdc == null) return t('crypto.estimatingGas');
-    return t('crypto.gasUsdcValue', { gas: gasUsdc.toFixed(2) });
+    return t('crypto.gasUsdcValue', { gas: money.value(gasUsdc) });
   };
 
   const renderWalletToken = () => {
@@ -334,7 +334,10 @@ export default function EarnActionSheet({
                 <Ionicons name="chevron-back" size={20} color={colors.text} />
               </TouchableOpacity>
             ) : null}
-            <Text style={st.title} numberOfLines={1}>{headerTitle}</Text>
+            <View style={st.titleGroup}>
+              <Text style={st.title} numberOfLines={1}>{headerTitle}</Text>
+              <LegalDisclaimerInfoButton variant="earn" />
+            </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7} disabled={isExecutingEarn}>
               <Ionicons name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -373,26 +376,28 @@ export default function EarnActionSheet({
                   </View>
                   <View style={st.swapCardBody}>
                     {isDeposit ? renderWalletToken() : renderVaultToken()}
-                    <TextInput
-                      style={st.amountInput}
-                      value={amountInput}
-                      onChangeText={setAmountInput}
-                      placeholder="0.00"
-                      placeholderTextColor={colors.textFaint}
-                      keyboardType="decimal-pad"
-                      returnKeyType="done"
-                    />
+                    <View style={st.amountField}>
+                      <TextInput
+                        style={st.amountInput}
+                        value={amountInput}
+                        onChangeText={setAmountInput}
+                        placeholder="0.00"
+                        placeholderTextColor={colors.textFaint}
+                        keyboardType="decimal-pad"
+                        returnKeyType="done"
+                      />
+                    </View>
                   </View>
                   <Text style={st.balanceHint}>
                     {isDeposit
                       ? loadingBalance
                         ? t('common.loading')
                         : t('crypto.earnAvailable', {
-                            amount: formatSensitiveUsd(assetBalance, hideBalance),
+                            amount: money.hideBalance ? HIDDEN_BALANCE_TEXT : formatDisplayAmount(assetBalance),
                             symbol,
                           })
                       : t('crypto.earnVaultBalance', {
-                          amount: formatSensitiveUsd(vaultBalance, hideBalance),
+                          amount: money.hideBalance ? HIDDEN_BALANCE_TEXT : formatDisplayAmount(vaultBalance),
                           symbol,
                         })}
                   </Text>
@@ -410,16 +415,18 @@ export default function EarnActionSheet({
                   </View>
                   <View style={st.swapCardBody}>
                     {isDeposit ? renderVaultToken() : renderWalletToken()}
-                    <Text
-                      style={[
-                        st.amountInput,
-                        st.toAmount,
-                        hasValidAmount && st.toAmountActive,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {hasValidAmount ? receiveAmount : '0.00'}
-                    </Text>
+                    <View style={st.amountField}>
+                      <Text
+                        style={[
+                          st.amountInput,
+                          st.toAmount,
+                          hasValidAmount && st.toAmountActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {hasValidAmount ? receiveAmount : '0.00'}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={st.balanceHint} numberOfLines={1}>
                     {isDeposit ? vault.name : t('crypto.earnWalletReceive', { symbol })}
@@ -450,7 +457,6 @@ export default function EarnActionSheet({
               >
                 <Text style={st.execBtnText}>{reviewLabel}</Text>
               </TouchableOpacity>
-              <LegalDisclaimer variant="earn" style={st.disclaimer} />
             </>
           ) : (
             <>
@@ -503,13 +509,11 @@ export default function EarnActionSheet({
                 activeOpacity={0.85}
               >
                 {isExecutingEarn ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <LoadingDots compact color="#FFFFFF" size={6}    />
                 ) : (
                   <Text style={st.execBtnText}>{confirmLabel}</Text>
                 )}
               </TouchableOpacity>
-
-              <LegalDisclaimer variant="earn" style={st.disclaimer} />
             </>
           )}
         </View>
@@ -551,8 +555,14 @@ function makeStyles(c: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    title: {
+    titleGroup: {
       flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    title: {
+      flexShrink: 1,
       color: c.text,
       fontSize: 20,
       fontWeight: '700',
@@ -613,15 +623,25 @@ function makeStyles(c: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    amountInput: {
+    amountField: {
       flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      minWidth: 0,
+    },
+    amountInput: {
+      flexGrow: 0,
+      flexShrink: 1,
       color: c.text,
       fontSize: 32,
       fontWeight: '600',
+      letterSpacing: 0,
       textAlign: 'right',
       padding: 0,
-      minWidth: 0,
+      maxWidth: '100%',
       ...(Platform.OS === 'ios' ? { fontVariant: ['tabular-nums' as const] } : {}),
+      ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
     },
     toAmount: { color: c.textMuted, fontWeight: '600' },
     toAmountActive: { color: c.text },
@@ -701,7 +721,6 @@ function makeStyles(c: ThemeColors) {
     },
     execBtnDisabled: { backgroundColor: c.surfaceInput },
     execBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-    disclaimer: { marginTop: 10, paddingHorizontal: 8 },
 
     successBox: { alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 24 },
     successTitle: { color: c.text, fontSize: 22, fontWeight: '700' },

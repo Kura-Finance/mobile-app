@@ -36,6 +36,8 @@ import type {
 } from 'react-native-passkeys/build/ReactNativePasskeys.types';
 import { getRandomBytes } from 'expo-crypto';
 import { requestJson } from '../api/client';
+import { KuraApiError } from '../api/errors';
+import { brand } from '../../config/branding';
 import {
   bytesToHex,
   hexToBytes,
@@ -50,8 +52,8 @@ import { aesGcmDecrypt } from '../crypto/aesgcm';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Relying Party ID — must match the domain hosting apple-app-site-association. */
-export const PASSKEY_RP_ID = 'api.kura-finance.com';
-export const PASSKEY_RP_NAME = 'Kura Finance';
+export const PASSKEY_RP_ID = brand.webCredentialsHost;
+export const PASSKEY_RP_NAME = brand.passkeyRpName;
 
 /**
  * Fixed PRF salt used in both registration and authentication.
@@ -90,6 +92,61 @@ interface AuthenticateVerifyResponse {
 
 interface PasskeyStatusResponse {
   registered: boolean;
+}
+
+const STATUS_CACHE_TTL_MS = 60_000;
+let statusCache: { registered: boolean; fetchedAt: number } | null = null;
+let statusInFlight: Promise<PasskeyStatusResponse> | null = null;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchPasskeyStatusWithRetry(): Promise<PasskeyStatusResponse> {
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await requestJson<PasskeyStatusResponse>('/api/auth/passkey/status');
+    } catch (err) {
+      lastError = err;
+      if (err instanceof KuraApiError && err.isRateLimited() && attempt < maxAttempts - 1) {
+        await sleep(800 * (attempt + 1));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+/** Clear cached passkey registration status (after register / reset). */
+export function invalidatePasskeyStatusCache(): void {
+  statusCache = null;
+}
+
+export async function getPasskeyStatus(options?: { force?: boolean }): Promise<PasskeyStatusResponse> {
+  const now = Date.now();
+  if (!options?.force && statusCache && now - statusCache.fetchedAt < STATUS_CACHE_TTL_MS) {
+    return { registered: statusCache.registered };
+  }
+
+  if (!options?.force && statusInFlight) {
+    return statusInFlight;
+  }
+
+  statusInFlight = fetchPasskeyStatusWithRetry()
+    .then((result) => {
+      statusCache = { registered: result.registered, fetchedAt: Date.now() };
+      statusInFlight = null;
+      return result;
+    })
+    .catch((err) => {
+      statusInFlight = null;
+      throw err;
+    });
+
+  return statusInFlight;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,10 +198,6 @@ export function passkeyIsSupported(): boolean {
   }
 }
 
-export async function getPasskeyStatus(): Promise<PasskeyStatusResponse> {
-  return requestJson<PasskeyStatusResponse>('/api/auth/passkey/status');
-}
-
 export interface E2EEResetResult {
   reset: boolean;
   passkeysDeleted: number;
@@ -169,7 +222,9 @@ export interface E2EEResetResult {
  * the user just lost their passkey, so we cannot demand it.
  */
 export async function resetE2EE(): Promise<E2EEResetResult> {
-  return requestJson<E2EEResetResult>('/api/auth/keys/reset', { method: 'POST' });
+  const result = await requestJson<E2EEResetResult>('/api/auth/keys/reset', { method: 'POST' });
+  invalidatePasskeyStatusCache();
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +294,8 @@ export async function registerPasskey(displayName: string): Promise<Uint8Array |
       encryptedDek,
     }),
   });
+
+  statusCache = { registered: true, fetchedAt: Date.now() };
 
   // Return plaintext DEK to caller for immediate SecureStore persistence
   return dek;

@@ -22,8 +22,8 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  colors: getColors('dark'),
-  scheme: 'dark',
+  colors: getColors('light'),
+  scheme: 'light',
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

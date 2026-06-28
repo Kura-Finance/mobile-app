@@ -134,7 +134,10 @@ export interface DinariCash {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getEntity(): Promise<DinariEntity> {
-  return requestJson<DinariEntity>('/api/dinari/entity', { apiName: API });
+  return requestJson<DinariEntity>('/api/dinari/entity', {
+    apiName: API,
+    expectedStatuses: [403, 404],
+  });
 }
 
 export function createKycLink(name?: string): Promise<DinariKycLink> {

@@ -14,12 +14,18 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import i18n from '../../../shared/locales/i18n';
 import { fetchBridgeActivities, hasPendingBridgeActivity } from './walletBridgeActivity';
 import { filterWalletTxsForDisplay } from '../utils/walletTxFilter';
+import { enrichWalletActivities, type WalletActivityKind } from '../utils/walletTxEnrichment';
 
 const BLOCKSCOUT_API = 'https://base.blockscout.com/api';
 const PAGE_SIZE = 20;
 /** Blockscout is occasionally flaky; retry transient failures a few times. */
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Default history window for All Transactions before manual load-more. */
+export const DEFAULT_TX_HISTORY_WINDOW_DAYS = 30;
+/** Safety cap when auto-paging through a busy wallet within the initial window. */
+const MAX_INITIAL_WINDOW_PAGES = 50;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -91,6 +97,17 @@ export interface WalletTx {
   updatedAt?: string;
   destinationRail?: string | null;
   destinationCurrency?: string | null;
+  /** Source fiat for on-ramp deposits (e.g. COP wired to Bridge VA). */
+  sourceFiatAmount?: number;
+  sourceFiatCurrency?: string;
+  /** Semantic action after enrichment (Buy, Sell, etc.). */
+  activityKind?: WalletActivityKind;
+  /** Earn vs borrow collateral when activityKind is deposit / withdraw. */
+  activitySubkind?: 'earn' | 'borrow_collateral';
+  activityDetailKey?: string;
+  activityDetailParams?: Record<string, string>;
+  swapFromSymbol?: string;
+  swapToSymbol?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,26 +182,57 @@ function normalize(
   };
 }
 
+function oldestChainTimestamp(chainTxs: WalletTx[]): number | null {
+  if (chainTxs.length === 0) return null;
+  let min = Infinity;
+  for (const tx of chainTxs) {
+    const ts = new Date(tx.timestamp).getTime();
+    if (ts < min) min = ts;
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
+function isInitialWindowCovered(chainTxs: WalletTx[], windowMs: number): boolean {
+  const oldest = oldestChainTimestamp(chainTxs);
+  if (oldest === null) return true;
+  return oldest <= Date.now() - windowMs;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
+
+export interface UseWalletHistoryOptions {
+  /** Auto-fetch pages until this many days of on-chain history are loaded. */
+  initialWindowDays?: number;
+}
 
 export interface UseWalletHistoryReturn {
   txs: WalletTx[];
   loading: boolean;
   error: string | null;
   hasMore: boolean;
+  /** True while auto-paging through the initial time window. */
+  initialWindowLoading: boolean;
   loadMore: () => void;
   refresh: () => void;
 }
 
-export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
+export function useWalletHistory(
+  smartAddress: string,
+  options?: UseWalletHistoryOptions,
+): UseWalletHistoryReturn {
+  const initialWindowMs = (options?.initialWindowDays ?? 0) * MS_PER_DAY;
+  const wantsInitialWindow = initialWindowMs > 0;
+
   const [chainTxs, setChainTxs] = useState<WalletTx[]>([]);
   const [bridgeTxs, setBridgeTxs] = useState<WalletTx[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [initialWindowComplete, setInitialWindowComplete] = useState(!wantsInitialWindow);
+  const initialWindowPagesRef = useRef(0);
   const mountedRef = useRef(true);
 
   const txs = useMemo(() => {
@@ -198,7 +246,7 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
       .sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       );
-    return filterWalletTxsForDisplay(merged);
+    return filterWalletTxsForDisplay(enrichWalletActivities(merged));
   }, [chainTxs, bridgeTxs]);
 
   useEffect(() => {
@@ -289,28 +337,74 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
     setBridgeTxs([]);
     setPage(1);
     setHasMore(false);
+    setInitialWindowComplete(!wantsInitialWindow);
+    initialWindowPagesRef.current = 0;
     void fetchBridge();
     fetchPage(1, false);
-  }, [fetchBridge, fetchPage]);
+  }, [fetchBridge, fetchPage, wantsInitialWindow]);
 
   const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
-      fetchPage(page + 1, true);
-    }
-  }, [loading, hasMore, page, fetchPage]);
+    if (loading || !hasMore) return;
+    if (wantsInitialWindow && !initialWindowComplete) return;
+    fetchPage(page + 1, true);
+  }, [loading, hasMore, wantsInitialWindow, initialWindowComplete, page, fetchPage]);
+
+  const resetHistory = useCallback(() => {
+    setChainTxs([]);
+    setBridgeTxs([]);
+    setPage(1);
+    setHasMore(false);
+    setInitialWindowComplete(!wantsInitialWindow);
+    initialWindowPagesRef.current = 0;
+  }, [wantsInitialWindow]);
 
   // Auto-load on address change
   useEffect(() => {
     if (smartAddress) {
-      setChainTxs([]);
-      setBridgeTxs([]);
-      setPage(1);
-      setHasMore(false);
+      resetHistory();
       void fetchBridge();
       fetchPage(1, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [smartAddress]);
+
+  // Keep paging until the initial window (e.g. last 30 days) is covered.
+  useEffect(() => {
+    if (!wantsInitialWindow || initialWindowComplete) return;
+    if (!smartAddress || loading) return;
+
+    if (error) {
+      setInitialWindowComplete(true);
+      return;
+    }
+
+    if (!hasMore) {
+      setInitialWindowComplete(true);
+      return;
+    }
+    if (isInitialWindowCovered(chainTxs, initialWindowMs)) {
+      setInitialWindowComplete(true);
+      return;
+    }
+    if (initialWindowPagesRef.current >= MAX_INITIAL_WINDOW_PAGES) {
+      setInitialWindowComplete(true);
+      return;
+    }
+
+    initialWindowPagesRef.current += 1;
+    fetchPage(page + 1, true);
+  }, [
+    wantsInitialWindow,
+    initialWindowComplete,
+    initialWindowMs,
+    smartAddress,
+    loading,
+    error,
+    hasMore,
+    chainTxs,
+    page,
+    fetchPage,
+  ]);
 
   // Poll Bridge deposits while any are still in flight.
   useEffect(() => {
@@ -319,5 +413,13 @@ export function useWalletHistory(smartAddress: string): UseWalletHistoryReturn {
     return () => clearInterval(id);
   }, [bridgeTxs, fetchBridge]);
 
-  return { txs, loading, error, hasMore, loadMore, refresh };
+  return {
+    txs,
+    loading,
+    error,
+    hasMore,
+    initialWindowLoading: wantsInitialWindow && !initialWindowComplete,
+    loadMore,
+    refresh,
+  };
 }

@@ -1,4 +1,3 @@
-// apps/kura-app/src/features/settings/screens/UserSettingsModal.tsx
 import React, { useEffect, useState } from 'react';
 import { View, Modal, Dimensions, TouchableWithoutFeedback, ScrollView, TouchableOpacity, Text, Alert, Platform } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
@@ -7,8 +6,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 import { usePrivy } from '@privy-io/expo';
 import { useAppStore } from '../../../shared/store/useAppStore';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
-import type { CurrencyType } from '../../../shared/store/finance/types';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import Logger from '../../../shared/utils/Logger';
@@ -51,18 +48,6 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
   const clearAuthSession = useAppStore((state) => state.clearAuthSession);
   const updateAvatar = useAppStore((state) => state.updateAvatar);
   const { logout } = usePrivy();
-  
-  // Crypto price currency from Finance Store
-  const currency = useFinanceStore((state) => state.currency) as CurrencyType;
-  const setCurrency = useFinanceStore((state) => state.setCurrency);
-
-  // 當法幣改變時，同時更新加密貨幣價格貨幣
-  useEffect(() => {
-    const baseCurrencyLowercase = preferences.baseCurrency.toLowerCase() as CurrencyType;
-    if (currency !== baseCurrencyLowercase) {
-      setCurrency(baseCurrencyLowercase);
-    }
-  }, [preferences.baseCurrency, currency, setCurrency]);
 
   // 頭像上傳處理
   const handleAvatarPress = async () => {

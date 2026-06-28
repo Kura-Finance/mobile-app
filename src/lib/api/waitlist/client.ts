@@ -75,6 +75,7 @@ export async function getWaitlistStatus(
     method: 'GET',
     skipAuth: true,
     apiName,
+    expectedStatuses: [429],
   });
   return waitlistStatusResponseSchema.parse(raw);
 }

@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * ImportWalletScreen
  *
@@ -18,7 +19,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Alert,
   StyleSheet,
   KeyboardAvoidingView,
@@ -235,7 +235,7 @@ export default function ImportWalletScreen({ onClose, onImport }: ImportWalletSc
               </Text>
             </View>
             {isPreviewLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <LoadingDots compact color={colors.primary} size={6}    />
             ) : (
               <Text style={s.previewAddress} selectable>
                 {previewAddress}
@@ -274,7 +274,7 @@ export default function ImportWalletScreen({ onClose, onImport }: ImportWalletSc
             style={s.importGradient}
           >
             {isImporting ? (
-              <ActivityIndicator color="#fff" />
+              <LoadingDots color="#fff" size={8}   />
             ) : (
               <>
                 <Ionicons name="download-outline" size={18} color="#FFFFFF" />

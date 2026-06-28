@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,34 +12,37 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
 interface Props {
-  onGetCard: () => void;
-  loading?: boolean;
+  onNotify: () => void;
+  notifyLoading?: boolean;
+  notifyJoined?: boolean;
+  notifyDisabled?: boolean;
 }
 
 const FEATURES = [
   {
-    icon: 'logo-apple' as const,
-    titleKey: 'card.dmApplePayTitle',
-    bodyKey: 'card.dmApplePayBody',
+    icon: 'phone-portrait-outline' as const,
+    titleKey: 'card.dmVirtualPayTitle',
   },
   {
     icon: 'gift-outline' as const,
-    titleKey: 'card.dmCashbackTitle',
-    bodyKey: 'card.dmCashbackBody',
+    titleKey: 'card.dmCashbackHalfTitle',
   },
   {
-    icon: 'checkmark-circle-outline' as const,
-    titleKey: 'card.dmZeroFeesTitle',
-    bodyKey: 'card.dmZeroFeesBody',
+    icon: 'globe-outline' as const,
+    titleKey: 'card.dmZeroFxTitle',
   },
   {
     icon: 'shield-checkmark-outline' as const,
-    titleKey: 'card.dmSelfCustodyTitle',
-    bodyKey: 'card.dmSelfCustodyBody',
+    titleKey: 'card.dmSelfCustodyShortTitle',
   },
 ] as const;
 
-export default function CardProductDmPage({ onGetCard, loading }: Props) {
+export default function CardProductDmPage({
+  onNotify,
+  notifyLoading = false,
+  notifyJoined = false,
+  notifyDisabled = false,
+}: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
@@ -50,38 +53,32 @@ export default function CardProductDmPage({ onGetCard, loading }: Props) {
       <Text style={s.heroSub}>{t('card.dmHeroSub')}</Text>
 
       <View style={s.features}>
-        {FEATURES.map(({ icon, titleKey, bodyKey }) => (
+        {FEATURES.map(({ icon, titleKey }) => (
           <View key={titleKey} style={s.featureRow}>
             <View style={s.featureIconWrap}>
               <Ionicons name={icon} size={20} color={colors.primary} />
             </View>
-            <View style={s.featureCopy}>
-              <Text style={s.featureTitle}>{t(titleKey)}</Text>
-              <Text style={s.featureBody}>{t(bodyKey)}</Text>
-            </View>
+            <Text style={s.featureTitle}>{t(titleKey)}</Text>
           </View>
         ))}
       </View>
 
-      <View style={s.infoBox}>
-        <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
-        <Text style={s.infoText}>{t('card.kuraWalletWillSign')}</Text>
-      </View>
-
       <TouchableOpacity
-        style={[s.ctaBtn, loading && s.ctaBtnDisabled]}
-        onPress={onGetCard}
-        disabled={loading}
+        style={[s.ctaBtn, (notifyDisabled || notifyJoined) && { opacity: notifyJoined ? 0.72 : 0.55 }]}
+        onPress={onNotify}
+        disabled={notifyDisabled || notifyJoined || notifyLoading}
         activeOpacity={0.85}
       >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+        {notifyLoading ? (
+          <LoadingDots compact color="#FFFFFF" size={6}    />
         ) : (
-          <Text style={s.ctaText}>{t('card.getMyCard')}</Text>
+          <Text style={s.ctaText}>
+            {notifyJoined ? t('card.notifyJoined') : t('card.notifyMe')}
+          </Text>
         )}
       </TouchableOpacity>
 
-      <Text style={s.footerNote}>{t('card.euUkResidentOnly')}</Text>
+      <Text style={s.footerNote}>{t('card.virtualCardWaitlistNote')}</Text>
     </View>
   );
 }
@@ -102,10 +99,10 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 21,
       marginTop: -6,
     },
-    features: { gap: 16 },
+    features: { gap: 14 },
     featureRow: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       gap: 12,
     },
     featureIconWrap: {
@@ -117,34 +114,12 @@ function makeStyles(c: ThemeColors) {
       borderColor: c.primarySoft,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 1,
     },
-    featureCopy: { flex: 1, gap: 4 },
     featureTitle: {
       color: c.text,
       fontSize: 15,
       fontWeight: '700',
       lineHeight: 20,
-    },
-    featureBody: {
-      color: c.textMuted,
-      fontSize: 13,
-      lineHeight: 19,
-    },
-    infoBox: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-      backgroundColor: 'rgba(139,92,246,0.08)',
-      borderRadius: 10,
-      padding: 12,
-      borderWidth: 1,
-      borderColor: c.primarySoft,
-    },
-    infoText: {
-      color: c.primary,
-      fontSize: 12,
-      lineHeight: 17,
       flex: 1,
     },
     ctaBtn: {
@@ -152,8 +127,9 @@ function makeStyles(c: ThemeColors) {
       borderRadius: 14,
       paddingVertical: 15,
       alignItems: 'center',
+      minHeight: 48,
+      justifyContent: 'center',
     },
-    ctaBtnDisabled: { opacity: 0.6 },
     ctaText: {
       color: '#FFFFFF',
       fontSize: 15,

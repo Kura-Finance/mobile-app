@@ -43,11 +43,18 @@ import {
 } from '../config/cardWalletConfig';
 import { fetchWalletRecord, saveScaAddress, saveEoaAddress } from '../../../lib/api/wallet/client';
 import Logger from '../../../shared/utils/Logger';
+import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
 import { selectCanonicalEmbeddedWallet } from '../../../shared/utils/embeddedWallet';
 import i18n from '../../../shared/locales/i18n';
 import type { LiFiBridgeQuote } from '../../../lib/api/bridge/lifiClient';
 import type { SwapQuote } from '../../../lib/api/bridge/lifiSwapClient';
 import type { MorphoVaultAssetRef } from '../../../lib/wallet/morphoVault';
+import {
+  fetchBaseBalances,
+  type TokenBalances,
+  usdcBalanceFrom,
+  useBaseBalances,
+} from '../../crypto/hooks/useBaseBalances';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -57,7 +64,6 @@ import {
   buildSmartAccountClientFromPrivKey as buildSmartAccountClient,
   buildAllowanceAndTxCalls,
   estimateErc20GasUsdc,
-  fetchWalletBalances,
   privateKeyFromMnemonic,
   resolveKuraSmartAccountClient,
   truncateAddress,
@@ -68,6 +74,19 @@ import {
 } from '../../../lib/wallet/smartAccountClient';
 
 export type { ImportMnemonicType, TypedDataInput };
+
+let lastSwapGasEstimateWarnAt = 0;
+let lastSwapGasEstimateWarnMsg = '';
+
+function warnSwapGasEstimateThrottled(message: string): void {
+  const now = Date.now();
+  if (message === lastSwapGasEstimateWarnMsg && now - lastSwapGasEstimateWarnAt < 60_000) {
+    return;
+  }
+  lastSwapGasEstimateWarnAt = now;
+  lastSwapGasEstimateWarnMsg = message;
+  Logger.warn('KuraCardWallet', 'Swap gas estimate failed; using fallback', { err: message });
+}
 
 export interface MorphoEarnVaultParams {
   innerVaultAddress: `0x${string}`;
@@ -80,6 +99,12 @@ export interface MorphoEarnWithdrawParams extends MorphoEarnVaultParams {
   withdrawAll: boolean;
   amountAssets?: number;
 }
+
+export type MorphoBorrowTxParams = import('../../../lib/wallet/morphoBlue').MorphoBorrowTxParams;
+export type MorphoRepayTxParams = import('../../../lib/wallet/morphoBlue').MorphoRepayTxParams;
+export type MorphoWithdrawCollateralTxParams =
+  import('../../../lib/wallet/morphoBlue').MorphoWithdrawCollateralTxParams;
+
 export { buildSmartAccountClient, privateKeyFromMnemonic };
 
 export type WalletStatus = 'loading' | 'provisioning' | 'ready' | 'error';
@@ -88,13 +113,18 @@ export interface UseKuraCardWalletReturn {
   status: WalletStatus;
   smartAddress: string;
   truncatedAddress: string;
+  /** All blue-chip token balances (single source of truth). */
+  balances: TokenBalances;
+  balancesLoading: boolean;
+  balancesHasLoaded: boolean;
+  /** Derived from `balances.USDC`. */
   usdcBalance: number;
-  wethBalance: number;
   errorMessage: string;
   isSending: boolean;
   isBridging: boolean;
   isExecutingSwap: boolean;
   isExecutingEarn: boolean;
+  isExecutingBorrow: boolean;
   /** Power-user: replace the Privy EOA signer with a BIP-39 imported key */
   importWallet: (phrase: string, type: ImportMnemonicType) => Promise<void>;
   refreshBalance: () => Promise<void>;
@@ -131,6 +161,18 @@ export interface UseKuraCardWalletReturn {
   estimateMorphoDepositGasUsdc: (params: MorphoEarnVaultParams & { amount: number }) => Promise<number>;
   /** Estimate USDC gas for a Morpho earn withdraw. */
   estimateMorphoWithdrawGasUsdc: (params: MorphoEarnWithdrawParams) => Promise<number>;
+  /** Supply collateral and borrow from a Morpho Blue market. */
+  executeMorphoBorrow: (params: MorphoBorrowTxParams) => Promise<string>;
+  /** Repay loan assets on a Morpho Blue market. */
+  executeMorphoRepay: (params: MorphoRepayTxParams) => Promise<string>;
+  /** Estimate USDC gas for a Morpho borrow bundle. */
+  estimateMorphoBorrowGasUsdc: (params: MorphoBorrowTxParams) => Promise<number>;
+  /** Estimate USDC gas for a Morpho repay. */
+  estimateMorphoRepayGasUsdc: (params: MorphoRepayTxParams) => Promise<number>;
+  /** Withdraw collateral from a Morpho Blue market (requires zero debt). */
+  executeMorphoWithdrawCollateral: (params: MorphoWithdrawCollateralTxParams) => Promise<string>;
+  /** Estimate USDC gas for a Morpho collateral withdraw. */
+  estimateMorphoWithdrawCollateralGasUsdc: (params: MorphoWithdrawCollateralTxParams) => Promise<number>;
   /** Sign a plain message with the Safe SCA (ERC-1271). */
   signMessage: (message: string) => Promise<string>;
   /** Sign EIP-712 typed data with the Safe SCA (ERC-1271). */
@@ -148,13 +190,12 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const authToken = useAppStore((s) => s.authToken);
   const [status, setStatus] = useState<WalletStatus>('loading');
   const [smartAddress, setSmartAddress] = useState('');
-  const [usdcBalance, setUsdcBalance] = useState(0);
-  const [wethBalance, setWethBalance] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isBridging, setIsBridging] = useState(false);
   const [isExecutingSwap, setIsExecutingSwap] = useState(false);
   const [isExecutingEarn, setIsExecutingEarn] = useState(false);
+  const [isExecutingBorrow, setIsExecutingBorrow] = useState(false);
 
   const cancelRef = useRef(false);
   const provisioningRef = useRef(false); // guard against concurrent runs
@@ -173,6 +214,20 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const embeddedWalletKey = embeddedWallet
     ? `${embeddedWallet.walletIndex}:${embeddedWallet.address.toLowerCase()}`
     : null;
+
+  const {
+    balances,
+    loading: balancesLoading,
+    hasLoaded: balancesHasLoaded,
+    refresh: refreshBalances,
+    refreshAfterTx: scheduleBalanceRefresh,
+  } = useBaseBalances(smartAddress || null);
+
+  const refreshBalancesRef = useRef(refreshBalances);
+  refreshBalancesRef.current = refreshBalances;
+
+  const usdcBalance = usdcBalanceFrom(balances);
+  const refreshBalance = refreshBalances;
 
   // ── Resolve key source ────────────────────────────────────────────────────
 
@@ -203,16 +258,23 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     cancelRef.current = false;
     provisioningRef.current = true;
 
-    async function applyReady(scaAddress: string, usdc: number, weth: number, logReady = false) {
+    async function applyReady(scaAddress: string, logReady = false) {
       if (cancelRef.current) return;
       setSmartAddress(scaAddress);
-      setUsdcBalance(usdc);
-      setWethBalance(weth);
       setStatus('ready');
       provisionedScaRef.current = scaAddress;
       setGlobalProvisionedSca(scaAddress);
+      await refreshBalancesRef.current({ address: scaAddress });
       if (logReady) {
-        Logger.info('KuraCardWallet', 'Wallet ready', { scaAddress, usdc, weth });
+        try {
+          const fetched = await fetchBaseBalances(scaAddress as `0x${string}`);
+          Logger.info('KuraCardWallet', 'Wallet ready', {
+            scaAddress,
+            usdc: usdcBalanceFrom(fetched),
+          });
+        } catch {
+          Logger.info('KuraCardWallet', 'Wallet ready', { scaAddress });
+        }
       }
     }
 
@@ -297,8 +359,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
           getGlobalProvisionedSca() ?? (await SecureStore.getItemAsync(WALLET_ADDRESS_STORE_KEY));
 
         if (cachedSca) {
-          const { usdc, weth } = await fetchWalletBalances(cachedSca as `0x${string}`);
-          await applyReady(cachedSca, usdc, weth, provisionedScaRef.current !== cachedSca);
+          await applyReady(cachedSca, provisionedScaRef.current !== cachedSca);
           return;
         }
 
@@ -308,8 +369,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         const scaAddress = await resolveScaAddress(wallet);
         if (!scaAddress || cancelRef.current) return;
 
-        const { usdc, weth } = await fetchWalletBalances(scaAddress as `0x${string}`);
-        await applyReady(scaAddress, usdc, weth, true);
+        await applyReady(scaAddress, true);
       } catch (err) {
         if (cancelRef.current) return;
         const msg = err instanceof Error ? err.message : i18n.t('card.walletSetupFailed');
@@ -327,19 +387,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       provisioningRef.current = false;
     };
   }, [authToken, user?.id, embeddedWalletKey]);
-
-  // ── refreshBalance ────────────────────────────────────────────────────────
-
-  const refreshBalance = useCallback(async () => {
-    if (!smartAddress) return;
-    try {
-      const { usdc, weth } = await fetchWalletBalances(smartAddress as `0x${string}`);
-      setUsdcBalance(usdc);
-      setWethBalance(weth);
-    } catch {
-      // Silently fail — stale balance beats an error screen
-    }
-  }, [smartAddress]);
 
   // ── estimateUsdcGasReserve ─────────────────────────────────────────────────
 
@@ -400,9 +447,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         },
       ]);
       const hash = await client.sendTransaction({ calls });
-      fetchWalletBalances(smartAddress as `0x${string}`)
-        .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-        .catch(() => undefined);
+      scheduleBalanceRefresh();
       return hash as string;
     } finally {
       setIsSending(false);
@@ -446,9 +491,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
           },
         ]);
         const hash = await client.sendTransaction({ calls });
-        fetchWalletBalances(smartAddress as `0x${string}`)
-          .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-          .catch(() => undefined);
+        scheduleBalanceRefresh();
         return hash as string;
       } finally {
         setIsSending(false);
@@ -478,9 +521,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         { to: toAddress as `0x${string}`, value: amountWei, data: '0x' },
       ]);
       const hash = await client.sendTransaction({ calls });
-      fetchWalletBalances(smartAddress as `0x${string}`)
-        .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-        .catch(() => undefined);
+      scheduleBalanceRefresh();
       return hash as string;
     } finally {
       setIsSending(false);
@@ -520,9 +561,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         },
       ]);
       const hash = await client.sendTransaction({ calls });
-      fetchWalletBalances(smartAddress as `0x${string}`)
-        .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-        .catch(() => undefined);
+      scheduleBalanceRefresh();
       return hash as string;
     } finally {
       setIsSending(false);
@@ -555,9 +594,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       });
       const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
       const txHash = await client.sendTransaction({ calls });
-      fetchWalletBalances(smartAddress as `0x${string}`)
-        .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-        .catch(() => undefined);
+      scheduleBalanceRefresh();
       return txHash as string;
     } finally {
       setIsBridging(false);
@@ -616,10 +653,10 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       });
       const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
       const txHash = await client.sendTransaction({ calls });
-      fetchWalletBalances(smartAddress as `0x${string}`)
-        .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-        .catch(() => undefined);
+      scheduleBalanceRefresh();
       return txHash as string;
+    } catch (err) {
+      throw new Error(userFacingTransactionError(err));
     } finally {
       setIsExecutingSwap(false);
     }
@@ -647,9 +684,9 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
       return await estimateErc20GasUsdc(client, pimlicoClient, calls);
     } catch (err) {
-      Logger.warn('KuraCardWallet', 'Swap gas estimate failed; using fallback', {
-        err: err instanceof Error ? err.message : String(err),
-      });
+      warnSwapGasEstimateThrottled(
+        userFacingTransactionError(err, 'crypto.swapSimulationFailed'),
+      );
       return GAS_RESERVE_FALLBACK_USDC;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -684,9 +721,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
         const txHash = await client.sendTransaction({ calls });
 
-        fetchWalletBalances(smartAddress as `0x${string}`)
-          .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-          .catch(() => undefined);
+        scheduleBalanceRefresh();
         return txHash as string;
       } finally {
         setIsExecutingEarn(false);
@@ -723,9 +758,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
         const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
         const txHash = await client.sendTransaction({ calls });
 
-        fetchWalletBalances(smartAddress as `0x${string}`)
-          .then(({ usdc, weth }) => { setUsdcBalance(usdc); setWethBalance(weth); })
-          .catch(() => undefined);
+        scheduleBalanceRefresh();
         return txHash as string;
       } finally {
         setIsExecutingEarn(false);
@@ -804,6 +837,191 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     [smartAddress, embeddedWallet],
   );
 
+  // ── Morpho Borrow (Blue market supply collateral + borrow / repay) ───────────
+
+  const executeMorphoBorrow = useCallback(
+    async (params: MorphoBorrowTxParams): Promise<string> => {
+      if (!smartAddress) throw new Error('Wallet not ready.');
+      const {
+        buildMorphoBorrowCalls,
+        toMorphoMarketParams,
+      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+
+      setIsExecutingBorrow(true);
+      try {
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoBorrowCalls({
+          market,
+          collateralAmount: params.collateralAmount,
+          borrowAmount: params.borrowAmount,
+          onBehalf: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        const txHash = await client.sendTransaction({ calls: callsWithGas });
+        scheduleBalanceRefresh();
+        return txHash as string;
+      } finally {
+        setIsExecutingBorrow(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
+  const executeMorphoRepay = useCallback(
+    async (params: MorphoRepayTxParams): Promise<string> => {
+      if (!smartAddress) throw new Error('Wallet not ready.');
+      const {
+        buildMorphoRepayCalls,
+        toMorphoMarketParams,
+      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+
+      setIsExecutingBorrow(true);
+      try {
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoRepayCalls({
+          market,
+          repayAmount: params.repayAmount,
+          repayAll: params.repayAll,
+          onBehalf: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        const txHash = await client.sendTransaction({ calls: callsWithGas });
+        scheduleBalanceRefresh();
+        return txHash as string;
+      } finally {
+        setIsExecutingBorrow(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
+  const estimateMorphoBorrowGasUsdc = useCallback(
+    async (params: MorphoBorrowTxParams): Promise<number> => {
+      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
+      try {
+        const {
+          buildMorphoBorrowCalls,
+          toMorphoMarketParams,
+        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoBorrowCalls({
+          market,
+          collateralAmount: params.collateralAmount,
+          borrowAmount: params.borrowAmount,
+          onBehalf: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
+      } catch (err) {
+        Logger.warn('KuraCardWallet', 'Morpho borrow gas estimate failed; using fallback', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return GAS_RESERVE_FALLBACK_USDC;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
+  const estimateMorphoRepayGasUsdc = useCallback(
+    async (params: MorphoRepayTxParams): Promise<number> => {
+      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
+      try {
+        const {
+          buildMorphoRepayCalls,
+          toMorphoMarketParams,
+        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoRepayCalls({
+          market,
+          repayAmount: params.repayAmount,
+          repayAll: params.repayAll,
+          onBehalf: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
+      } catch (err) {
+        Logger.warn('KuraCardWallet', 'Morpho repay gas estimate failed; using fallback', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return GAS_RESERVE_FALLBACK_USDC;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
+  const executeMorphoWithdrawCollateral = useCallback(
+    async (params: MorphoWithdrawCollateralTxParams): Promise<string> => {
+      if (!smartAddress) throw new Error('Wallet not ready.');
+      const {
+        buildMorphoWithdrawCollateralCalls,
+        toMorphoMarketParams,
+      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+
+      setIsExecutingBorrow(true);
+      try {
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoWithdrawCollateralCalls({
+          market,
+          withdrawAmount: params.withdrawAmount,
+          onBehalf: sca,
+          receiver: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        const txHash = await client.sendTransaction({ calls: callsWithGas });
+        scheduleBalanceRefresh();
+        return txHash as string;
+      } finally {
+        setIsExecutingBorrow(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
+  const estimateMorphoWithdrawCollateralGasUsdc = useCallback(
+    async (params: MorphoWithdrawCollateralTxParams): Promise<number> => {
+      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
+      try {
+        const {
+          buildMorphoWithdrawCollateralCalls,
+          toMorphoMarketParams,
+        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
+          await resolveSmartAccountClient();
+        const market = toMorphoMarketParams(params.market);
+        const { calls } = await buildMorphoWithdrawCollateralCalls({
+          market,
+          withdrawAmount: params.withdrawAmount,
+          onBehalf: sca,
+          receiver: sca,
+        });
+        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
+        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
+      } catch (err) {
+        Logger.warn('KuraCardWallet', 'Morpho withdraw collateral gas estimate failed; using fallback', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+        return GAS_RESERVE_FALLBACK_USDC;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [smartAddress, embeddedWallet],
+  );
+
   // ── Signing (Dinari order permits, wallet-connect nonce, etc.) ─────────────
 
   const signMessage = useCallback(async (message: string): Promise<string> => {
@@ -838,32 +1056,33 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey);
       await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr);
       await saveScaAddress(addr).catch(() => undefined);
-      const { usdc, weth } = await fetchWalletBalances(addr);
       setSmartAddress(addr);
-      setUsdcBalance(usdc);
-      setWethBalance(weth);
       setStatus('ready');
       provisionedScaRef.current = addr;
       setGlobalProvisionedSca(addr);
+      await refreshBalances({ address: addr });
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : i18n.t('card.importFailedShort'));
       setStatus('error');
       throw err;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshBalances]);
 
   return {
     status,
     smartAddress,
     truncatedAddress: smartAddress ? truncateAddress(smartAddress) : '',
+    balances,
+    balancesLoading,
+    balancesHasLoaded,
     usdcBalance,
-    wethBalance,
     errorMessage,
     isSending,
     isBridging,
     isExecutingSwap,
     isExecutingEarn,
+    isExecutingBorrow,
     importWallet,
     refreshBalance,
     sendUsdc,
@@ -879,6 +1098,12 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     executeMorphoWithdraw,
     estimateMorphoDepositGasUsdc,
     estimateMorphoWithdrawGasUsdc,
+    executeMorphoBorrow,
+    executeMorphoRepay,
+    estimateMorphoBorrowGasUsdc,
+    estimateMorphoRepayGasUsdc,
+    executeMorphoWithdrawCollateral,
+    estimateMorphoWithdrawCollateralGasUsdc,
     signMessage,
     signTypedData,
   };

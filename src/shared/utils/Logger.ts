@@ -35,6 +35,12 @@ function sanitizeData(data: any): any {
     if (data.startsWith('data:image/')) {
       return '[Image Base64 - hidden]';
     }
+    // 長 hex（callData、paymasterData 等）
+    if (/0x[0-9a-fA-F]{40,}/i.test(data)) {
+      return data
+        .replace(/0x[0-9a-fA-F]{20,}/gi, '0x…')
+        .slice(0, 400);
+    }
     // 如果是超過 100 個字符的 base64 字符串，只顯示前 10 個字符
     if (data.length > 100 && /^[A-Za-z0-9+/]*={0,2}$/.test(data.substring(0, 100))) {
       return `${data.substring(0, 10)}... (${data.length} chars)`;
@@ -57,6 +63,12 @@ function sanitizeData(data: any): any {
           // 檢查是否為 Image Base64
           if (value.startsWith('data:image/')) {
             sanitized[key] = '[Image Base64 - hidden]';
+            continue;
+          }
+          if (/0x[0-9a-fA-F]{40,}/i.test(value)) {
+            sanitized[key] = value
+              .replace(/0x[0-9a-fA-F]{20,}/gi, '0x…')
+              .slice(0, 400);
             continue;
           }
           // 檢查是否為長 Base64 字符串（不限於特定 key 名稱）

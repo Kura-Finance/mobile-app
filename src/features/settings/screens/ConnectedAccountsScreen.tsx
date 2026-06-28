@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import LoadingDots from '../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import { useFinanceStore } from '../../../shared/store/useFinanceStore';
 import { useAppStore } from '../../../shared/store/useAppStore';
@@ -173,7 +174,7 @@ export default function ConnectedAccountsScreen({ onClose }: ConnectedAccountsSc
                   style={{ padding: 8 }}
                 >
                   {disconnectingId === account.id ? (
-                    <ActivityIndicator size={24} color={colors.danger} />
+                    <LoadingDots compact color={colors.danger} size={Math.max(4, Math.round(24 / 4))}    />
                   ) : (
                     <Ionicons name="close-circle" size={24} color={colors.danger} />
                   )}

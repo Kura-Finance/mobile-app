@@ -4,14 +4,16 @@
 import './src/shims/defaultWritable';
 import '@walletconnect/react-native-compat';
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { I18nextProvider } from 'react-i18next';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n from './src/shared/locales/i18n';
+import { I18nLanguageSync } from './src/shared/hooks/useAppTranslation';
+import { BaseCurrencySync, ExchangeRatesBootstrap } from './src/shared/hooks/useBaseCurrencySync';
 import { PrivyProvider, usePrivy, useIdentityToken, usePrivyClient } from '@privy-io/expo';
 import { exchangePrivyToken } from './src/lib/api/auth/privyExchange';
 import { applyPendingOAuthDisplayName } from './src/lib/auth/applyPendingOAuthName';
@@ -30,6 +32,7 @@ import Header from './src/shared/navigation/Header';
 import TabNavigator from './src/shared/navigation/TabNavigator';
 import ConnectedDappsScreen from './src/features/walletconnect/screens/ConnectedDappsScreen';
 import WalletTransactionsScreen from './src/features/card/screens/WalletTransactionsScreen';
+import { CryptoContactsProvider } from './src/features/card/hooks/useCryptoContacts';
 import TransactionDetailScreen from './src/features/card/screens/TransactionDetailScreen';
 import CardManagerScreen from './src/features/card/screens/CardManagerScreen';
 import DinariKycScreen from './src/features/stocks/screens/DinariKycScreen';
@@ -44,6 +47,8 @@ import {
   consumePendingReferralCode,
   installReferralDeepLinkListener,
 } from './src/lib/referral/pendingReferralCode';
+import BootLoadingView from './src/shared/components/BootLoadingView';
+import BootErrorScreen from './src/shared/components/BootErrorScreen';
 
 // Boot breadcrumb: confirms the JS bundle finished evaluating top-level imports
 // (incl. AppKitConfig's createAppKit). On a release build that's stuck on the
@@ -347,14 +352,16 @@ function HomeScreen() {
 
 function MainNavigator() {
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="Tabs" component={HomeScreen} />
-      <MainStack.Screen name="ConnectedDapps" component={ConnectedDappsScreen} />
-      <MainStack.Screen name="WalletTransactions" component={WalletTransactionsScreen} />
-      <MainStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
-      <MainStack.Screen name="CardManager" component={CardManagerScreen} />
-      <MainStack.Screen name="DinariKyc" component={DinariKycScreen} />
-    </MainStack.Navigator>
+    <CryptoContactsProvider>
+      <MainStack.Navigator screenOptions={{ headerShown: false }}>
+        <MainStack.Screen name="Tabs" component={HomeScreen} />
+        <MainStack.Screen name="ConnectedDapps" component={ConnectedDappsScreen} />
+        <MainStack.Screen name="WalletTransactions" component={WalletTransactionsScreen} />
+        <MainStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+        <MainStack.Screen name="CardManager" component={CardManagerScreen} />
+        <MainStack.Screen name="DinariKyc" component={DinariKycScreen} />
+      </MainStack.Navigator>
+    </CryptoContactsProvider>
   );
 }
 
@@ -366,6 +373,7 @@ function MainNavigator() {
 const PRIVY_INIT_TIMEOUT_MS = 12_000;
 
 function AppInner() {
+  const { t } = useTranslation();
   const { isReady, user } = usePrivy();
   const { colors, scheme } = useTheme();
   const navTheme = {
@@ -459,16 +467,12 @@ function AppInner() {
     if (initTimedOut) {
       return (
         <BootStuckScreen
-          title="Couldn’t start the app"
-          message="Sign-in services didn’t initialize. This usually means a configuration mismatch (e.g. this build’s identifier isn’t authorized). Please reopen the app, and if it keeps happening, contact support."
+          title={t('boot.initFailedTitle')}
+          message={t('boot.initFailedMessage')}
         />
       );
     }
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
-      </View>
-    );
+    return <BootLoadingView />;
   }
 
   // Privy is authenticated but the Kura token exchange keeps failing (backend
@@ -483,12 +487,7 @@ function AppInner() {
     if (signInTimedOut && loginStatus !== 'pending') {
       return <LoginRetryScreen />;
     }
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
-        <Text style={{ color: '#9CA3AF', fontSize: 13, marginTop: 16 }}>Signing in…</Text>
-      </View>
-    );
+    return <BootLoadingView caption="Signing in…" />;
   }
 
   const navigation = (
@@ -534,53 +533,20 @@ function AppInner() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LoginRetryScreen() {
+  const { t } = useTranslation();
   const { logout } = usePrivy();
+  const { retry } = useLoginExchange();
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#0B0B0F',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 32,
-      }}
-    >
-      <View
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: 'rgba(239,68,68,0.15)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 20,
-        }}
-      >
-        <Text style={{ fontSize: 26 }}>⚠️</Text>
-      </View>
-      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 10, textAlign: 'center' }}>
-        Couldn’t sign you in
-      </Text>
-      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 28 }}>
-        We reached your account but our server didn’t respond. Sign out and try
-        signing in again in a moment.
-      </Text>
-
-      <TouchableOpacity
-        onPress={() => void logout()}
-        activeOpacity={0.85}
-        style={{
-          width: '100%',
-          backgroundColor: '#7C3AED',
-          paddingVertical: 15,
-          borderRadius: 14,
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Sign out</Text>
-      </TouchableOpacity>
-    </View>
+    <BootErrorScreen
+      icon="cloud-offline"
+      title={t('boot.signInFailedTitle')}
+      message={t('boot.signInFailedMessage')}
+      actions={[
+        { label: t('boot.tryAgain'), onPress: retry, variant: 'primary' },
+        { label: t('auth.signOut'), onPress: () => void logout(), variant: 'secondary' },
+      ]}
+    />
   );
 }
 
@@ -590,23 +556,11 @@ function LoginRetryScreen() {
 
 function BootStuckScreen({ title, message }: { title: string; message: string }) {
   return (
-    <View style={{ flex: 1, backgroundColor: '#0B0B0F', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
-      <View
-        style={{
-          width: 56, height: 56, borderRadius: 28,
-          backgroundColor: 'rgba(239,68,68,0.15)',
-          alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-        }}
-      >
-        <Text style={{ fontSize: 26 }}>⚠️</Text>
-      </View>
-      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 10, textAlign: 'center' }}>
-        {title}
-      </Text>
-      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-        {message}
-      </Text>
-    </View>
+    <BootErrorScreen
+      icon="alert-circle"
+      title={title}
+      message={message}
+    />
   );
 }
 
@@ -636,8 +590,8 @@ class RootErrorBoundary extends React.Component<
     if (this.state.error) {
       return (
         <BootStuckScreen
-          title="Something went wrong"
-          message={`The app hit an unexpected error while starting.\n\n${this.state.error.message}`}
+          title={i18n.t('boot.crashTitle')}
+          message={`${i18n.t('boot.crashMessage')}\n\n${this.state.error.message}`}
         />
       );
     }
@@ -651,24 +605,11 @@ class RootErrorBoundary extends React.Component<
 
 function PrivyConfigErrorScreen() {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#0B0B0F',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 32,
-      }}
-    >
-      <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center' }}>
-        Configuration Required
-      </Text>
-      <Text style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-        Privy App ID is missing. Set{' '}
-        <Text style={{ color: '#C4B5FD', fontWeight: '600' }}>EXPO_PUBLIC_PRIVY_APP_ID</Text>{' '}
-        in your environment (.env) or app config, then rebuild the app.
-      </Text>
-    </View>
+    <BootErrorScreen
+      icon="settings"
+      title={i18n.t('boot.configTitle')}
+      message={i18n.t('boot.configMessage')}
+    />
   );
 }
 
@@ -690,11 +631,7 @@ function AppKitGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (!instance) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B0B0F' }}>
-        <ActivityIndicator color="#8B5CF6" size="large" />
-      </View>
-    );
+    return <BootLoadingView />;
   }
 
   return <AppKitProvider instance={instance}>{children}</AppKitProvider>;
@@ -712,7 +649,7 @@ export default function App() {
     return (
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider>
-          <StatusBar style="light" translucent={true} />
+          <StatusBar style="dark" translucent={true} />
           <PrivyConfigErrorScreen />
         </SafeAreaProvider>
       </GestureHandlerRootView>
@@ -725,6 +662,9 @@ export default function App() {
       <RootErrorBoundary>
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>
+            <I18nLanguageSync />
+            <BaseCurrencySync />
+            <ExchangeRatesBootstrap />
             <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
               <AppKitGate>
                 <PrivyBridgeProvider>
@@ -741,5 +681,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#FFFFFF' },
 });

@@ -1,21 +1,22 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import LoadingDots from '../../../shared/components/LoadingDots';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   Linking,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import WalletTxRow from '../components/wallet/WalletTxRow';
-import { useWalletHistory, type WalletTx } from '../hooks/useWalletHistory';
+import { useWalletHistory, type WalletTx, DEFAULT_TX_HISTORY_WINDOW_DAYS } from '../hooks/useWalletHistory';
+import { useCryptoContacts } from '../hooks/useCryptoContacts';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
@@ -31,14 +32,39 @@ export default function WalletTransactionsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<RouteParams, 'WalletTransactions'>>();
   const smartAddress = route.params?.smartAddress ?? '';
-  const { txs, loading, error, hasMore, loadMore, refresh } = useWalletHistory(smartAddress);
+  const { txs, loading, error, hasMore, initialWindowLoading, loadMore, refresh } = useWalletHistory(
+    smartAddress,
+    { initialWindowDays: DEFAULT_TX_HISTORY_WINDOW_DAYS },
+  );
+  const { contacts, revision } = useCryptoContacts();
   const [refreshing, setRefreshing] = useState(false);
+  const prevContactsRevision = useRef(revision);
+
+  // Reload last month's txs whenever this screen is opened.
+  useFocusEffect(
+    useCallback(() => {
+      if (!smartAddress) return;
+      refresh();
+    }, [smartAddress, refresh]),
+  );
+
+  // Refresh list when address book changes (save / delete).
+  useEffect(() => {
+    if (prevContactsRevision.current === revision) return;
+    prevContactsRevision.current = revision;
+    if (revision === 0 || !smartAddress) return;
+    refresh();
+  }, [revision, smartAddress, refresh]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     refresh();
-    setRefreshing(false);
   }, [refresh]);
+
+  useEffect(() => {
+    if (!refreshing || loading || initialWindowLoading) return;
+    setRefreshing(false);
+  }, [refreshing, loading, initialWindowLoading]);
 
   const openExplorer = useCallback(() => {
     if (!smartAddress) return;
@@ -55,11 +81,11 @@ export default function WalletTransactionsScreen() {
     if (loading && txs.length > 0) {
       return (
         <View style={s.footerSpinner}>
-          <ActivityIndicator size="small" color={colors.textMuted} />
+          <LoadingDots compact color={colors.textMuted} size={6}    />
         </View>
       );
     }
-    if (hasMore && !loading) {
+    if (hasMore && !loading && !initialWindowLoading) {
       return (
         <TouchableOpacity onPress={loadMore} style={s.loadMoreBtn} activeOpacity={0.7}>
           <Text style={s.loadMoreText}>{t('card.loadMore')}</Text>
@@ -84,7 +110,9 @@ export default function WalletTransactionsScreen() {
       <FlatList
         data={txs}
         keyExtractor={(tx) => tx.id}
-        renderItem={({ item }) => <WalletTxRow tx={item} onPress={openTxDetail} />}
+        renderItem={({ item }) => (
+          <WalletTxRow tx={item} contacts={contacts} onPress={openTxDetail} />
+        )}
         contentContainerStyle={[
           s.listContent,
           { paddingBottom: insets.bottom + 24 },
@@ -94,7 +122,7 @@ export default function WalletTransactionsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }
         onEndReached={() => {
-          if (hasMore && !loading) loadMore();
+          if (hasMore && !loading && !initialWindowLoading) loadMore();
         }}
         onEndReachedThreshold={0.3}
         ListFooterComponent={renderFooter}
@@ -118,7 +146,7 @@ export default function WalletTransactionsScreen() {
 
       {loading && txs.length === 0 && (
         <View style={s.initialLoading}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <LoadingDots color={colors.primary} size={10}    />
         </View>
       )}
     </View>

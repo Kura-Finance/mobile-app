@@ -5,28 +5,50 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LiFiBridgeQuote } from '../../../../lib/api/bridge/lifiClient';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import { useCryptoContacts, CryptoContact, ChainOption, BASE_CHAIN } from '../../hooks/useCryptoContacts';
 import PickerView from './PickerView';
+import SendMethodPicker from './SendMethodPicker';
 import SendView from './SendView';
 import ConfirmView, { ConfirmParams } from './ConfirmView';
 import { FiatWithdrawPanel, type WithdrawNavState } from './FiatWithdrawModal';
-import AddWalletModal from './AddWalletModal';
+import AddWalletChainPicker from './AddWalletChainPicker';
+import AddContactView from './AddContactView';
+import QRScanner from './QRScanner';
 
 const SW = Dimensions.get('window').width;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
+const ADD_WALLET_SCREENS = new Set(['addWalletChain', 'addWalletForm', 'addWalletScan']);
 
-type Screen = 'picker' | 'send' | 'confirm' | 'withdraw';
+type Screen =
+  | 'method'
+  | 'bankPick'
+  | 'cryptoPick'
+  | 'addWalletChain'
+  | 'addWalletForm'
+  | 'addWalletScan'
+  | 'send'
+  | 'confirm'
+  | 'withdraw';
 
 const DEFAULT_WITHDRAW_NAV: WithdrawNavState = {
   titleKey: 'card.enterAmount',
   showBack: true,
   onBack: () => {},
+};
+
+const NAV: Record<Exclude<Screen, 'withdraw'>, { titleKey: string; showBack: boolean }> = {
+  method:          { titleKey: 'card.send',              showBack: false },
+  bankPick:        { titleKey: 'card.recipients',      showBack: true  },
+  cryptoPick:      { titleKey: 'card.sendMoneyCrypto', showBack: true  },
+  addWalletChain:  { titleKey: 'card.selectNetwork',   showBack: true  },
+  addWalletForm:   { titleKey: 'card.addWallet',       showBack: true  },
+  addWalletScan:   { titleKey: 'card.scanQrToAdd',     showBack: true  },
+  send:            { titleKey: 'card.enterAmount',     showBack: true  },
+  confirm:         { titleKey: 'card.confirm',         showBack: true  },
 };
 
 export interface SendModalProps {
@@ -38,25 +60,9 @@ export interface SendModalProps {
   isBridging: boolean;
   onSend: (toAddress: string, amount: number) => Promise<string>;
   onBridge: (quote: LiFiBridgeQuote) => Promise<string>;
-  /** Estimate USDC to reserve for network fees (0 when gas is sponsored). */
   estimateGasReserve: () => Promise<number>;
-  /** Estimate the actual USDC gas cost for a bridge route (0 when sponsored). */
   estimateBridgeGasUsdc: (quote: LiFiBridgeQuote) => Promise<number>;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Nav bar title + back visibility per screen
-// ─────────────────────────────────────────────────────────────────────────────
-
-const NAV: Record<Exclude<Screen, 'withdraw'>, { titleKey: string; showBack: boolean }> = {
-  picker:  { titleKey: 'card.send',        showBack: false },
-  send:    { titleKey: 'card.enterAmount', showBack: true  },
-  confirm: { titleKey: 'card.confirm',     showBack: true  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SendModal
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function SendModal({
   visible, onClose,
@@ -71,18 +77,17 @@ export default function SendModal({
   const st = useMemo(() => makeStyles(colors), [colors]);
   const { contacts, isLoading, addContact, removeContact, getChain } = useCryptoContacts();
 
-  const [screen, setScreen] = useState<Screen>('picker');
+  const [screen, setScreen] = useState<Screen>('method');
   const [selectedContact, setSelectedContact] = useState<CryptoContact | null>(null);
   const [selectedChain, setSelectedChain] = useState<ChainOption>(BASE_CHAIN);
   const [confirmParams, setConfirmParams] = useState<ConfirmParams | null>(null);
-  const [showAddWallet, setShowAddWallet] = useState(false);
+  const [addWalletChain, setAddWalletChain] = useState<ChainOption>(BASE_CHAIN);
+  const [addWalletPrefill, setAddWalletPrefill] = useState('');
   const [withdrawInit, setWithdrawInit] = useState<{ accountId?: string; addNew?: boolean }>({});
   const [withdrawNav, setWithdrawNav] = useState<WithdrawNavState>(DEFAULT_WITHDRAW_NAV);
   const [bankRefreshKey, setBankRefreshKey] = useState(0);
 
-  // Screen history stack for back navigation
   const historyRef = useRef<Screen[]>([]);
-
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const navigate = useCallback((next: Screen, dir: 'forward' | 'back' = 'forward') => {
@@ -97,45 +102,84 @@ export default function SendModal({
     }).start();
   }, [screen, slideAnim]);
 
+  const goToScreen = useCallback((next: Screen) => {
+    slideAnim.setValue(SW);
+    setScreen(next);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 16,
+    }).start();
+  }, [slideAnim]);
+
+  const resetAddWalletState = useCallback(() => {
+    setAddWalletChain(BASE_CHAIN);
+    setAddWalletPrefill('');
+  }, []);
+
   const goBack = useCallback(() => {
     if (screen === 'withdraw') {
       withdrawNav.onBack();
       return;
     }
-    const prev = historyRef.current.pop() ?? 'picker';
+    const prev = historyRef.current.pop() ?? 'method';
     navigate(prev, 'back');
   }, [navigate, screen, withdrawNav]);
 
   const reset = useCallback(() => {
     historyRef.current = [];
-    setScreen('picker');
+    setScreen('method');
     setSelectedContact(null);
     setSelectedChain(BASE_CHAIN);
     setConfirmParams(null);
-    setShowAddWallet(false);
+    resetAddWalletState();
     setWithdrawInit({});
     setWithdrawNav(DEFAULT_WITHDRAW_NAV);
     slideAnim.setValue(0);
-  }, [slideAnim]);
+  }, [resetAddWalletState, slideAnim]);
 
   const handleClose = useCallback(() => { reset(); onClose(); }, [reset, onClose]);
 
   const dismissWithdraw = useCallback(() => {
     setBankRefreshKey((k) => k + 1);
-    const prev = historyRef.current.pop() ?? 'picker';
+    const prev = historyRef.current.pop() ?? 'method';
     navigate(prev, 'back');
   }, [navigate]);
 
-  // ── Picker ────────────────────────────────────────────────────────────────
   const handleAddNew = useCallback(() => {
-    setShowAddWallet(true);
-  }, []);
+    resetAddWalletState();
+    navigate('addWalletChain');
+  }, [navigate, resetAddWalletState]);
 
-  const handleAddComplete = useCallback((contact: CryptoContact) => {
+  const handleSelectAddWalletChain = useCallback((chain: ChainOption) => {
+    setAddWalletChain(chain);
+    navigate('addWalletForm');
+  }, [navigate]);
+
+  const handleAddWalletContinue = useCallback(async (params: { name: string; address: string; chainKey: string }) => {
+    const contact = await addContact(params);
     setSelectedContact(contact);
     setSelectedChain(getChain(contact.chainKey));
-    navigate('send');
-  }, [getChain, navigate]);
+    resetAddWalletState();
+    historyRef.current = historyRef.current.filter((s) => !ADD_WALLET_SCREENS.has(s));
+    goToScreen('send');
+  }, [addContact, getChain, goToScreen, resetAddWalletState]);
+
+  const handleAddWalletScanned = useCallback((address: string) => {
+    setAddWalletPrefill(address);
+    if (historyRef.current[historyRef.current.length - 1] === 'addWalletScan') {
+      historyRef.current.pop();
+    }
+    slideAnim.setValue(-SW);
+    setScreen('addWalletForm');
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 16,
+    }).start();
+  }, [slideAnim]);
 
   const handleSelectContact = useCallback((contact: CryptoContact) => {
     setSelectedContact(contact);
@@ -143,7 +187,6 @@ export default function SendModal({
     navigate('send');
   }, [getChain, navigate]);
 
-  // ── Send → Confirm ────────────────────────────────────────────────────────
   const handleSendContinue = useCallback((amount: number, chain: ChainOption) => {
     if (!selectedContact) return;
     setConfirmParams({ contact: selectedContact, chain, amount, smartAddress });
@@ -161,9 +204,7 @@ export default function SendModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <View style={st.root}>
-
-        {/* ── Unified nav bar ── */}
+      <SafeAreaView style={st.root} edges={['top', 'bottom']}>
         <View style={st.navBar}>
           <View style={st.handle} />
           <View style={st.titleRow}>
@@ -174,17 +215,24 @@ export default function SendModal({
             ) : (
               <View style={st.navBtn} />
             )}
-            <Text style={st.title}>{nav.titleKey ? t(nav.titleKey) : ''}</Text>
+            <Text style={st.title} numberOfLines={1}>{nav.titleKey ? t(nav.titleKey) : ''}</Text>
             <TouchableOpacity onPress={handleClose} style={st.navBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Sliding content ── */}
         <Animated.View style={[st.screenWrap, { transform: [{ translateX: slideAnim }] }]}>
-          {screen === 'picker' && (
+          {screen === 'method' && (
+            <SendMethodPicker
+              onSelectBank={() => navigate('bankPick')}
+              onSelectCrypto={() => navigate('cryptoPick')}
+            />
+          )}
+
+          {screen === 'bankPick' && (
             <PickerView
+              variant="bank"
               contacts={contacts}
               isLoading={isLoading}
               getChain={getChain}
@@ -195,6 +243,47 @@ export default function SendModal({
               bankRefreshKey={bankRefreshKey}
               onBankAccountsChanged={() => setBankRefreshKey((k) => k + 1)}
               onClose={handleClose}
+            />
+          )}
+
+          {screen === 'cryptoPick' && (
+            <PickerView
+              variant="crypto"
+              contacts={contacts}
+              isLoading={isLoading}
+              getChain={getChain}
+              removeContact={removeContact}
+              onSelectContact={handleSelectContact}
+              onAddNew={handleAddNew}
+              onWithdrawBank={handleWithdrawBank}
+              bankRefreshKey={bankRefreshKey}
+              onBankAccountsChanged={() => setBankRefreshKey((k) => k + 1)}
+              onClose={handleClose}
+            />
+          )}
+
+          {screen === 'addWalletChain' && (
+            <AddWalletChainPicker onSelectChain={handleSelectAddWalletChain} />
+          )}
+
+          {screen === 'addWalletForm' && (
+            <AddContactView
+              contacts={contacts}
+              chain={addWalletChain}
+              prefillAddress={addWalletPrefill}
+              onScanQR={() => navigate('addWalletScan')}
+              onBackToChain={() => {
+                setAddWalletPrefill('');
+                goBack();
+              }}
+              onContinue={handleAddWalletContinue}
+            />
+          )}
+
+          {screen === 'addWalletScan' && (
+            <QRScanner
+              onScanned={handleAddWalletScanned}
+              onCancel={goBack}
             />
           )}
 
@@ -238,23 +327,10 @@ export default function SendModal({
             />
           )}
         </Animated.View>
-
-        <AddWalletModal
-          visible={showAddWallet}
-          onClose={() => setShowAddWallet(false)}
-          contacts={contacts}
-          addContact={addContact}
-          onComplete={handleAddComplete}
-        />
-
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
@@ -283,6 +359,8 @@ function makeStyles(c: ThemeColors) {
       marginBottom: 4,
     },
     title: {
+      flex: 1,
+      textAlign: 'center',
       color: c.text,
       fontSize: 18,
       fontWeight: '700',

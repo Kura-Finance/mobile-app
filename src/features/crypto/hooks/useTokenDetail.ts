@@ -9,8 +9,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import i18n from '../../../shared/locales/i18n';
-
-const COINGECKO = 'https://api.coingecko.com/api/v3';
+import { coingeckoJson } from '../../../lib/api/coingecko/client';
 
 export type Timeframe = '24H' | '1W' | '1M' | '6M' | '1Y';
 
@@ -46,8 +45,8 @@ interface ChartCacheEntry {
 
 const chartCache = new Map<string, ChartCacheEntry>();
 const statsCache = new Map<string, { stats: TokenStats; fetchedAt: number }>();
-const CHART_TTL = 60_000;
-const STATS_TTL = 120_000;
+const CHART_TTL = 120_000;
+const STATS_TTL = 5 * 60_000;
 
 async function fetchChart(geckoId: string, tf: Timeframe): Promise<number[]> {
   const key = `${geckoId}:${tf}`;
@@ -55,11 +54,9 @@ async function fetchChart(geckoId: string, tf: Timeframe): Promise<number[]> {
   if (cached && Date.now() - cached.fetchedAt < CHART_TTL) return cached.prices;
 
   const url =
-    `${COINGECKO}/coins/${geckoId}/market_chart` +
+    `/coins/${geckoId}/market_chart` +
     `?vs_currency=usd&days=${DAYS_BY_TF[tf]}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Chart ${res.status}`);
-  const json = await res.json();
+  const json = await coingeckoJson<{ prices?: Array<[number, number]> }>(url);
   const prices: number[] = Array.isArray(json?.prices)
     ? json.prices.map((p: [number, number]) => p[1]).filter((n: number) => Number.isFinite(n))
     : [];
@@ -72,12 +69,14 @@ async function fetchStats(geckoId: string): Promise<TokenStats> {
   if (cached && Date.now() - cached.fetchedAt < STATS_TTL) return cached.stats;
 
   const url =
-    `${COINGECKO}/coins/${geckoId}` +
+    `/coins/${geckoId}` +
     `?localization=false&tickers=false&market_data=true` +
     `&community_data=false&developer_data=false&sparkline=false`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Stats ${res.status}`);
-  const json = await res.json();
+  const json = await coingeckoJson<{
+    market_cap_rank?: number;
+    market_data?: Record<string, any>;
+    description?: { en?: string };
+  }>(url);
   const md = json?.market_data ?? {};
 
   const stats: TokenStats = {
@@ -100,7 +99,22 @@ async function fetchStats(geckoId: string): Promise<TokenStats> {
   return stats;
 }
 
-export function useTokenDetail(geckoId: string | null, timeframe: Timeframe) {
+async function fetchStatsWithAbout(
+  geckoId: string,
+  aboutGeckoId?: string | null,
+): Promise<TokenStats> {
+  const stats = await fetchStats(geckoId);
+  if (stats.description || !aboutGeckoId || aboutGeckoId === geckoId) return stats;
+
+  const about = await fetchStats(aboutGeckoId);
+  return about.description ? { ...stats, description: about.description } : stats;
+}
+
+export function useTokenDetail(
+  geckoId: string | null,
+  timeframe: Timeframe,
+  aboutGeckoId?: string | null,
+) {
   const [prices, setPrices] = useState<number[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [stats, setStats] = useState<TokenStats | null>(null);
@@ -126,12 +140,12 @@ export function useTokenDetail(geckoId: string | null, timeframe: Timeframe) {
     if (!geckoId) { setStats(null); return; }
     let active = true;
     setStatsLoading(true);
-    fetchStats(geckoId)
+    fetchStatsWithAbout(geckoId, aboutGeckoId)
       .then((s) => { if (active) setStats(s); })
       .catch(() => { /* stats are best-effort */ })
       .finally(() => { if (active) setStatsLoading(false); });
     return () => { active = false; };
-  }, [geckoId]);
+  }, [geckoId, aboutGeckoId]);
 
   const reset = useCallback(() => {
     setPrices([]);

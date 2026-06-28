@@ -42,10 +42,6 @@ export default function MetalCard({ showCornerLabel = true }: { showCornerLabel?
           <Text style={styles.cornerLabel}>{t('card.metalLabel')}</Text>
         ) : null}
       </View>
-
-      <View style={styles.chip}>
-        <View style={styles.chipInner} />
-      </View>
     </LinearGradient>
   );
 }
@@ -88,23 +84,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     marginTop: 2,
-  },
-  chip: {
-    width: 40,
-    height: 30,
-    borderRadius: 6,
-    backgroundColor: 'rgba(212,175,55,0.28)',
-    marginBottom: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(180,140,40,0.45)',
-  },
-  chipInner: {
-    width: 22,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(160,120,30,0.4)',
   },
 });

@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -207,7 +207,7 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
     if (loadingCustomer) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-          <ActivityIndicator color={colors.primary} />
+          <LoadingDots color={colors.primary} size={8}   />
         </View>
       );
     }
@@ -231,7 +231,7 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
       if (loadingAddress || !error) {
         return (
           <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-            <ActivityIndicator color={colors.primary} />
+            <LoadingDots color={colors.primary} size={8}   />
             <Text style={[s.networkNote, { marginTop: 12 }]}>{t('card.usdtSettingUpAddress')}</Text>
           </View>
         );

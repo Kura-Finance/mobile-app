@@ -3,9 +3,9 @@
  *
  * Layout (top → bottom):
  *   1. Total balance (Base USDC from Kura SCA)
- *   2. Quick Actions (Send · Receive)
+ *   2. Quick Actions (Add money · Send)
  *   3. Kura Card entry (tap → Card Manager; GP loads there only)
- *   4. Transactions (Onchain — Base)
+ *   4. Transactions (on-chain + Bridge)
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -15,11 +15,12 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { View as SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useHeaderStore } from '../../../shared/store/useHeaderStore';
 import { useHeaderHeight } from '../../../shared/navigation/Header';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -32,10 +33,8 @@ import ImportWalletScreen from './ImportWalletScreen';
 import ReceiveModal from '../modals/ReceiveModal';
 import SendModal from '../modals/send';
 import { CardApplyBanner } from '../components/StatusBanner';
-import { features } from '../../../config/features';
 import LoadingDots from '../../../shared/components/LoadingDots';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
+import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 function KuraCardScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -51,13 +50,12 @@ function KuraCardScreen() {
   const openReceive = useCallback(() => { setReceiveMode('receive'); setShowReceive(true); }, []);
   const openSend    = useCallback(() => setShowSend(true), []);
 
-  const hideBalance = useHideBalance();
+  const money = useMoneyFormat();
 
   // ── Kura wallet (Base USDC) ───────────────────────────────────────────────
   const {
     status: walletStatus,
     smartAddress,
-    truncatedAddress,
     usdcBalance,
     errorMessage: walletError,
     isSending,
@@ -67,10 +65,18 @@ function KuraCardScreen() {
     executeBridge,
     estimateUsdcGasReserve,
     estimateBridgeGasUsdc,
+    refreshBalance,
   } = useKuraCardWallet();
 
   const walletReady = walletStatus === 'ready' && !!smartAddress;
   const balanceLoading = walletStatus !== 'ready';
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!walletReady) return;
+      void refreshBalance();
+    }, [walletReady, refreshBalance]),
+  );
 
   const openCardManager = useCallback(() => {
     navigation.navigate('CardManager');
@@ -116,26 +122,40 @@ function KuraCardScreen() {
         >
           {/* ── 1. Balance (Base USDC) ───────────────────────────────────── */}
           <View style={s.balanceSection}>
-            <Text style={s.balanceLabel}>{t('card.totalBalance')}</Text>
+            <View style={s.balanceLabelRow}>
+              <Text style={s.balanceLabel}>{t('card.availableBalance')}</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert(t('card.availableBalance'), t('card.availableBalanceHint'))
+                }
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('card.availableBalanceHint')}
+              >
+                <Ionicons name="information-circle-outline" size={14} color={colors.textFaint} />
+              </TouchableOpacity>
+            </View>
             <View style={s.balanceValueSlot}>
               {balanceLoading ? (
                 <LoadingDots color={colors.text} size={10} />
-              ) : hideBalance ? (
-                <Text style={s.balanceAmount}>{HIDDEN_BALANCE_TEXT}</Text>
               ) : (
-                <Text style={s.balanceAmount}>
-                  ${usdcBalance.toFixed(2)}
-                  <Text style={s.balanceCurrency}> USDC</Text>
-                </Text>
+                <Text style={s.balanceAmount}>{money.value(usdcBalance)}</Text>
               )}
             </View>
-            {truncatedAddress ? (
-              <Text style={s.addressText}>{truncatedAddress}</Text>
-            ) : null}
           </View>
 
           {/* ── 2. Quick Actions ────────────────────────────────────────── */}
           <View style={s.quickActions}>
+            <TouchableOpacity
+              style={[s.pillBtn, s.pillBtnPrimary, !walletReady && s.pillBtnDisabled]}
+              onPress={openReceive}
+              activeOpacity={0.8}
+              disabled={!walletReady}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={colors.background} />
+              <Text style={[s.pillBtnText, s.pillBtnTextPrimary]}>{t('card.addMoney')}</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[s.pillBtn, !walletReady && s.pillBtnDisabled]}
               onPress={openSend}
@@ -145,21 +165,10 @@ function KuraCardScreen() {
               <Ionicons name="arrow-up-outline" size={18} color={colors.text} />
               <Text style={s.pillBtnText}>{t('card.send')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.pillBtn, s.pillBtnReceive, !walletReady && s.pillBtnDisabled]}
-              onPress={openReceive}
-              activeOpacity={0.8}
-              disabled={!walletReady}
-            >
-              <Ionicons name="arrow-down-outline" size={18} color={colors.background} />
-              <Text style={[s.pillBtnText, { color: colors.background }]}>{t('card.receive')}</Text>
-            </TouchableOpacity>
           </View>
 
           {/* ── 3. Kura Card entry ─────────────────────────────────────────── */}
-          {features.gnosisPay && (
-            <CardApplyBanner onPress={openCardManager} />
-          )}
+          <CardApplyBanner onPress={openCardManager} />
 
           {/* ── 4. Transactions ──────────────────────────────────────────── */}
           <View style={s.txSection}>
@@ -214,15 +223,19 @@ function makeStyles(c: ThemeColors) {
 
     // Balance
     balanceSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 16 },
-    balanceLabel: { color: c.textFaint, fontSize: 13, fontWeight: '500', marginBottom: 6 },
+    balanceLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 6,
+    },
+    balanceLabel: { color: c.textFaint, fontSize: 13, fontWeight: '500' },
     balanceValueSlot: {
       minHeight: 46,
       alignItems: 'center',
       justifyContent: 'center',
     },
     balanceAmount: { color: c.text, fontSize: 38, fontWeight: '800', letterSpacing: -1 },
-    balanceCurrency: { fontSize: 18, fontWeight: '500', color: c.textMuted },
-    addressText: { color: c.textFaint, fontSize: 11, fontFamily: 'monospace', marginTop: 6 },
 
     // Quick actions
     pillBtn: {
@@ -230,9 +243,10 @@ function makeStyles(c: ThemeColors) {
       gap: 8, backgroundColor: c.surface, borderRadius: 28, paddingVertical: 14,
       borderWidth: 1, borderColor: c.borderStrong,
     },
-    pillBtnReceive: { backgroundColor: c.text, borderColor: c.text },
+    pillBtnPrimary: { backgroundColor: c.text, borderColor: c.text },
     pillBtnDisabled: { opacity: 0.45 },
     pillBtnText: { color: c.text, fontSize: 16, fontWeight: '600' },
+    pillBtnTextPrimary: { color: c.background },
     quickActions: { flexDirection: 'row', gap: 12, marginTop: 0, marginBottom: 16 },
 
     // Transactions

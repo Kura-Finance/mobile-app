@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -459,7 +459,7 @@ function PrimaryButton({
       }}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" size="small" />
+        <LoadingDots compact color="#FFFFFF" size={6}    />
       ) : (
         <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>{label}</Text>
       )}

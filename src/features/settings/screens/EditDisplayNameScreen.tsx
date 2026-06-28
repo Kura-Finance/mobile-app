@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import LoadingDots from '../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
@@ -70,7 +71,7 @@ export default function EditDisplayNameScreen({ onClose }: EditDisplayNameScreen
           disabled={isLoading || displayName.trim() === ''}
           style={{ width: '100%', paddingVertical: 16, borderRadius: 12, backgroundColor: isLoading || displayName.trim() === '' ? colors.primaryDark : colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
         >
-          {isLoading && <ActivityIndicator color="#FFFFFF" style={{ marginRight: 8 }} />}
+          {isLoading && <LoadingDots color="#FFFFFF" size={8}  style={{ marginRight: 8 }}  />}
           <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
             {isLoading ? t('settings.saving') : t('settings.saveChanges')}
           </Text>

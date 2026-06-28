@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React from 'react';
 import {
   View,
@@ -6,7 +7,6 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -58,7 +58,7 @@ function CardOverlayContent({ overlay }: { overlay: CardOverlay }) {
             style={overlayStyles.overlayBtnGradient}
           >
             {overlay.isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <LoadingDots compact color="#FFFFFF" size={6}    />
             ) : (
               <>
                 <Ionicons name="card-outline" size={17} color="#FFFFFF" />
@@ -74,7 +74,7 @@ function CardOverlayContent({ overlay }: { overlay: CardOverlay }) {
         <View style={overlayStyles.overlayStatus}>
           <View style={overlayStyles.overlayIconWrap}>
             {overlay.isLoading ? (
-              <ActivityIndicator size="small" color="#F59E0B" />
+              <LoadingDots compact color="#F59E0B" size={6}    />
             ) : (
               <Ionicons name="time-outline" size={22} color="#F59E0B" />
             )}
@@ -104,7 +104,7 @@ function CardOverlayContent({ overlay }: { overlay: CardOverlay }) {
       return (
         <View style={overlayStyles.overlayStatus}>
           <View style={overlayStyles.overlayIconWrap}>
-            <ActivityIndicator size="small" color="#F59E0B" />
+            <LoadingDots compact color="#F59E0B" size={6}    />
           </View>
           <Text style={[overlayStyles.overlayTitle, { color: '#FCD34D' }]}>{t('card.underReview')}</Text>
           <Text style={overlayStyles.overlaySub}>{t('card.usually12BusinessDays')}</Text>

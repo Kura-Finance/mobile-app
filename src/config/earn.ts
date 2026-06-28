@@ -8,15 +8,16 @@
  */
 
 import { env, hasPimlicoApiKey } from './env';
-import { hasEarnVaultFeeWrapper, morphoFeeWrapperConfigSummary } from './earnFeeWrapper';
+import { hasEarnVaultFeeWrapper, morphoFeeWrapperConfigSummary, MORPHO_FEE_WRAPPER_OVERRIDES, normalizeMorphoVaultAddress } from './earnFeeWrapper';
 
 // ── Defaults (Kura official app) ──────────────────────────────────────────────
 
-/** Underlying Morpho vaults (Base) — Steakhouse Prime USDC, Gauntlet EURC Balanced, Gauntlet USDC Prime. */
+/** Underlying Morpho vaults (Base) — Steakhouse Prime USDC, Gauntlet EURC Balanced, Gauntlet USDC Prime, Gauntlet USDC Frontier. */
 export const DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST = [
   '0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9',
   '0x94Af495DE1F56Aa5576dEB17986bDCeE5Dd9778D',
   '0x050cE30b927Da55177A4914EC73480238BAD56f0',
+  '0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765',
 ] as const satisfies readonly `0x${string}`[];
 
 /**
@@ -84,6 +85,19 @@ export function filterEarnVaultAllowlist<T extends { address: string }>(vaults: 
   );
 }
 
+/** Map Morpho position vault (inner or fee-wrapper) → allowlisted inner vault key. */
+export function resolveEarnPositionVaultKey(vaultAddress: string): string | null {
+  const normalized = normalizeMorphoVaultAddress(vaultAddress);
+  if (isEarnVaultAllowed(normalized)) return normalized;
+
+  for (const [inner, wrapper] of Object.entries(MORPHO_FEE_WRAPPER_OVERRIDES)) {
+    if (normalizeMorphoVaultAddress(wrapper) === normalized && isEarnVaultAllowed(inner)) {
+      return normalizeMorphoVaultAddress(inner);
+    }
+  }
+  return null;
+}
+
 // ── Performance fee (optional Morpho V2 fee wrapper) ──────────────────────────
 
 export const MORPHO_EARN_FEE_RATE = parseFeeRate(env.morphoEarnFee);
@@ -104,9 +118,12 @@ export function effectiveEarnNetApy(grossNetApy: number, appliesServiceFee = has
   return grossNetApy * (1 - MORPHO_EARN_FEE_RATE);
 }
 
-/** Whether yield share applies to a listed vault (sync config check). */
+/**
+ * Whether to disclose Kura service fee in UI for a vault (sync config check).
+ * Uses fee rate + fee-wrapper map only — recipient env is for on-chain routing / API discovery.
+ */
 export function appliesEarnServiceFee(vaultAddress: string): boolean {
-  return hasKuraEarnFee() && hasEarnVaultFeeWrapper(vaultAddress);
+  return MORPHO_EARN_FEE_BPS > 0 && hasEarnVaultFeeWrapper(vaultAddress);
 }
 
 // Fee-wrapper routing → src/config/earnFeeWrapper.ts

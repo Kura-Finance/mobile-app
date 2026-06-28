@@ -158,7 +158,7 @@ GitHub Actions runs lint, test, and `tsc` only — **not** store builds. Release
 
 ### 7. App Store review notes
 
-The app is a **free non-custodial wallet** — no in-app purchases for app features. Third-party financial services (MoonPay, Gnosis Pay, on-chain swaps) are documented in your review notes as external/regulated flows, not digital goods sold through the app.
+The app is a **free non-custodial wallet** — no in-app purchases for app features. Third-party financial services (MoonPay, on-chain swaps) are documented in your review notes as external/regulated flows, not digital goods sold through the app.
 
 ---
 

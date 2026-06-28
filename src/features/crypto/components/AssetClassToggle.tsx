@@ -40,13 +40,13 @@ export default function AssetClassToggle({
   const labelFor = (id: AssetClass) => {
     switch (id) {
       case 'stablecoin':
-        return t('crypto.tabStablecoin');
+        return t('crypto.portfolioGroupCash');
       case 'earn':
-        return t('crypto.tabEarn');
+        return t('crypto.portfolioGroupEarn');
       case 'stock':
-        return t('crypto.tabUsStock');
+        return t('crypto.portfolioGroupStocks');
       default:
-        return t('crypto.tabCrypto');
+        return t('crypto.portfolioGroupCrypto');
     }
   };
 

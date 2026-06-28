@@ -12,6 +12,8 @@
 import { StateCreator } from 'zustand';
 import { AssetSnapshot, FinanceState, HistoryState, Investment } from './types';
 import { fetchAssetHistory, fetchAssetHistoryFromCache } from '../../../lib/api/asset';
+import { useAppStore } from '../useAppStore';
+import { getAssetHistoryDaysLimit } from '../../utils/membership';
 import { useExchangeStore } from '../useExchangeStore';
 import Logger from '../../utils/Logger';
 import { isStablecoin } from '../../utils/stablecoinUtils';
@@ -20,7 +22,12 @@ import {
   shouldAutoSyncTrackFi,
 } from '../../../features/trackfi/utils/trackFiSyncPolicy';
 
-const DEFAULT_DAYS = 365;
+
+function resolveAssetHistoryDays(days?: number): number {
+  if (days != null) return days;
+  const membershipLabel = useAppStore.getState().userProfile.membershipLabel;
+  return getAssetHistoryDaysLimit(membershipLabel);
+}
 
 function toAssetSnapshot(point: {
   date: string;
@@ -64,19 +71,21 @@ export const createHistorySlice: StateCreator<FinanceState, [], [], HistoryState
     return plaidValue + exchangeValue;
   },
 
-  hydrateAssetHistory: async (days: number = DEFAULT_DAYS, force: boolean = false) => {
+  hydrateAssetHistory: async (days?: number, force: boolean = false) => {
     if (!shouldAutoSyncTrackFi('assetHistory', { force })) {
       Logger.debug('HistorySlice', 'Skipping asset history hydrate — synced within the last hour');
       return;
     }
 
+    const fetchDays = resolveAssetHistoryDays(days);
+
     set({ isLoadingAssetHistory: true, assetHistoryError: null });
     try {
-      const points = await fetchAssetHistory(days);
+      const points = await fetchAssetHistory(fetchDays);
       set({
         assetHistory: points.map(toAssetSnapshot),
         lastRecordedTime: Date.now(),
-        lastFetchedDays: days,
+        lastFetchedDays: fetchDays,
         isLoadingAssetHistory: false,
       });
       markTrackFiSynced('assetHistory');

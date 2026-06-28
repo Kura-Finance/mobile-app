@@ -1,3 +1,4 @@
+import LoadingDots from './LoadingDots';
 /**
  * ExchangeLinkModal - Modal for connecting crypto exchange accounts
  * Collects API credentials and sends to backend for CCXT processing
@@ -9,7 +10,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   TouchableWithoutFeedback,
   Keyboard,
   TextInput,
@@ -352,7 +352,7 @@ export default function ExchangeLinkModal({
                 <View style={{ gap: 12, flex: availableExchanges.length > 0 ? 0 : 1, justifyContent: availableExchanges.length > 0 ? 'flex-start' : 'center' }}>
                   {isLoadingExchanges ? (
                     <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                      <ActivityIndicator color={colors.primary} size="large" />
+                      <LoadingDots color={colors.primary} size={10}    />
                       <Text style={{ color: colors.textMuted, marginTop: 16, fontSize: 14 }}>
                         Loading exchanges...
                       </Text>
@@ -620,7 +620,7 @@ export default function ExchangeLinkModal({
                   }}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <LoadingDots compact color="#FFFFFF" size={6}    />
                   ) : (
                     <Text
                       style={{

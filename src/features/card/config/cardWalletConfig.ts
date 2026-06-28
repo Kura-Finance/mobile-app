@@ -121,13 +121,8 @@ export const WALLET_IMPORTED_KEY = 'kura_wallet_imported_privkey_v1' as const;
  */
 export async function clearLocalWalletCache(): Promise<void> {
   const SecureStore = await import('expo-secure-store');
-  // Direct GP integration holds its JWT client-side (in-memory + SecureStore);
-  // clearGpSession drops both so the next user must re-run SIWE. No-op effect
-  // when the backend-proxied client is in use.
-  const { clearGpSession } = await import('../../../lib/api/gp/directClient');
   await Promise.allSettled([
     SecureStore.deleteItemAsync(WALLET_ADDRESS_STORE_KEY),
     SecureStore.deleteItemAsync(WALLET_IMPORTED_KEY),
-    clearGpSession(),
   ]);
 }

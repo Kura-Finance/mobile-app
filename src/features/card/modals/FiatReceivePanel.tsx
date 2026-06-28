@@ -1,10 +1,10 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Clipboard,
   Modal,
 } from 'react-native';
@@ -473,7 +473,7 @@ export default function FiatReceivePanel({
             style={s.primaryBtnGradient}
           >
             {loadingAccount ? (
-              <ActivityIndicator color="#FFF" />
+              <LoadingDots color="#FFF" size={8}   />
             ) : (
               <Ionicons name="lock-open-outline" size={17} color="#FFF" />
             )}
@@ -508,7 +508,7 @@ export default function FiatReceivePanel({
         <>
           {renderStatusPill()}
           <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-            <ActivityIndicator color={colors.primary} />
+            <LoadingDots color={colors.primary} size={8}   />
             <Text style={[s.networkNote, { marginTop: 12 }]}>
               {t('card.settingUpDepositAccount', { currency: selected.label })}
             </Text>
@@ -557,7 +557,7 @@ export default function FiatReceivePanel({
     if (loadingCustomer) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-          <ActivityIndicator color={colors.primary} />
+          <LoadingDots color={colors.primary} size={8}   />
         </View>
       );
     }

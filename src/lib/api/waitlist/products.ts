@@ -1,6 +1,7 @@
 /** Waitlist product slugs (lowercase a-z, 0-9, hyphen). */
 export const WAITLIST_PRODUCTS = {
   METAL_CARD: 'metal-card',
+  VIRTUAL_CARD: 'virtual-card',
   DINARI: 'dinari',
   KURA_APP: 'kura-app',
   DEFAULT: 'default',

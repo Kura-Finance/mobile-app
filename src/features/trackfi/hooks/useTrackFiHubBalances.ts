@@ -8,6 +8,8 @@ import { useExchangeStore } from '../../../shared/store/useExchangeStore';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { features } from '../../../config/features';
 import { useDefiPortfolio, walletDataKey } from './useDefiPortfolio';
+import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
+import { netBankingBalance } from '../utils/bankingBalances';
 
 export interface HubCardBalance {
   total: number;
@@ -22,14 +24,7 @@ export interface TrackFiHubBalances {
   defi: HubCardBalance;
 }
 
-function sumBankingBalance(accounts: { type: string; balance: number }[]): number {
-  return accounts.reduce(
-    (sum, account) => (account.type === 'credit' ? sum - account.balance : sum + account.balance),
-    0,
-  );
-}
-
-export function useTrackFiHubBalances(enabled: boolean): TrackFiHubBalances {
+export function useTrackFiHubBalances(enabled: boolean, unlockSeq = 0): TrackFiHubBalances {
   const accounts = useFinanceStore((state) => state.accounts);
   const isLoadingPlaidData = useFinanceStore((state) => state.isLoadingPlaidData);
   const calculateTotalAssets = useFinanceStore((state) => state.calculateTotalAssets);
@@ -51,21 +46,16 @@ export function useTrackFiHubBalances(enabled: boolean): TrackFiHubBalances {
   } = useDefiPortfolio();
 
   useEffect(() => {
-    if (!enabled || !authToken || exchangeAccounts.length > 0) return;
-    useExchangeStore
-      .getState()
-      .hydrateExchangeAccounts(authToken)
-      .catch(() => {
-        // Errors surface in the exchange store.
-      });
-  }, [enabled, authToken, exchangeAccounts.length]);
+    if (!enabled || !authToken || unlockSeq === 0) return;
+    void refreshTrackFiBrokerData(authToken, { force: true });
+  }, [enabled, authToken, unlockSeq]);
 
   useEffect(() => {
     if (!enabled || !features.debank || defiInitialising) return;
     void loadCached();
   }, [enabled, defiInitialising, loadCached]);
 
-  const bankingTotal = useMemo(() => sumBankingBalance(accounts), [accounts]);
+  const bankingTotal = useMemo(() => netBankingBalance(accounts), [accounts]);
   const brokersTotal = useMemo(() => calculateTotalAssets(), [calculateTotalAssets, investments, exchangeInvestments]);
 
   const anyExchangeLoading = Object.values(exchangeIsLoading).some(Boolean);

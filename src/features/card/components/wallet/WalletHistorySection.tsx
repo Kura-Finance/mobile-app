@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import LoadingDots from '../../../../shared/components/LoadingDots';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
-  Linking,
   StyleSheet,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import WalletTxRow from './WalletTxRow';
 import { useWalletHistory, type WalletTx } from '../../hooks/useWalletHistory';
+import { useCryptoContacts } from '../../hooks/useCryptoContacts';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
@@ -37,8 +37,10 @@ export default function WalletHistorySection({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const { txs, loading, error, hasMore, loadMore } = useWalletHistory(smartAddress);
+  const { txs, loading, error, hasMore, loadMore, refresh } = useWalletHistory(smartAddress);
+  const { contacts, revision } = useCryptoContacts();
   const prefetchPagesRef = useRef(0);
+  const prevContactsRevision = useRef(revision);
 
   const isPreview = previewLimit != null;
   const visibleTxs = isPreview ? txs.slice(0, previewLimit) : txs;
@@ -47,6 +49,13 @@ export default function WalletHistorySection({
   useEffect(() => {
     prefetchPagesRef.current = 0;
   }, [smartAddress]);
+
+  useEffect(() => {
+    if (prevContactsRevision.current === revision) return;
+    prevContactsRevision.current = revision;
+    if (revision === 0) return;
+    refresh();
+  }, [revision, refresh]);
 
   useEffect(() => {
     if (!isPreview || previewLimit == null) return;
@@ -60,21 +69,9 @@ export default function WalletHistorySection({
     loadMore();
   }, [isPreview, previewLimit, txs.length, loading, hasMore, loadMore]);
 
-  const openAllTxs = useCallback(() => {
-    Linking.openURL(
-      `https://base.blockscout.com/address/${smartAddress}?tab=token_transfers`,
-    ).catch(() => undefined);
-  }, [smartAddress]);
-
   return (
     <>
-      <View style={s.headerRow}>
-        <Text style={sectionTitleStyle}>{t('card.history')}</Text>
-        <TouchableOpacity onPress={openAllTxs} style={s.explorerBtn} activeOpacity={0.7}>
-          <Ionicons name="open-outline" size={12} color={colors.textMuted} />
-          <Text style={s.explorerText}>Blockscout</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={[sectionTitleStyle, s.sectionTitle]}>{t('card.history')}</Text>
 
       <View style={s.card}>
         {!loading && !error && txs.length === 0 && (
@@ -92,7 +89,7 @@ export default function WalletHistorySection({
         )}
 
         {visibleTxs.map((tx) => (
-          <WalletTxRow key={tx.id} tx={tx} onPress={onTxPress} />
+          <WalletTxRow key={tx.id} tx={tx} contacts={contacts} onPress={onTxPress} />
         ))}
 
         {showViewAll && (
@@ -128,7 +125,7 @@ export default function WalletHistorySection({
 
         {loading && txs.length > 0 && !isPreview && (
           <View style={s.loadMoreSpinner}>
-            <ActivityIndicator size="small" color={colors.textMuted} />
+            <LoadingDots compact color={colors.textMuted} size={6}    />
           </View>
         )}
       </View>
@@ -140,22 +137,7 @@ export { HOME_PREVIEW_LIMIT };
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 14,
-    },
-    explorerBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: c.surface,
-      borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-    },
-    explorerText: { color: c.textMuted, fontSize: 11, fontWeight: '500' },
+    sectionTitle: { marginBottom: 14 },
     card: {
       backgroundColor: c.surface,
       borderRadius: 16,

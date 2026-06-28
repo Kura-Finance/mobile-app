@@ -59,6 +59,17 @@ export function shouldCountTokenInSpotTotal(
   return linked.netUsdValue <= 0;
 }
 
+/** Spot token rows that belong in allocation (excludes protocol-linked receipt tokens). */
+export function shouldIncludeSpotTokenInAllocation(
+  protocolId: string,
+  protocols: Array<Pick<DeBankProtocol, 'id' | 'netUsdValue'>>,
+): boolean {
+  if (!protocolId) return true;
+  const linked = protocols.find((p) => protocolsMatch(protocolId, p.id));
+  if (!linked) return true;
+  return linked.netUsdValue <= 0;
+}
+
 export function computeTokenSpotTotal(
   tokens: DeBankToken[],
   protocols: DeBankProtocol[],

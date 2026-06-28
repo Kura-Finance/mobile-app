@@ -1,31 +1,28 @@
 /**
- * StocksView
- *
- * Content for the Discover → "US Stock" tab. List UX mirrors the crypto tab
- * (favorites + watchlist sections). Tapping a stock opens
- * {@link StockDetailModal}. Buy/Sell gate on Dinari entity + account via
- * {@link ensureCanTrade} → {@link DinariGateOverlay} inside stock detail when needed.
- *
- * Portfolio total is shown by {@link PortfolioScreen} (crypto + stocks combined).
+ * Invest → Stocks tab — Dinari stock listings.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  RefreshControl,
   TouchableOpacity,
   StyleSheet,
-  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
-import { isFeaturedStockSymbol } from '../config/dinariStocks';
 import { useDinariGate, type StockItem } from '../hooks/useDinari';
-import { useDinariWaitlistJoin } from '../hooks/useDinariWaitlistJoin';
+import { matchesStock, normalizeSearchQuery } from '../../crypto/utils/portfolioSearch';
 import StockLogo from '../components/StockLogo';
 import StockDetailModal from '../modals/StockDetailModal';
+import InvestListCard from '../../crypto/components/invest/InvestListCard';
+import InvestSortSheet from '../../crypto/components/invest/InvestSortSheet';
+import {
+  INVEST_STOCK_SORT_OPTIONS,
+  sortStocks,
+  type InvestSortKey,
+} from '../../crypto/utils/investSort';
+import { applyYahooMarket, useYahooStockMarket } from '../hooks/useYahooStockMarket';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
@@ -36,44 +33,35 @@ import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 
 import type { AssetClass } from '../../crypto/components/AssetClassToggle';
 
+const SORT_HEADER_I18N: Record<InvestSortKey, string> = {
+  price: 'crypto.sortPrice',
+  marketCap: 'crypto.sortMarketCap',
+  gainers: 'crypto.sortGainers',
+  losers: 'crypto.sortLosers',
+};
+
 function useStyles() {
   const { colors } = useTheme();
   return useMemo(() => makeStyles(colors), [colors]);
 }
 
-function formatHoldings(n: number, symbol: string): string {
-  if (n === 0) return `0 ${symbol}`;
-  if (n < 0.001) return `${n.toExponential(2)} ${symbol}`;
-  if (n < 1) return `${n.toFixed(4)} ${symbol}`;
-  if (n < 1000) return `${n.toFixed(2)} ${symbol}`;
-  return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${symbol}`;
-}
-
 interface Props {
+  embedded?: boolean;
   assetClass: AssetClass;
   favoritesOnly?: boolean;
+  searchQuery?: string;
   scaAddress: string;
   usdcBalance: number;
   signTypedData: UseKuraCardWalletReturn['signTypedData'];
   gate: ReturnType<typeof useDinariGate>;
   stocks: StockItem[];
   stocksLoading: boolean;
-  stocksRefreshing: boolean;
+  stocksRefreshing?: boolean;
   stocksError: string | null;
   onRefresh: () => void;
+  onScroll?: (offsetY: number) => void;
   externalSelectedStock?: StockItem | null;
   onExternalSelectedStockHandled?: () => void;
-}
-
-function SectionDivider({ label }: { label: string }) {
-  const st = useStyles();
-  return (
-    <View style={st.dividerWrap}>
-      <View style={st.dividerLine} />
-      <Text style={st.dividerLabel}>{label}</Text>
-      <View style={st.dividerLine} />
-    </View>
-  );
 }
 
 function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) => void }) {
@@ -84,6 +72,9 @@ function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) 
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const hasHoldings = item.holdings > 0;
   const isFav = favorites.includes(item.symbol);
+  const change24h = item.change24h;
+  const hasChange = change24h != null && Number.isFinite(change24h);
+  const isPositive = hasChange && change24h >= 0;
 
   return (
     <TouchableOpacity
@@ -96,18 +87,22 @@ function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) 
         <View style={st.nameRow}>
           <Text style={st.symbol}>{item.symbol}</Text>
         </View>
-        <Text style={st.price}>
-          {item.price > 0 ? money.price(item.price) : '—'}
-        </Text>
+        {hasHoldings ? (
+          <Text style={st.holdingsValue}>{money.compact(item.value)}</Text>
+        ) : (
+          <Text style={st.noHoldingsSub}>—</Text>
+        )}
       </View>
       <View style={st.right}>
-        {hasHoldings ? (
-          <>
-            <Text style={st.value}>{money.compact(item.value)}</Text>
-            <Text style={st.holdings}>{formatHoldings(item.holdings, item.symbol)}</Text>
-          </>
+        <Text style={st.value}>
+          {item.price > 0 ? money.price(item.price) : '—'}
+        </Text>
+        {hasChange ? (
+          <Text style={[st.change, isPositive ? st.changePos : st.changeNeg]}>
+            {isPositive ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}%
+          </Text>
         ) : (
-          <Text style={st.noHoldings}>—</Text>
+          <Text style={st.noChange}>—</Text>
         )}
       </View>
       <TouchableOpacity
@@ -127,17 +122,20 @@ function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) 
 }
 
 export default function StocksView({
+  embedded = false,
   assetClass,
   favoritesOnly = false,
+  searchQuery = '',
   scaAddress,
   usdcBalance,
   signTypedData,
   gate,
   stocks,
   stocksLoading,
-  stocksRefreshing,
+  stocksRefreshing = false,
   stocksError,
   onRefresh,
+  onScroll,
   externalSelectedStock,
   onExternalSelectedStockHandled,
 }: Props) {
@@ -147,16 +145,11 @@ export default function StocksView({
   const favorites = useFavoritesStore((s) => s.favorites);
 
   const [selected, setSelected] = useState<StockItem | null>(null);
+  const [sortKey, setSortKey] = useState<InvestSortKey>('price');
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [showDinariGate, setShowDinariGate] = useState(false);
   const pendingTradeSideRef = useRef<'buy' | 'sell' | null>(null);
   const [resumeTradeSide, setResumeTradeSide] = useState<'buy' | 'sell' | null>(null);
-  const waitlist = useDinariWaitlistJoin();
-
-  useEffect(() => {
-    if (assetClass === 'stock' && gate.state === 'idle') {
-      void gate.resolve();
-    }
-  }, [assetClass, gate.state, gate.resolve]);
 
   useEffect(() => {
     if (externalSelectedStock) {
@@ -170,6 +163,15 @@ export default function StocksView({
 
     pendingTradeSideRef.current = side;
     setShowDinariGate(true);
+
+    if (
+      gate.state === 'waitlist'
+      || gate.state === 'kyc'
+      || gate.state === 'connect'
+      || gate.state === 'unsupported'
+    ) {
+      return false;
+    }
 
     const next = await gate.resolve();
     if (next === 'ready') {
@@ -191,28 +193,103 @@ export default function StocksView({
     if (side) setResumeTradeSide(side);
   }, []);
 
-  const favoriteStocks = useMemo(
-    () => stocks.filter((s) => favorites.includes(s.symbol)),
-    [stocks, favorites],
+  const marketBySymbol = useYahooStockMarket(stocks.map((s) => s.symbol));
+
+  const quotedStocks = useMemo(
+    () => stocks.map((item) => applyYahooMarket(item, marketBySymbol.get(item.symbol.toUpperCase()))),
+    [stocks, marketBySymbol],
   );
-  const otherStocks = useMemo(
-    () =>
-      stocks
-        .filter(
-          (s) =>
-            !favorites.includes(s.symbol) &&
-            (s.holdings > 0 || isFeaturedStockSymbol(s.symbol)),
-        )
-        .sort((a, b) => Number(b.holdings > 0) - Number(a.holdings > 0)),
-    [stocks, favorites],
+
+  const sortedStocks = useMemo(
+    () => sortStocks(quotedStocks, sortKey),
+    [quotedStocks, sortKey],
   );
+
+  const query = normalizeSearchQuery(searchQuery);
+  const isSearching = query.length > 0;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const pool = favoritesOnly
+      ? sortedStocks.filter((item) => favorites.includes(item.symbol))
+      : sortedStocks;
+    return pool.filter((item) => matchesStock(item, query));
+  }, [favorites, favoritesOnly, isSearching, query, sortedStocks]);
+
+  const displayedStocks = useMemo(() => {
+    if (stocksLoading && stocks.length === 0) return [];
+    if (isSearching) return searchResults;
+    if (favoritesOnly) return sortedStocks.filter((item) => favorites.includes(item.symbol));
+    return sortedStocks;
+  }, [
+    stocksLoading,
+    stocks.length,
+    isSearching,
+    searchResults,
+    favoritesOnly,
+    favorites,
+    sortedStocks,
+  ]);
 
   const unsupportedMessage = gate.error
     ? t('crypto.dinariUnavailableBody', { error: gate.error })
     : t('crypto.dinariComingSoonBody');
 
+  const listBody = stocksLoading && stocks.length === 0 ? (
+    <View style={st.loadingRow}>
+      <LoadingDots color={colors.textMuted} size={8} />
+    </View>
+  ) : isSearching ? (
+    searchResults.length > 0 ? (
+      searchResults.map((item) => (
+        <StockRow key={item.id} item={item} onPress={setSelected} />
+      ))
+    ) : (
+      <View style={st.emptyFavorites}>
+        <Text style={st.emptyFavoritesText}>{t('crypto.searchNoResults')}</Text>
+      </View>
+    )
+  ) : favoritesOnly ? (
+    displayedStocks.length > 0 ? (
+      displayedStocks.map((item) => (
+        <StockRow key={item.id} item={item} onPress={setSelected} />
+      ))
+    ) : (
+      <View style={st.emptyFavorites}>
+        <Text style={st.emptyFavoritesText}>{t('crypto.favoritesEmpty')}</Text>
+      </View>
+    )
+  ) : (
+    displayedStocks.map((item) => (
+      <StockRow key={item.id} item={item} onPress={setSelected} />
+    ))
+  );
+
+  const listSection = (
+    <>
+      <InvestListCard
+        leftLabel={t('crypto.colAsset')}
+        rightLabel={t(SORT_HEADER_I18N[sortKey])}
+        sortActive={sortKey !== 'price'}
+        onRightPress={() => setSortSheetOpen(true)}
+        refreshing={stocksRefreshing}
+        onRefresh={onRefresh}
+        outerScroll={embedded}
+      >
+        {listBody}
+      </InvestListCard>
+      <InvestSortSheet
+        visible={sortSheetOpen}
+        selected={sortKey}
+        options={INVEST_STOCK_SORT_OPTIONS}
+        onSelect={setSortKey}
+        onClose={() => setSortSheetOpen(false)}
+      />
+    </>
+  );
+
   return (
-    <View style={st.flex}>
+    <View style={embedded ? st.embedded : st.flex}>
       {stocksError && (
         <View style={st.errorBox}>
           <Ionicons name="alert-circle-outline" size={15} color={colors.danger} />
@@ -220,96 +297,24 @@ export default function StocksView({
         </View>
       )}
 
-      {gate.state === 'waitlist' && (
-        <View style={st.waitlistBox}>
-          <Ionicons name="notifications-outline" size={18} color={colors.primary} />
-          <View style={st.waitlistCopy}>
-            <Text style={st.waitlistTitle}>{t('crypto.dinariWaitlistTitle')}</Text>
-            <Text style={st.waitlistBody}>{t('crypto.dinariWaitlistBody')}</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => { void waitlist.handleJoin(); }}
-            disabled={waitlist.joined || waitlist.submitting || waitlist.checking || !waitlist.backendAvailable}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.7}
-          >
-            <Text style={[st.waitlistCta, (waitlist.joined || waitlist.submitting) && st.waitlistCtaMuted]}>
-              {waitlist.joined ? t('card.notifyJoined') : t('crypto.dinariWaitlistCta')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {gate.state === 'unsupported' && (
         <View style={st.errorBox}>
           <Ionicons name="time-outline" size={15} color={colors.danger} />
           <Text style={st.errorText}>{unsupportedMessage}</Text>
-          <TouchableOpacity onPress={() => { void gate.resolve(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity onPress={() => { void gate.resolve(true); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={st.retryText}>{t('crypto.dinariRetry')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      <View style={st.listHost}>
-        <View style={st.card}>
-          <View style={st.colHeader}>
-            <Text style={st.colLabel}>{t('crypto.colAsset')}</Text>
-            <Text style={[st.colLabel, { textAlign: 'right' }]}>{t('crypto.colHoldings')}</Text>
-          </View>
+      {listSection}
 
-          <ScrollView
-            style={st.listScroll}
-            contentContainerStyle={st.listScrollContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={stocksRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-            }
-          >
-            {stocksLoading && stocks.length === 0 ? (
-              <View style={st.loadingRow}>
-                <LoadingDots color={colors.textMuted} size={8} />
-              </View>
-            ) : favoritesOnly ? (
-              favoriteStocks.length > 0 ? (
-                favoriteStocks.map((item) => (
-                  <StockRow key={item.id} item={item} onPress={setSelected} />
-                ))
-              ) : (
-                <View style={st.emptyFavorites}>
-                  <Text style={st.emptyFavoritesText}>{t('crypto.favoritesEmpty')}</Text>
-                </View>
-              )
-            ) : (
-              <>
-                {favoriteStocks.length > 0 && (
-                  <>
-                    <SectionDivider label={t('crypto.favorites')} />
-                    {favoriteStocks.map((item) => (
-                      <StockRow key={item.id} item={item} onPress={setSelected} />
-                    ))}
-                  </>
-                )}
-
-                {otherStocks.length > 0 && (
-                  <>
-                    {favoriteStocks.length > 0 && (
-                      <SectionDivider label={t('crypto.watchlist')} />
-                    )}
-                    {otherStocks.map((item) => (
-                      <StockRow key={item.id} item={item} onPress={setSelected} />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </ScrollView>
+      {!embedded && (
+        <View style={st.footer}>
+          <Text style={st.sourceNote}>{t('crypto.stocksSourceNote')}</Text>
+          <LegalDisclaimer variant="securities" style={st.legalFooter} />
         </View>
-      </View>
-
-      <View style={st.footer}>
-        <Text style={st.sourceNote}>{t('crypto.stocksSourceNote')}</Text>
-        <LegalDisclaimer variant="securities" style={st.legalFooter} />
-      </View>
+      )}
 
       <StockDetailModal
         visible={!!selected}
@@ -337,6 +342,7 @@ export default function StocksView({
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
     flex: { flex: 1 },
+    embedded: {},
 
     errorBox: {
       flexDirection: 'row',
@@ -365,25 +371,6 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 19,
     },
 
-    waitlistBox: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 10,
-      marginHorizontal: 20,
-      marginBottom: 12,
-      backgroundColor: c.primarySoft,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: c.primarySoft,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-    },
-    waitlistCopy: { flex: 1, gap: 4 },
-    waitlistTitle: { color: c.text, fontSize: 13, fontWeight: '700' },
-    waitlistBody: { color: c.textMuted, fontSize: 12, lineHeight: 17 },
-    waitlistCta: { color: c.primary, fontSize: 12, fontWeight: '700', marginTop: 2 },
-    waitlistCtaMuted: { opacity: 0.55 },
-
     listHost: {
       flex: 1,
       minHeight: 0,
@@ -397,7 +384,6 @@ function makeStyles(c: ThemeColors) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.border,
     },
-    listScroll: { flex: 1 },
     listScrollContent: { flexGrow: 1 },
     colHeader: {
       flexDirection: 'row',
@@ -434,36 +420,15 @@ function makeStyles(c: ThemeColors) {
     mid: { flex: 1, gap: 4 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     symbol: { color: c.text, fontSize: 15, fontWeight: '700' },
-    price: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     right: { alignItems: 'flex-end', gap: 3 },
     value: { color: c.text, fontSize: 15, fontWeight: '700' },
-    holdings: {
-      color: c.textMuted,
-      fontSize: 12,
-      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    },
-    noHoldings: { color: c.textFaint, fontSize: 15, fontWeight: '600' },
-
-    dividerWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      gap: 10,
-    },
-    dividerLine: {
-      flex: 1,
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: c.border,
-    },
-    dividerLabel: {
-      color: c.textFaint,
-      fontSize: 10,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
+    change: { fontSize: 11, fontWeight: '600' },
+    changePos: { color: '#10B981' },
+    changeNeg: { color: '#EF4444' },
+    noChange: { color: c.textFaint, fontSize: 11, fontWeight: '600' },
+    holdingsValue: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
+    noHoldingsSub: { color: c.textFaint, fontSize: 12, fontWeight: '500' },
 
     sourceNote: { color: c.textFaint, fontSize: 11, textAlign: 'center', marginTop: 16 },
     footer: { paddingBottom: 120 },

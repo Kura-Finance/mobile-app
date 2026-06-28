@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/theme';
+import { formatDisplayError } from '../../lib/wallet/userFacingTransactionError';
 
 interface Props {
   message: string;
@@ -13,13 +14,16 @@ interface Props {
 export default function InlineErrorBanner({ message, title, style }: Props) {
   const { colors } = useTheme();
   const st = useMemo(() => makeStyles(colors), [colors]);
+  const displayMessage = useMemo(() => formatDisplayError(message), [message]);
 
   return (
     <View style={[st.box, style]} accessibilityRole="alert">
       <Ionicons name="alert-circle-outline" size={16} color={colors.danger} style={st.icon} />
       <View style={st.textWrap}>
         {title ? <Text style={st.title}>{title}</Text> : null}
-        <Text style={st.message}>{message}</Text>
+        <Text style={st.message} numberOfLines={5} ellipsizeMode="tail">
+          {displayMessage}
+        </Text>
       </View>
     </View>
   );

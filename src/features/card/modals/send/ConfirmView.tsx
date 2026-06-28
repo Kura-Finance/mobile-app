@@ -1,6 +1,7 @@
+import LoadingDots from '../../../../shared/components/LoadingDots';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, TouchableOpacity, ScrollView,
   StyleSheet, Platform, Animated,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -13,7 +14,7 @@ import {
   BASE_CHAIN_ID,
   fetchBridgeQuote,
   formatBridgeReceive,
-  formatBridgeFeeTotal,
+  bridgeFeeUsdTotal,
   formatBridgeTime,
   hasBridgeFee,
 } from '../../../../lib/api/bridge/lifiClient';
@@ -24,6 +25,7 @@ import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 import LegalDisclaimer from '../../../../shared/components/LegalDisclaimer';
 import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
+import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -68,6 +70,7 @@ export default function ConfirmView({
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const money = useMoneyFormat();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const st = useStyles();
   const isBridge = chain.key !== 'BASE';
@@ -166,7 +169,7 @@ export default function ConfirmView({
       return { value: t('card.sponsored'), valueStyle: st.sponsoredText };
     }
     if (gas != null) {
-      return { value: t('card.gasUsdcValue', { gas: gas.toFixed(2) }) };
+      return { value: t('card.gasUsdcValue', { gas: money.value(gas) }) };
     }
     return { value: t('card.estimatingGas') };
   };
@@ -253,7 +256,7 @@ export default function ConfirmView({
 
             {isFetching && !quote ? (
               <View style={st.fetchingRow}>
-                <ActivityIndicator size="small" color={colors.textMuted} />
+                <LoadingDots compact color={colors.textMuted} size={6}    />
                 <Text style={st.fetchingText}>{t('card.gettingBestRate')}</Text>
               </View>
             ) : quoteError ? (
@@ -267,7 +270,10 @@ export default function ConfirmView({
                 />
                 <Row label={t('card.gasFee')} {...renderGasFeeValue(gasUsdc)} />
                 {hasBridgeFee(quote) ? (
-                  <Row label={t('card.bridgeFee')} value={formatBridgeFeeTotal(quote)} />
+                  <Row
+                    label={t('card.bridgeFee')}
+                    value={money.price(bridgeFeeUsdTotal(quote))}
+                  />
                 ) : null}
                 <Row
                   label={t('card.via')}
@@ -322,7 +328,7 @@ export default function ConfirmView({
         activeOpacity={0.85}
       >
         {isWorking ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <LoadingDots compact color="#FFF" size={6}    />
         ) : (
           <Ionicons name={isBridge ? 'git-branch-outline' : 'arrow-up-outline'} size={18} color="#FFF" />
         )}

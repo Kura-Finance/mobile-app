@@ -1,6 +1,7 @@
+import LoadingDots from '../../../../shared/components/LoadingDots';
 import React, { useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, Linking,
+  View, Text, TouchableOpacity, StyleSheet, Dimensions, Linking,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +34,7 @@ export default function QRScanner({ onScanned, onCancel }: Props) {
   }, [onScanned]);
 
   if (!permission) {
-    return <View style={st.center}><ActivityIndicator color="#8B5CF6" /></View>;
+    return <View style={st.center}><LoadingDots color="#8B5CF6" size={8}   /></View>;
   }
 
   if (!permission.granted) {

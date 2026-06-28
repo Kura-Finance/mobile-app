@@ -17,16 +17,18 @@ interface WaveChartProps {
   selectedTimeRange: TimeRangeType;
   historyDaysLimit: number;
   onTimeRangeChange: (timeRange: TimeRangeType) => void;
+  /** Render inside a parent card without its own border/background */
+  embedded?: boolean;
 }
-const CHART_WIDTH = Dimensions.get('window').width - 48; // paddingHorizontal: 24 * 2
+const CHART_WIDTH = Dimensions.get('window').width - 64; // 20 screen pad + 12 card pad each side
 const TIME_RANGE_LABEL_KEYS: Record<TimeRangeType, string> = {
   '1W': 'investments.timeRange1W',
   '1M': 'investments.timeRange1M',
   '6M': 'investments.timeRange6M',
   '1Y': 'investments.timeRange1Y',
 };
-const CHART_HEIGHT = 160; // 修改为原来的 4/5
-const CHART_PADDING = 16;
+const CHART_HEIGHT = 96;
+const CHART_PADDING = 10;
 
 interface ChartPoint {
   x: number;
@@ -83,9 +85,15 @@ function getSnapshotsForTimeRange(
   return points;
 }
 
-export default function WaveChart({ selectedTimeRange, historyDaysLimit, onTimeRangeChange }: WaveChartProps) {
+export default function WaveChart({
+  selectedTimeRange,
+  historyDaysLimit,
+  onTimeRangeChange,
+  embedded = false,
+}: WaveChartProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const st = useMemo(() => makeStyles(colors), [colors]);
   const assetHistory = useFinanceStore((state) => state.assetHistory);
   const calculateTotalAssets = useFinanceStore((state) => state.calculateTotalAssets);
 
@@ -129,21 +137,11 @@ export default function WaveChart({ selectedTimeRange, historyDaysLimit, onTimeR
 
   // Trend colour matches the change badge in PerformanceSummary.
   const isUp = performance.hasBaseline ? performance.isPositive : true;
-  const stroke = isUp ? '#34C759' : '#EF4444';
+  const stroke = isUp ? colors.success : colors.danger;
 
   return (
-    <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-      <View
-        style={{
-          height: CHART_HEIGHT,
-          backgroundColor: colors.surfaceAlt,
-          borderRadius: 20,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          padding: 0,
-          overflow: 'hidden',
-        }}
-      >
+    <View style={embedded ? st.embeddedWrap : st.wrap}>
+      <View style={embedded ? st.chartEmbedded : st.chartStandalone}>
         <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={{ width: '100%', height: '100%' }}>
           <Defs>
             <SvgLinearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
@@ -175,25 +173,17 @@ export default function WaveChart({ selectedTimeRange, historyDaysLimit, onTimeR
         )}
       </View>
 
-      {/* 時間範圍按鈕 — 與 crypto TokenDetail 一致 */}
-      <View style={{ flexDirection: 'row', marginTop: 14, paddingHorizontal: 4, gap: 4 }}>
+      <View style={embedded ? st.rangeRowEmbedded : st.rangeRow}>
         {BROKER_TIME_RANGES.map((timeRange) => {
           const isActive = selectedTimeRange === timeRange;
           return (
             <TouchableOpacity
               key={timeRange}
               onPress={() => onTimeRangeChange(timeRange)}
-              activeOpacity={0.7}
-              style={{
-                flex: 1,
-                paddingVertical: 8,
-                borderRadius: 10,
-                backgroundColor: isActive ? colors.surfaceInput : 'transparent',
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
+              activeOpacity={0.85}
+              style={[st.rangeChip, isActive && st.rangeChipActive]}
             >
-              <Text style={{ color: isActive ? colors.text : colors.textMuted, fontSize: 12, fontWeight: '600' }}>
+              <Text style={[st.rangeText, isActive && st.rangeTextActive]}>
                 {t(TIME_RANGE_LABEL_KEYS[timeRange])}
               </Text>
             </TouchableOpacity>
@@ -202,6 +192,57 @@ export default function WaveChart({ selectedTimeRange, historyDaysLimit, onTimeR
       </View>
     </View>
   );
+}
+
+function makeStyles(c: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    wrap: { marginBottom: 16 },
+    embeddedWrap: { marginBottom: 0 },
+    chartEmbedded: {
+      height: CHART_HEIGHT,
+      marginHorizontal: -4,
+      marginTop: 4,
+      overflow: 'hidden',
+    },
+    chartStandalone: {
+      height: CHART_HEIGHT,
+      backgroundColor: c.surfaceAlt,
+      borderRadius: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      overflow: 'hidden',
+    },
+    rangeRow: {
+      flexDirection: 'row',
+      marginTop: 12,
+      gap: 4,
+    },
+    rangeRowEmbedded: {
+      flexDirection: 'row',
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+      gap: 4,
+    },
+    rangeChip: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    rangeChipActive: {
+      backgroundColor: c.primary,
+    },
+    rangeText: {
+      color: c.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    rangeTextActive: {
+      color: c.textInverse,
+    },
+  });
 }
 
 const styles = StyleSheet.create({

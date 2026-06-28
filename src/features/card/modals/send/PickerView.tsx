@@ -1,7 +1,7 @@
+import LoadingDots from '../../../../shared/components/LoadingDots';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, TouchableOpacity,
-  ActivityIndicator, Alert, StyleSheet,
+  View, Text, TouchableOpacity, Alert, StyleSheet,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
@@ -51,6 +51,7 @@ function flagFor(currency?: string | null): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
+  variant: 'bank' | 'crypto';
   contacts: CryptoContact[];
   isLoading: boolean;
   getChain: (chainKey: string) => ChainOption;
@@ -96,10 +97,11 @@ function AddRow({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PickerView — Bank Accounts + Wallet Addresses
+// PickerView — saved bank accounts or wallet contacts (after method selection)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PickerView({
+  variant,
   contacts, isLoading, getChain, removeContact,
   onSelectContact, onAddNew, onWithdrawBank, bankRefreshKey, onBankAccountsChanged,
 }: Props) {
@@ -110,6 +112,7 @@ export default function PickerView({
   const [loadingBanks, setLoadingBanks] = useState(true);
 
   useEffect(() => {
+    if (variant !== 'bank') return;
     let cancelled = false;
     setLoadingBanks(true);
     void (async () => {
@@ -123,7 +126,7 @@ export default function PickerView({
       }
     })();
     return () => { cancelled = true; };
-  }, [bankRefreshKey]);
+  }, [bankRefreshKey, variant]);
 
   const handleLongPress = (contact: CryptoContact) => {
     Alert.alert(
@@ -136,8 +139,8 @@ export default function PickerView({
     );
   };
 
-  const bankAccountLabel = (account: ExternalAccountResult) =>
-    account.bankName || account.accountOwnerName || t('card.bankAccount');
+  const recipientLabel = (account: ExternalAccountResult) =>
+    account.accountOwnerName || account.bankName || t('card.recipient');
 
   const refreshBankAccounts = async () => {
     const list = await listExternalAccounts();
@@ -147,8 +150,8 @@ export default function PickerView({
 
   const handleDeleteBank = (account: ExternalAccountResult) => {
     Alert.alert(
-      t('card.removeBankAccount'),
-      t('card.removeBankAccountConfirm', { name: bankAccountLabel(account) }),
+      t('card.removeRecipient'),
+      t('card.removeRecipientConfirm', { name: recipientLabel(account) }),
       [
         { text: t('card.cancel'), style: 'cancel' },
         {
@@ -161,7 +164,7 @@ export default function PickerView({
                 await refreshBankAccounts();
               } catch (e) {
                 if (e instanceof KuraApiError && e.status === 409) {
-                  Alert.alert(t('card.removeBankAccount'), t('card.usdtKycRequired'));
+                  Alert.alert(t('card.removeRecipient'), t('card.usdtKycRequired'));
                   return;
                 }
                 if (e instanceof KuraApiError && e.status === 404) {
@@ -169,8 +172,8 @@ export default function PickerView({
                   return;
                 }
                 Alert.alert(
-                  t('card.removeBankAccount'),
-                  e instanceof Error ? e.message : t('card.removeBankAccountFailed'),
+                  t('card.removeRecipient'),
+                  e instanceof Error ? e.message : t('card.removeRecipientFailed'),
                 );
               }
             })();
@@ -187,62 +190,62 @@ export default function PickerView({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* ── Bank Accounts ─────────────────────────────────────────── */}
-      <Text style={st.sectionLabel}>{t('card.bankAccounts')}</Text>
+      <Text style={st.prompt}>
+        {variant === 'bank' ? t('card.sendMoneyBankPrompt') : t('card.sendMoneyCryptoPrompt')}
+      </Text>
 
-      <View style={st.card}>
-        {loadingBanks ? (
-          <View style={st.centerState}>
-            <ActivityIndicator size="small" color={colors.textMuted} />
-          </View>
-        ) : (
-          bankAccounts.map((acct, i) => (
-            <View key={acct.bridgeExternalAccountId} style={i > 0 ? st.rowBorder : undefined}>
-              <BankAccountRow
-                account={acct}
-                flag={flagFor(acct.currency)}
-                onPress={() => onWithdrawBank({ accountId: acct.bridgeExternalAccountId })}
-                onDelete={() => handleDeleteBank(acct)}
-              />
+      {variant === 'bank' ? (
+        <View style={st.card}>
+          {loadingBanks ? (
+            <View style={st.centerState}>
+              <LoadingDots compact color={colors.textMuted} size={6}    />
             </View>
-          ))
-        )}
+          ) : (
+            bankAccounts.map((acct, i) => (
+              <View key={acct.bridgeExternalAccountId} style={i > 0 ? st.rowBorder : undefined}>
+                <BankAccountRow
+                  account={acct}
+                  flag={flagFor(acct.currency)}
+                  onPress={() => onWithdrawBank({ accountId: acct.bridgeExternalAccountId })}
+                  onDelete={() => handleDeleteBank(acct)}
+                />
+              </View>
+            ))
+          )}
 
-        <View style={(!loadingBanks && bankAccounts.length > 0) ? st.rowBorder : undefined}>
-          <AddRow icon="business" label={t('card.newBankAccount')} onPress={() => onWithdrawBank({ addNew: true })}>
-            <Text style={st.newSub}>{t('card.fiveCurrencies')}</Text>
-          </AddRow>
-        </View>
-      </View>
-
-      {/* ── Wallet Addresses ──────────────────────────────────────── */}
-      <Text style={[st.sectionLabel, { marginTop: 20 }]}>{t('card.walletAddresses')}</Text>
-
-      <View style={st.card}>
-        {isLoading ? (
-          <View style={st.centerState}>
-            <ActivityIndicator size="small" color={colors.textMuted} />
+          <View style={(!loadingBanks && bankAccounts.length > 0) ? st.rowBorder : undefined}>
+            <AddRow icon="person-add-outline" label={t('card.newRecipient')} onPress={() => onWithdrawBank({ addNew: true })}>
+              <Text style={st.newSub}>{t('card.newRecipientSub')}</Text>
+            </AddRow>
           </View>
-        ) : (
-          contacts.map((contact, i) => (
-            <View key={contact.id} style={i > 0 ? st.rowBorder : undefined}>
-              <ContactRow
-                contact={contact}
-                chain={getChain(contact.chainKey)}
-                onPress={() => onSelectContact(contact)}
-                onLongPress={() => handleLongPress(contact)}
-                onDelete={() => void removeContact(contact.id)}
-              />
-            </View>
-          ))
-        )}
-
-        <View style={(!isLoading && contacts.length > 0) ? st.rowBorder : undefined}>
-          <AddRow icon="wallet-outline" label={t('card.newWallet')} onPress={() => onAddNew()}>
-            <Text style={st.newSub}>{t('card.multiChainSend')}</Text>
-          </AddRow>
         </View>
-      </View>
+      ) : (
+        <View style={st.card}>
+          {isLoading ? (
+            <View style={st.centerState}>
+              <LoadingDots compact color={colors.textMuted} size={6}    />
+            </View>
+          ) : (
+            contacts.map((contact, i) => (
+              <View key={contact.id} style={i > 0 ? st.rowBorder : undefined}>
+                <ContactRow
+                  contact={contact}
+                  chain={getChain(contact.chainKey)}
+                  onPress={() => onSelectContact(contact)}
+                  onLongPress={() => handleLongPress(contact)}
+                  onDelete={() => void removeContact(contact.id)}
+                />
+              </View>
+            ))
+          )}
+
+          <View style={(!isLoading && contacts.length > 0) ? st.rowBorder : undefined}>
+            <AddRow icon="wallet-outline" label={t('card.newWallet')} onPress={() => onAddNew()}>
+              <Text style={st.newSub}>{t('card.multiChainSend')}</Text>
+            </AddRow>
+          </View>
+        </View>
+      )}
 
       <View style={{ height: 24 }} />
     </ScrollView>
@@ -257,6 +260,13 @@ function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: c.backgroundElevated },
     scrollContent: { flexGrow: 1, paddingHorizontal: 24 },
+    prompt: {
+      color: c.textMuted,
+      fontSize: 15,
+      lineHeight: 22,
+      marginTop: 8,
+      marginBottom: 20,
+    },
     sectionLabel: {
       color: c.textFaint, fontSize: 12, fontWeight: '600', letterSpacing: 0.4,
       textTransform: 'uppercase', marginTop: 12, marginBottom: 12,

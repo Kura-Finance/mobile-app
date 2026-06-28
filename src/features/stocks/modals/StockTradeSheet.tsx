@@ -1,3 +1,4 @@
+import LoadingDots from '../../../shared/components/LoadingDots';
 /**
  * StockTradeSheet
  *
@@ -9,7 +10,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -27,9 +27,8 @@ import { placeDinariOrder, StockItem } from '../hooks/useDinari';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
-import { useHideBalance } from '../../../shared/hooks/useHideBalance';
-import { formatUsdCompact, formatSensitiveUsd } from '../../../shared/utils/privacyDisplay';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
+import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
+import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 
 export type TradeSide = 'buy' | 'sell';
 
@@ -57,7 +56,7 @@ export default function StockTradeSheet({
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const st = useMemo(() => makeStyles(colors), [colors]);
-  const hideBalance = useHideBalance();
+  const money = useMoneyFormat();
 
   const [amountInput, setAmountInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -137,7 +136,10 @@ export default function StockTradeSheet({
         <View style={[st.sheet, { paddingBottom: insets.bottom + 16 }]}>
           <View style={st.sheetHeader}><View style={st.handle} /></View>
           <View style={st.titleRow}>
-            <Text style={st.title}>{isSell ? 'Sell' : 'Buy'} {symbol}</Text>
+            <View style={st.titleGroup}>
+              <Text style={st.title}>{isSell ? 'Sell' : 'Buy'} {symbol}</Text>
+              <LegalDisclaimerInfoButton variant="securities" />
+            </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7} disabled={busy}>
               <Ionicons name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -149,8 +151,8 @@ export default function StockTradeSheet({
               <Text style={st.successTitle}>{isSell ? 'Sell filled!' : 'Buy filled!'}</Text>
               <Text style={st.successSub}>
                 {isSell
-                  ? `Sold ${amountNum} ${symbol} ≈ ${formatSensitiveUsd(estUsd, hideBalance)}`
-                  : `Bought ≈ ${estShares.toFixed(4)} ${symbol} with ${formatSensitiveUsd(estUsd, hideBalance)}`}
+                  ? `Sold ${amountNum} ${symbol} ≈ ${money.value(estUsd)}`
+                  : `Bought ≈ ${estShares.toFixed(4)} ${symbol} with ${money.value(estUsd)}`}
               </Text>
               <TouchableOpacity onPress={onClose} style={st.doneBtn} activeOpacity={0.85}>
                 <Text style={st.doneBtnText}>Done</Text>
@@ -161,7 +163,7 @@ export default function StockTradeSheet({
               <Text style={st.balanceHint}>
                 {isSell
                   ? `Available: ${holdings.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${symbol}`
-                  : `Available: ${formatSensitiveUsd(usdcBalance, hideBalance)}`}
+                  : `Available: ${money.value(usdcBalance)}`}
               </Text>
 
               <View style={st.inputRow}>
@@ -189,8 +191,8 @@ export default function StockTradeSheet({
               ) : amountNum > 0 ? (
                 <Text style={st.subHint}>
                   {isSell
-                    ? `≈ ${formatSensitiveUsd(estUsd, hideBalance)}`
-                    : `≈ ${estShares.toFixed(4)} ${symbol} @ ${formatUsdCompact(price)}`}
+                    ? `≈ ${money.value(estUsd)}`
+                    : `≈ ${estShares.toFixed(4)} ${symbol} @ ${money.compact(price)}`}
                 </Text>
               ) : null}
 
@@ -208,8 +210,6 @@ export default function StockTradeSheet({
                 </View>
               )}
 
-              <LegalDisclaimer variant="securities" style={st.disclaimer} />
-
               <TouchableOpacity
                 style={[
                   st.execBtn,
@@ -222,14 +222,14 @@ export default function StockTradeSheet({
               >
                 {busy ? (
                   <View style={st.busyRow}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <LoadingDots compact color="#FFFFFF" size={6}    />
                     <Text style={st.execText}>{statusText || 'Processing…'}</Text>
                   </View>
                 ) : (
                   <Text style={st.execText}>
                     {isSell
-                      ? `Sell ${symbol}${estUsd > 0 ? ` · ${formatSensitiveUsd(estUsd, hideBalance)}` : ''}`
-                      : `Buy ${symbol}${amountNum > 0 ? ` · ${formatSensitiveUsd(amountNum, hideBalance)}` : ''}`}
+                      ? `Sell ${symbol}${estUsd > 0 ? ` · ${money.value(estUsd)}` : ''}`
+                      : `Buy ${symbol}${amountNum > 0 ? ` · ${money.value(amountNum)}` : ''}`}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -257,6 +257,7 @@ function makeStyles(c: ThemeColors) {
     sheetHeader: { alignItems: 'center', paddingVertical: 8 },
     handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: c.borderStrong },
     titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
+    titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
     title: { color: c.text, fontSize: 20, fontWeight: '700' },
     closeBtn: {
       width: 32, height: 32, borderRadius: 16, backgroundColor: c.surface,
@@ -286,7 +287,6 @@ function makeStyles(c: ThemeColors) {
       paddingHorizontal: 14, paddingVertical: 10, marginTop: 12,
     },
     errorText: { color: c.danger, fontSize: 12, flex: 1 },
-    disclaimer: { marginTop: 14, paddingHorizontal: 4 },
     execBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
     execBuy: { backgroundColor: c.primary },
     execSell: { backgroundColor: c.danger },

@@ -1,14 +1,15 @@
-import React from 'react';
-import { ScrollView, View, Image, TouchableOpacity, Text } from 'react-native';
+import React, { useMemo } from 'react';
+import { ScrollView, View, Image, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { logoDevImageSource } from '../../../../config/logodev';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
+import type { ThemeColors } from '../../../../shared/theme/theme';
 
 interface Account {
   id: string;
   name: string;
   logo: string;
-  type?: 'Broker' | 'Exchange' | 'Web3 Wallet'; // 可選的帳戶類型標籤
+  type?: 'Broker' | 'Exchange' | 'Web3 Wallet';
 }
 
 interface AccountCapsulesProps {
@@ -16,78 +17,150 @@ interface AccountCapsulesProps {
   selectedAccountId: string | null;
   onSelectAccount: (accountId: string | null) => void;
   onAddAccount?: () => void;
+  horizontalPadding?: number;
 }
 
-export default function AccountCapsules({ accounts, selectedAccountId, onSelectAccount, onAddAccount }: AccountCapsulesProps) {
+export default function AccountCapsules({
+  accounts,
+  selectedAccountId,
+  onSelectAccount,
+  onAddAccount,
+  horizontalPadding = 16,
+}: AccountCapsulesProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const st = useMemo(() => makeStyles(colors), [colors]);
+
+  const capsuleStyle = (selected: boolean) => [
+    st.capsule,
+    selected ? st.capsuleSelected : st.capsuleUnselected,
+  ];
+
+  const labelStyle = (selected: boolean) => [
+    st.label,
+    selected ? st.labelSelected : st.labelUnselected,
+  ];
 
   return (
     <ScrollView
       horizontal
+      nestedScrollEnabled
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}
+      contentContainerStyle={[st.scrollContent, { paddingHorizontal: horizontalPadding }]}
     >
       <TouchableOpacity
         onPress={() => onSelectAccount(null)}
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderRadius: 20,
-          backgroundColor: selectedAccountId === null ? colors.primary : colors.surface,
-          borderWidth: 1,
-          borderColor: selectedAccountId === null ? colors.primary : colors.border,
-        }}
+        activeOpacity={0.85}
+        style={[capsuleStyle(selectedAccountId === null), st.chip]}
       >
-        <Text style={{ color: selectedAccountId === null ? colors.textInverse : colors.text, fontSize: 13, fontWeight: '600' }}>{t('investments.all')}</Text>
+        <Text style={labelStyle(selectedAccountId === null)}>{t('investments.all')}</Text>
       </TouchableOpacity>
 
-      {accounts.map((account) => (
+      {accounts.map((account) => {
+        const selected = selectedAccountId === account.id;
+        return (
+          <TouchableOpacity
+            key={account.id}
+            onPress={() => onSelectAccount(account.id)}
+            activeOpacity={0.85}
+            style={[capsuleStyle(selected), st.chip, st.accountCapsule]}
+          >
+            {account.logo ? (
+              <Image
+                source={logoDevImageSource(account.logo) ?? { uri: account.logo }}
+                style={st.logo}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[st.logoPlaceholder, selected && st.logoPlaceholderSelected]} />
+            )}
+            <Text style={[labelStyle(selected), st.accountLabel]}>
+              {account.name}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+
+      {onAddAccount ? (
         <TouchableOpacity
-          key={account.id}
-          onPress={() => onSelectAccount(account.id)}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 16,
-            backgroundColor: selectedAccountId === account.id ? colors.primary : colors.surface,
-            borderWidth: 1,
-            borderColor: selectedAccountId === account.id ? colors.primary : colors.border,
-            gap: 8,
-          }}
+          onPress={onAddAccount}
+          activeOpacity={0.85}
+          style={[st.capsule, st.capsuleUnselected, st.chip, st.addCapsule]}
         >
-          {account.logo ? (
-            <Image
-              source={logoDevImageSource(account.logo) ?? { uri: account.logo }}
-              style={{ width: 20, height: 20, borderRadius: 10 }}
-              resizeMode="contain"
-            />
-          ) : (
-            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: selectedAccountId === account.id ? 'rgba(255,255,255,0.25)' : colors.surfaceInput }} />
-          )}
-          <Text style={{ color: selectedAccountId === account.id ? colors.textInverse : colors.text, fontSize: 12, fontWeight: '600' }}>
-            {account.name}
-          </Text>
+          <Text style={st.addLabel}>+</Text>
         </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity
-        onPress={onAddAccount}
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          borderRadius: 16,
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.border,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>+</Text>
-      </TouchableOpacity>
+      ) : null}
     </ScrollView>
   );
+}
+
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    scrollContent: {
+      paddingBottom: 4,
+      gap: 8,
+    },
+    chip: {
+      flexShrink: 0,
+      flexGrow: 0,
+    },
+    capsule: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: StyleSheet.hairlineWidth,
+    },
+    capsuleSelected: {
+      backgroundColor: c.primary,
+      borderColor: c.primary,
+    },
+    capsuleUnselected: {
+      backgroundColor: c.surface,
+      borderColor: c.border,
+    },
+    accountCapsule: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    accountLabel: {
+      flexShrink: 0,
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 18,
+    },
+    labelSelected: {
+      color: c.textInverse,
+    },
+    labelUnselected: {
+      color: c.text,
+    },
+    logo: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+    },
+    logoPlaceholder: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: c.surfaceInput,
+    },
+    logoPlaceholderSelected: {
+      backgroundColor: 'rgba(255,255,255,0.25)',
+    },
+    addCapsule: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+    },
+    addLabel: {
+      color: c.primary,
+      fontSize: 18,
+      fontWeight: '600',
+      lineHeight: 20,
+    },
+  });
 }

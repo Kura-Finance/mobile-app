@@ -27,7 +27,7 @@
 | **Crypto** | USDC / blue-chip balances, send, swap, bridge (Li.Fi) |
 | **WalletConnect** | Wallet mode for Base dApps (Reown WalletKit) |
 | **TrackFi** | Plaid, exchange APIs, DeBank DeFi — requires Kura backend + passkey E2EE |
-| **Gnosis Pay** | Virtual debit card (direct SIWE or backend proxy) |
+| **Gnosis Pay** | Kura Card UI + waitlist (card onboarding not in OSS client) |
 | **Optional** | MoonPay on-ramp, Dinari stocks (feature-flagged), logo.dev icons |
 
 Leave `EXPO_PUBLIC_API_BASE_URL` empty to run **wallet-only** — TrackFi and Dinari tabs hide automatically.

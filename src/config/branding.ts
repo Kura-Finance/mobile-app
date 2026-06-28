@@ -17,6 +17,10 @@ export const brand = {
   universalLinkDashboard: 'https://app.kura-finance.com/dashboard',
   walletId: 'kura-wallet',
   walletName: 'Kura',
+  /** WebAuthn relying party display name (passkey registration). */
+  passkeyRpName: 'Kura Finance',
+  /** WalletConnect / WalletKit metadata description. */
+  walletKitDescription: 'Kura Safe Smart Account on Base',
   appDescription:
     'One app to manage all your finances, from tradFi to crypto.',
 } as const;

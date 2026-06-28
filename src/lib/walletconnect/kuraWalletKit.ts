@@ -1,7 +1,12 @@
 import '@walletconnect/react-native-compat';
 import { WalletKit } from '@reown/walletkit';
 import Logger from '../../shared/utils/Logger';
-import { KURA_WALLET_METADATA_ICONS } from './kuraWalletListing';
+import { brand } from '../../config/branding';
+import {
+  KURA_WALLET_METADATA_ICONS,
+  KURA_WALLET_NATIVE_LINK,
+  KURA_WALLET_UNIVERSAL_LINK,
+} from './kuraWalletListing';
 import { getSharedWalletConnectCore } from './walletConnectBootstrap';
 
 const TAG = 'KuraWalletKit';
@@ -21,13 +26,13 @@ export async function getKuraWalletKit(): Promise<KuraWalletKitInstance> {
     walletKitInstance = await WalletKit.init({
       core,
       metadata: {
-        name: 'Kura Wallet',
-        description: 'Kura Safe Smart Account on Base',
-        url: 'https://kura-finance.com',
+        name: `${brand.walletName} Wallet`,
+        description: brand.walletKitDescription,
+        url: brand.homepage,
         icons: [...KURA_WALLET_METADATA_ICONS],
         redirect: {
-          native: 'kura://',
-          universal: 'https://kura-finance.com/dashboard',
+          native: KURA_WALLET_NATIVE_LINK,
+          universal: KURA_WALLET_UNIVERSAL_LINK,
         },
       },
     });
