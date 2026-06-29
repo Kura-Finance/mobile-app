@@ -55,22 +55,46 @@ function stockTiebreak(a: StockItem, b: StockItem): number {
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: 'base' });
 }
 
+function hasQuoteForSort(item: StockItem, sortKey: InvestSortKey): boolean {
+  switch (sortKey) {
+    case 'price':
+    case 'marketCap':
+      return item.price > 0;
+    case 'gainers':
+    case 'losers':
+      return item.change24h != null && Number.isFinite(item.change24h);
+    default:
+      return false;
+  }
+}
+
+function compareQuotedStocks(a: StockItem, b: StockItem, sortKey: InvestSortKey): number {
+  switch (sortKey) {
+    case 'price':
+    case 'marketCap':
+      return b.price - a.price;
+    case 'gainers':
+      return (b.change24h ?? -Infinity) - (a.change24h ?? -Infinity);
+    case 'losers':
+      return (a.change24h ?? Infinity) - (b.change24h ?? Infinity);
+    default:
+      return 0;
+  }
+}
+
 export function sortStocks(items: StockItem[], sortKey: InvestSortKey): StockItem[] {
-  return [...items].sort((a, b) => {
-    let cmp = 0;
-    switch (sortKey) {
-      case 'price':
-      case 'marketCap':
-        cmp = b.price - a.price;
-        break;
-      case 'gainers':
-        cmp = (b.change24h ?? -Infinity) - (a.change24h ?? -Infinity);
-        break;
-      case 'losers':
-        cmp = (a.change24h ?? Infinity) - (b.change24h ?? Infinity);
-        break;
-    }
+  const quoted: StockItem[] = [];
+  const unquoted: StockItem[] = [];
+  for (const item of items) {
+    (hasQuoteForSort(item, sortKey) ? quoted : unquoted).push(item);
+  }
+
+  quoted.sort((a, b) => {
+    const cmp = compareQuotedStocks(a, b, sortKey);
     if (cmp !== 0) return cmp;
     return stockTiebreak(a, b);
   });
+
+  unquoted.sort(stockTiebreak);
+  return [...quoted, ...unquoted];
 }

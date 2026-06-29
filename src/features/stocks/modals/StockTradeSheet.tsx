@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import { placeDinariOrder, StockItem } from '../hooks/useDinari';
@@ -54,6 +55,7 @@ export default function StockTradeSheet({
   onTraded,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const st = useMemo(() => makeStyles(colors), [colors]);
   const money = useMoneyFormat();
@@ -111,16 +113,16 @@ export default function StockTradeSheet({
         onTraded?.();
       } else {
         setResult('fail');
-        setError(`Order ${res.status.toLowerCase()}.`);
+        setError(t('crypto.stockOrderStatus', { status: res.status.toLowerCase() }));
       }
     } catch (e: any) {
       setResult('fail');
-      setError(e?.message ?? 'Order failed.');
+      setError(e?.message ?? t('crypto.stockOrderFailed'));
     } finally {
       setBusy(false);
       setStatusText('');
     }
-  }, [stock, hasValidAmount, isSell, amountNum, signTypedData, onTraded]);
+  }, [stock, hasValidAmount, isSell, amountNum, signTypedData, onTraded, t]);
 
   const setMax = useCallback(() => {
     if (isSell) setAmountInput(holdings > 0 ? String(Number(holdings.toFixed(6))) : '');
@@ -137,7 +139,11 @@ export default function StockTradeSheet({
           <View style={st.sheetHeader}><View style={st.handle} /></View>
           <View style={st.titleRow}>
             <View style={st.titleGroup}>
-              <Text style={st.title}>{isSell ? 'Sell' : 'Buy'} {symbol}</Text>
+              <Text style={st.title}>
+                {isSell
+                  ? t('crypto.stockTradeTitleSell', { symbol })
+                  : t('crypto.stockTradeTitleBuy', { symbol })}
+              </Text>
               <LegalDisclaimerInfoButton variant="securities" />
             </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7} disabled={busy}>
@@ -148,22 +154,35 @@ export default function StockTradeSheet({
           {result === 'ok' ? (
             <View style={st.successBox}>
               <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-              <Text style={st.successTitle}>{isSell ? 'Sell filled!' : 'Buy filled!'}</Text>
+              <Text style={st.successTitle}>
+                {isSell ? t('crypto.stockSellFilled') : t('crypto.stockBuyFilled')}
+              </Text>
               <Text style={st.successSub}>
                 {isSell
-                  ? `Sold ${amountNum} ${symbol} ≈ ${money.value(estUsd)}`
-                  : `Bought ≈ ${estShares.toFixed(4)} ${symbol} with ${money.value(estUsd)}`}
+                  ? t('crypto.stockTradeSold', {
+                    amount: amountNum,
+                    symbol,
+                    value: money.value(estUsd),
+                  })
+                  : t('crypto.stockTradeBought', {
+                    shares: estShares.toFixed(4),
+                    symbol,
+                    value: money.value(estUsd),
+                  })}
               </Text>
               <TouchableOpacity onPress={onClose} style={st.doneBtn} activeOpacity={0.85}>
-                <Text style={st.doneBtnText}>Done</Text>
+                <Text style={st.doneBtnText}>{t('crypto.stockTradeDone')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
               <Text style={st.balanceHint}>
                 {isSell
-                  ? `Available: ${holdings.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${symbol}`
-                  : `Available: ${money.value(usdcBalance)}`}
+                  ? t('crypto.stockTradeAvailableShares', {
+                    amount: holdings.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+                    symbol,
+                  })
+                  : t('crypto.stockTradeAvailableUsd', { value: money.value(usdcBalance) })}
               </Text>
 
               <View style={st.inputRow}>
@@ -180,27 +199,31 @@ export default function StockTradeSheet({
                 />
                 {isSell && <Text style={st.inputSuffix}>{symbol}</Text>}
                 <TouchableOpacity onPress={setMax} style={st.maxBtn} activeOpacity={0.7} disabled={busy}>
-                  <Text style={st.maxBtnText}>MAX</Text>
+                  <Text style={st.maxBtnText}>{t('crypto.stockTradeMax')}</Text>
                 </TouchableOpacity>
               </View>
 
               {amountNum > spendBalance + 1e-9 ? (
                 <Text style={st.insufficient}>
-                  Insufficient {isSell ? symbol : 'USDC'} balance
+                  {isSell
+                    ? t('crypto.stockTradeInsufficientShares', { symbol })
+                    : t('crypto.stockTradeInsufficientUsdc')}
                 </Text>
               ) : amountNum > 0 ? (
                 <Text style={st.subHint}>
                   {isSell
-                    ? `≈ ${money.value(estUsd)}`
-                    : `≈ ${estShares.toFixed(4)} ${symbol} @ ${money.compact(price)}`}
+                    ? t('crypto.stockTradeEstimateUsd', { value: money.value(estUsd) })
+                    : t('crypto.stockTradeEstimateShares', {
+                      shares: estShares.toFixed(4),
+                      symbol,
+                      price: money.compact(price),
+                    })}
                 </Text>
               ) : null}
 
               <View style={st.infoRow}>
                 <Ionicons name="time-outline" size={13} color={colors.textMuted} />
-                <Text style={st.infoText}>
-                  Market order · fills during US market hours · gas sponsored
-                </Text>
+                <Text style={st.infoText}>{t('crypto.stockTradeMarketNote')}</Text>
               </View>
 
               {error && (
@@ -223,13 +246,19 @@ export default function StockTradeSheet({
                 {busy ? (
                   <View style={st.busyRow}>
                     <LoadingDots compact color="#FFFFFF" size={6}    />
-                    <Text style={st.execText}>{statusText || 'Processing…'}</Text>
+                    <Text style={st.execText}>{statusText || t('crypto.stockTradeProcessing')}</Text>
                   </View>
                 ) : (
                   <Text style={st.execText}>
                     {isSell
-                      ? `Sell ${symbol}${estUsd > 0 ? ` · ${money.value(estUsd)}` : ''}`
-                      : `Buy ${symbol}${amountNum > 0 ? ` · ${money.value(amountNum)}` : ''}`}
+                      ? t('crypto.stockTradeSellCta', {
+                        symbol,
+                        value: estUsd > 0 ? ` · ${money.value(estUsd)}` : '',
+                      })
+                      : t('crypto.stockTradeBuyCta', {
+                        symbol,
+                        value: amountNum > 0 ? ` · ${money.value(amountNum)}` : '',
+                      })}
                   </Text>
                 )}
               </TouchableOpacity>

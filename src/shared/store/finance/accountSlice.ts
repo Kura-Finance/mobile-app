@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { AccountState, Account, Transaction, InvestmentAccount, Investment, ExchangeAccount, FinanceState } from './types';
+import { AccountState, Account, Transaction, InvestmentAccount, Investment, FinanceState } from './types';
 import Logger from '../../utils/Logger';
 
 /**
@@ -12,7 +12,6 @@ export const createAccountSlice: StateCreator<FinanceState, [], [], AccountState
   transactions: [],
   investmentAccounts: [],
   investments: [],
-  exchangeAccounts: [],
 
   // ========================================================================
   // Banking Account Actions
@@ -121,50 +120,5 @@ export const createAccountSlice: StateCreator<FinanceState, [], [], AccountState
       });
       throw error;
     }
-  },
-
-  // ========================================================================
-  // Exchange Account Actions
-  // ========================================================================
-
-  addExchangeAccount: (account: ExchangeAccount) => {
-    Logger.debug('AccountSlice', 'Adding exchange account', {
-      exchange: account.exchange,
-      accountId: account.id,
-    });
-
-    set((state) => {
-      // Check if account already exists
-      const exists = state.exchangeAccounts.some((existing) => existing.id === account.id);
-
-      if (exists) {
-        Logger.warn('AccountSlice', 'Exchange account already exists', {
-          accountId: account.id,
-        });
-        return state;
-      }
-
-      return {
-        exchangeAccounts: [...state.exchangeAccounts, account],
-      };
-    });
-
-    Logger.info('AccountSlice', 'Exchange account added', {
-      exchange: account.exchange,
-    });
-  },
-
-  removeExchangeAccount: (exchangeAccountId: string) => {
-    Logger.debug('AccountSlice', 'Removing exchange account', {
-      accountId: exchangeAccountId,
-    });
-
-    set((state) => ({
-      exchangeAccounts: state.exchangeAccounts.filter(
-        (account) => account.id !== exchangeAccountId
-      ),
-    }));
-
-    Logger.info('AccountSlice', 'Exchange account removed');
   },
 });

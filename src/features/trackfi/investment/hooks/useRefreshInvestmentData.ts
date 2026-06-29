@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { useExchangeStore } from '../../../../shared/store/useExchangeStore';
 import { useAppStore } from '../../../../shared/store/useAppStore';
 import Logger from '../../../../shared/utils/Logger';

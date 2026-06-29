@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Account } from '../../../../shared/store/useFinanceStore';
+import type { Account } from '../../../../shared/store/finance';
 import { useAppStore } from '../../../../shared/store/useAppStore';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { useWalletSync } from '../../../../shared/hooks/useWalletSync';
 import ConnectAccountModal from '../../../../shared/components/ConnectAccountModal';
 import PlaidLinkModal from '../../../../shared/components/PlaidLinkModal';

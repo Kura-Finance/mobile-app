@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Logger from '../utils/Logger'
 import { useAppStore } from '../store/useAppStore'
-import { useFinanceStore } from '../store/useFinanceStore'
+import { useFinanceStore } from '../store/finance'
 
 /**
  * Storage adapter that implements the AppKit Storage interface

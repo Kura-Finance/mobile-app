@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Dimensions, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { BROKER_TIME_RANGES, daysForTimeRange, TimeRangeType } from '../../../../shared/store/finance/types';
 import { BASIC_ASSET_HISTORY_DAYS } from '../../../../shared/utils/membership';
 import { useTheme } from '../../../../shared/theme/ThemeContext';

@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import type { Transaction } from '../../../../shared/store/useFinanceStore';
+import type { Transaction } from '../../../../shared/store/finance';
 import CurrencyDisplay from '../../../../shared/components/CurrencyDisplay';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import { resolveTransactionCategory } from '../../utils/transactionCategory';

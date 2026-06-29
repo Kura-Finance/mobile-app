@@ -3,7 +3,7 @@ import { useAppKit } from '@reown/appkit-react-native';
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ethers } from 'ethers';
-import { useFinanceStore } from '../store/useFinanceStore';
+import { useFinanceStore } from '../store/finance';
 import Logger from '../utils/Logger';
 import { isPlaidOAuthInProgress } from '../utils/plaidOAuthState';
 

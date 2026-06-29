@@ -13,7 +13,7 @@ import {
   shouldAutoSyncTrackFi,
 } from '../utils/trackFiSyncPolicy';
 import { useAppStore } from '../../../shared/store/useAppStore';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../shared/store/finance';
 import { useExchangeStore } from '../../../shared/store/useExchangeStore';
 import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
 import Logger from '../../../shared/utils/Logger';

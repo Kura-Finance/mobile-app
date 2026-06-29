@@ -346,17 +346,6 @@ export function getTxSubtitleLines(
   return { primary: truncateAddress(tx.counterparty) };
 }
 
-/** @deprecated Use getTxSubtitleLines */
-export function getTxSubtitle(
-  tx: WalletTx,
-  contacts: TxContactLookup[] = [],
-  smartAddress?: string,
-): string {
-  const lines = getTxSubtitleLines(tx, contacts, smartAddress);
-  if (lines.secondary) return `${lines.primary}\n${lines.secondary}`;
-  return lines.primary;
-}
-
 export function getTxAmountPrefix(tx: WalletTx): string {
   if (tx.activityKind === 'buy' || tx.activityKind === 'sell') {
     return tx.direction === 'in' ? '+' : '−';

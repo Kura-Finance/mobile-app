@@ -76,7 +76,7 @@ export default function DinariGateFlow({ gate }: Props) {
           <GatePanel
             icon="link-outline"
             title={t('crypto.dinariConnectTitle')}
-            subtitle={t('crypto.dinariConnectBody')}
+            subtitle={gate.error ?? t('crypto.dinariConnectBody')}
             cta={t('crypto.dinariConnectWallet')}
             onPress={() => { gate.connectWallet().catch(() => undefined); }}
             busy={gate.connecting}

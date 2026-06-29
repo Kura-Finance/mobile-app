@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useFinanceStore } from '../store/useFinanceStore';
+import { useFinanceStore } from '../store/finance';
 import { useAppStore } from '../store/useAppStore';
 import Logger from '../utils/Logger';
 

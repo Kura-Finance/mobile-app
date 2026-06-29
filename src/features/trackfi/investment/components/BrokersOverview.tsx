@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 import { useHideBalance } from '../../../../shared/hooks/useHideBalance';
 import { useAppStore } from '../../../../shared/store/useAppStore';

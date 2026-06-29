@@ -111,7 +111,10 @@ export default function PortfolioScreen() {
   } = useMorphoBorrow(smartAddress || null, borrowEnabled);
 
   const stocksEnabled = features.dinariStocks;
-  const gate = useDinariGate(smartAddress, signMessage, { deferInitialCheck: true });
+  const gate = useDinariGate(smartAddress, signMessage, {
+    deferInitialCheck: true,
+    active: stocksEnabled,
+  });
   const gateReady = gate.state === 'ready';
   const {
     stocks,

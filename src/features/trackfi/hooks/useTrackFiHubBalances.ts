@@ -3,8 +3,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
-import { useExchangeStore } from '../../../shared/store/useExchangeStore';
+import { useTrackFiFinanceData } from './useTrackFiFinanceData';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { features } from '../../../config/features';
 import { useDefiPortfolio, walletDataKey } from './useDefiPortfolio';
@@ -25,15 +24,16 @@ export interface TrackFiHubBalances {
 }
 
 export function useTrackFiHubBalances(enabled: boolean, unlockSeq = 0): TrackFiHubBalances {
-  const accounts = useFinanceStore((state) => state.accounts);
-  const isLoadingPlaidData = useFinanceStore((state) => state.isLoadingPlaidData);
-  const calculateTotalAssets = useFinanceStore((state) => state.calculateTotalAssets);
-  const investments = useFinanceStore((state) => state.investments);
-  const investmentAccounts = useFinanceStore((state) => state.investmentAccounts);
-
-  const exchangeAccounts = useExchangeStore((state) => state.exchangeAccounts);
-  const exchangeInvestments = useExchangeStore((state) => state.exchangeInvestments);
-  const exchangeIsLoading = useExchangeStore((state) => state.isLoading);
+  const {
+    accounts,
+    isLoadingPlaidData,
+    calculateTotalAssets,
+    investments,
+    investmentAccounts,
+    exchangeAccounts,
+    exchangeInvestments,
+    exchangeIsLoading,
+  } = useTrackFiFinanceData();
 
   const authToken = useAppStore((state) => state.authToken);
 

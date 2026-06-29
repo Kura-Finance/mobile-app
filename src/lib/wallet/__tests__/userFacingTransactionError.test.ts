@@ -1,19 +1,20 @@
-import {
-  formatDisplayError,
-  userFacingTransactionError,
-} from '../userFacingTransactionError';
+import { describe, expect, test, vi } from 'vitest';
 
-jest.mock('../../../shared/locales/i18n', () => ({
-  __esModule: true,
+vi.mock('../../../shared/locales/i18n', () => ({
   default: {
     t: (key: string, opts?: { reason?: string }) =>
       opts?.reason ? `${key}:${opts.reason}` : key,
   },
 }));
 
-jest.mock('../../../features/card/config/cardWalletConfig', () => ({
+vi.mock('../../../features/card/config/cardWalletConfig', () => ({
   PAY_GAS_IN_USDC: true,
 }));
+
+import {
+  formatDisplayError,
+  userFacingTransactionError,
+} from '../userFacingTransactionError';
 
 describe('userFacingTransactionError', () => {
   test('replaces Request Argument Error with callData blob', () => {

@@ -161,9 +161,6 @@ export async function buildSmartAccountClientFromPrivKey(ethPrivKey: string): Pr
   };
 }
 
-/** @deprecated Use buildSmartAccountClientFromPrivKey */
-export const buildSmartAccountClient = buildSmartAccountClientFromPrivKey;
-
 export async function resolveKuraSmartAccountClient(
   getEmbeddedProvider: () => Promise<unknown>,
 ): Promise<SmartAccountBundle> {

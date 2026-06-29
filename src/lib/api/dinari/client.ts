@@ -12,6 +12,7 @@
  */
 import { requestJson } from '../client';
 import type { TypedDataInput } from '../../../features/card/hooks/useKuraCardWallet';
+import { normalizeDinariStockPrice, normalizeDinariStockQuote } from './normalize';
 
 const API = 'DinariAPI';
 
@@ -68,7 +69,9 @@ export interface DinariStockQuote {
   bid?: number;
   ask?: number;
   spread?: number;
-  [key: string]: unknown;
+  bidSize?: number;
+  askSize?: number;
+  timestamp?: string;
 }
 
 export type OrderSide = 'BUY' | 'SELL';
@@ -156,14 +159,11 @@ export function getAccount(): Promise<DinariAccount> {
   return requestJson<DinariAccount>('/api/dinari/account', { apiName: API });
 }
 
-export function getWalletNonce(
-  walletAddress: string,
-  chainId: string = DINARI_CHAIN_ID,
-): Promise<DinariWalletNonce> {
+export function getWalletNonce(walletAddress: string): Promise<DinariWalletNonce> {
   return requestJson<DinariWalletNonce>('/api/dinari/wallet/nonce', {
     apiName: API,
     method: 'POST',
-    body: JSON.stringify({ walletAddress, chainId }),
+    body: JSON.stringify({ walletAddress, chainId: DINARI_CHAIN_ID }),
   });
 }
 
@@ -171,13 +171,17 @@ export function connectWallet(params: {
   walletAddress: string;
   nonce: string;
   signature: string;
-  chainId?: string;
 }): Promise<DinariAccount> {
-  const { walletAddress, nonce, signature, chainId = DINARI_CHAIN_ID } = params;
+  const { walletAddress, nonce, signature } = params;
   return requestJson<DinariAccount>('/api/dinari/wallet/connect', {
     apiName: API,
     method: 'POST',
-    body: JSON.stringify({ walletAddress, chainId, nonce, signature }),
+    body: JSON.stringify({
+      walletAddress,
+      chainId: DINARI_CHAIN_ID,
+      nonce,
+      signature,
+    }),
   });
 }
 
@@ -222,12 +226,19 @@ export async function listAllStocks(options?: {
   );
 }
 
-export function getStockPrice(stockId: string): Promise<DinariStockPrice> {
-  return requestJson<DinariStockPrice>(`/api/dinari/stocks/${stockId}/price`, { apiName: API });
+export async function getStockPrice(stockId: string): Promise<DinariStockPrice> {
+  const raw = await requestJson<unknown>(`/api/dinari/stocks/${stockId}/price`, { apiName: API });
+  const price = normalizeDinariStockPrice(raw) ?? 0;
+  return { ...(isObject(raw) ? raw : {}), price };
 }
 
-export function getStockQuote(stockId: string): Promise<DinariStockQuote> {
-  return requestJson<DinariStockQuote>(`/api/dinari/stocks/${stockId}/quote`, { apiName: API });
+export async function getStockQuote(stockId: string): Promise<DinariStockQuote> {
+  const raw = await requestJson<unknown>(`/api/dinari/stocks/${stockId}/quote`, { apiName: API });
+  return normalizeDinariStockQuote(raw);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

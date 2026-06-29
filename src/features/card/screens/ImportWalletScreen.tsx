@@ -27,7 +27,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { privateKeyFromMnemonic, ImportMnemonicType, buildSmartAccountClient } from '../hooks/useKuraCardWallet';
+import { privateKeyFromMnemonic, ImportMnemonicType } from '../hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useHeaderHeight } from '../../../shared/navigation/Header';

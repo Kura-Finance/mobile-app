@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import CurrencyDisplay from '../../../../shared/components/CurrencyDisplay';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { TimeRangeType } from '../../../../shared/store/finance/types';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import { calculateInvestmentPerformanceForRange } from '../utils/investmentPerformance';

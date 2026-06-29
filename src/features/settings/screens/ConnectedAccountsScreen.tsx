@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../shared/store/finance';
+import { useExchangeStore } from '../../../shared/store/useExchangeStore';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -50,7 +51,7 @@ export default function ConnectedAccountsScreen({ onClose }: ConnectedAccountsSc
   const { colors } = useTheme();
   const accounts = useFinanceStore((state) => state.accounts);
   const investmentAccounts = useFinanceStore((state) => state.investmentAccounts);
-  const exchangeAccounts = useFinanceStore((state) => state.exchangeAccounts);
+  const exchangeAccounts = useExchangeStore((state) => state.exchangeAccounts);
   const plaidLinkToken = useAppStore((state: any) => state.plaidLinkToken);
   const disconnectPlaidAccount = useAppStore((state) => state.disconnectPlaidAccount);
   const disconnectExchangeAccount = useAppStore((state) => state.disconnectExchangeAccount);

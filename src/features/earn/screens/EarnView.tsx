@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import VaultLogo from '../components/VaultLogo';
 import InvestListCard from '../../crypto/components/invest/InvestListCard';
+import InvestEmbeddedFlatList from '../../crypto/components/invest/InvestEmbeddedFlatList';
 import EarnDetailModal from '../modals/EarnDetailModal';
 import { useMorphoVaults } from '../hooks/useMorphoVaults';
 import type { MorphoVault } from '../../../lib/api/morpho/client';
@@ -107,6 +108,10 @@ interface Props {
   onExternalSelectedVaultHandled?: () => void;
 }
 
+type EarnListRow =
+  | { kind: 'divider'; id: string; label: string }
+  | { kind: 'vault'; id: string; vault: MorphoVault };
+
 export default function EarnView({
   embedded = false,
   scaAddress,
@@ -177,14 +182,45 @@ export default function EarnView({
     return pool.filter((vault) => matchesVault(vault, query));
   }, [favoriteVaults, favoritesOnly, isSearching, query, sortedVaults]);
 
-  const renderVault = (vault: MorphoVault) => (
-    <VaultRow
-      key={vault.address}
-      vault={vault}
-      depositedUsd={positionsByVault[vault.address.toLowerCase()]?.assetsUsd ?? 0}
-      onPress={setSelected}
-    />
-  );
+  const displayRows = useMemo((): EarnListRow[] => {
+    if (isSearching) {
+      return searchResults.map((vault) => ({
+        kind: 'vault',
+        id: vault.address,
+        vault,
+      }));
+    }
+    if (favoritesOnly) {
+      return favoriteVaults.map((vault) => ({
+        kind: 'vault',
+        id: vault.address,
+        vault,
+      }));
+    }
+    const rows: EarnListRow[] = [];
+    if (favoriteVaults.length > 0) {
+      rows.push({ kind: 'divider', id: 'divider-favorites', label: t('crypto.favorites') });
+      for (const vault of favoriteVaults) {
+        rows.push({ kind: 'vault', id: vault.address, vault });
+      }
+    }
+    if (otherVaults.length > 0) {
+      if (favoriteVaults.length > 0) {
+        rows.push({ kind: 'divider', id: 'divider-watchlist', label: t('crypto.watchlist') });
+      }
+      for (const vault of otherVaults) {
+        rows.push({ kind: 'vault', id: vault.address, vault });
+      }
+    }
+    return rows;
+  }, [
+    favoriteVaults,
+    favoritesOnly,
+    isSearching,
+    otherVaults,
+    searchResults,
+    t,
+  ]);
 
   const listBody = loading && vaults.length === 0 ? (
     <View style={st.loadingRow}>
@@ -194,39 +230,30 @@ export default function EarnView({
     <View style={st.empty}>
       <Text style={st.emptyText}>{t('crypto.earnEmpty')}</Text>
     </View>
-  ) : isSearching ? (
-    searchResults.length > 0 ? (
-      searchResults.map(renderVault)
-    ) : (
-      <View style={st.empty}>
-        <Text style={st.emptyText}>{t('crypto.searchNoResults')}</Text>
-      </View>
-    )
-  ) : favoritesOnly ? (
-    favoriteVaults.length > 0 ? (
-      favoriteVaults.map(renderVault)
-    ) : (
-      <View style={st.empty}>
-        <Text style={st.emptyText}>{t('crypto.favoritesEmpty')}</Text>
-      </View>
-    )
+  ) : displayRows.length === 0 ? (
+    <View style={st.empty}>
+      <Text style={st.emptyText}>
+        {isSearching ? t('crypto.searchNoResults') : t('crypto.favoritesEmpty')}
+      </Text>
+    </View>
   ) : (
-    <>
-      {favoriteVaults.length > 0 && (
-        <>
-          <SectionDivider label={t('crypto.favorites')} />
-          {favoriteVaults.map(renderVault)}
-        </>
-      )}
-      {otherVaults.length > 0 && (
-        <>
-          {favoriteVaults.length > 0 && (
-            <SectionDivider label={t('crypto.watchlist')} />
-          )}
-          {otherVaults.map(renderVault)}
-        </>
-      )}
-    </>
+    <InvestEmbeddedFlatList
+      data={displayRows}
+      keyExtractor={(item) => item.id}
+      rowHeight={0}
+      renderItem={({ item }) => {
+        if (item.kind === 'divider') {
+          return <SectionDivider label={item.label} />;
+        }
+        return (
+          <VaultRow
+            vault={item.vault}
+            depositedUsd={positionsByVault[item.vault.address.toLowerCase()]?.assetsUsd ?? 0}
+            onPress={setSelected}
+          />
+        );
+      }}
+    />
   );
 
   return (

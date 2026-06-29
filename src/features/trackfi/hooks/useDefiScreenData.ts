@@ -2,14 +2,13 @@
  * Aggregates watched-wallet DeBank data for the DeFi sub-screen UI.
  */
 import { useMemo, useState } from 'react';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
+import { useTrackFiData } from './useTrackFiData';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import {
   effectiveProtocolDisplayUsd,
 } from '../../../lib/api/debank/portfolioTotals';
 import { computeDefiAllocationBuckets } from '../utils/defiAllocation';
 import {
-  useDefiPortfolio,
   walletDataKey,
   walletPortfolioTotal,
   type DefiProtocol,
@@ -17,7 +16,7 @@ import {
   type WalletData,
 } from './useDefiPortfolio';
 import { snapshotsInTimeRange } from '../investment/utils/investmentPerformance';
-import type { AssetSnapshot } from '../../../shared/store/useFinanceStore';
+import type { AssetSnapshot } from '../../../shared/store/finance';
 
 export type DefiChartRange = '1W' | '1M' | '3M' | '1Y' | 'ALL';
 
@@ -120,10 +119,9 @@ export interface DefiAllocationBucket {
 }
 
 export function useDefiScreenData() {
-  const portfolio = useDefiPortfolio();
+  const { finance, defi: portfolio } = useTrackFiData(false);
   const { colors } = useTheme();
-  const assetHistory = useFinanceStore((s) => s.assetHistory);
-  const isLoadingHistory = useFinanceStore((s) => s.isLoadingAssetHistory);
+  const { assetHistory, isLoadingAssetHistory } = finance;
   const [chartRange, setChartRange] = useState<DefiChartRange>('1W');
 
   const walletRows = useMemo(
@@ -216,7 +214,7 @@ export function useDefiScreenData() {
     totalYieldEarned,
     estApy,
     walletRows,
-    isLoadingHistory,
+    isLoadingHistory: isLoadingAssetHistory,
     anyLoading,
   };
 }

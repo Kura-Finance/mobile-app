@@ -2,12 +2,10 @@
  * Aggregated data for the TrackFi unified dashboard.
  */
 import { useMemo } from 'react';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
-import { useExchangeStore } from '../../../shared/store/useExchangeStore';
-import type { Account, AssetSnapshot, Transaction } from '../../../shared/store/finance/types';
 import { useTheme } from '../../../shared/theme/ThemeContext';
-import { useTrackFiHubBalances } from './useTrackFiHubBalances';
-import { useDefiPortfolio, walletDataKey, walletPortfolioTotal } from './useDefiPortfolio';
+import { useTrackFiData } from './useTrackFiData';
+import type { Account, Transaction } from '../../../shared/store/finance/types';
+import { walletDataKey, walletPortfolioTotal } from './useDefiPortfolio';
 import { snapshotsInTimeRange } from '../investment/utils/investmentPerformance';
 import { FULL_ASSET_HISTORY_DAYS, isBasicMembership } from '../../../shared/utils/membership';
 import {
@@ -101,18 +99,20 @@ export function useTrackFiDashboardData(
   unlockSeq = 0,
 ) {
   const { colors } = useTheme();
-  const accounts = useFinanceStore((s) => s.accounts);
-  const transactions = useFinanceStore((s) => s.transactions);
-  const assetHistory = useFinanceStore((s) => s.assetHistory);
-  const lastRecordedTime = useFinanceStore((s) => s.lastRecordedTime);
-  const isLoadingAssetHistory = useFinanceStore((s) => s.isLoadingAssetHistory);
-  const investmentAccounts = useFinanceStore((s) => s.investmentAccounts);
-  const investments = useFinanceStore((s) => s.investments);
-  const calculateTotalAssets = useFinanceStore((s) => s.calculateTotalAssets);
-  const exchangeAccounts = useExchangeStore((s) => s.exchangeAccounts);
-  const exchangeInvestments = useExchangeStore((s) => s.exchangeInvestments);
-  const hub = useTrackFiHubBalances(enabled, unlockSeq);
-  const { watched, walletData } = useDefiPortfolio();
+  const { finance, hub, defi } = useTrackFiData(enabled, unlockSeq);
+  const {
+    accounts,
+    transactions,
+    assetHistory,
+    lastRecordedTime,
+    isLoadingAssetHistory,
+    investmentAccounts,
+    investments,
+    calculateTotalAssets,
+    exchangeAccounts,
+    exchangeInvestments,
+  } = finance;
+  const { watched, walletData } = defi;
 
   const checkingAccounts = useMemo(
     () => accounts.filter((a) => a.type === 'checking'),
@@ -341,5 +341,6 @@ export function useTrackFiDashboardData(
       hub.brokers.hasData ||
       hub.defi.hasData ||
       assetHistory.length > 0,
+    refreshDefi: defi.refresh,
   };
 }

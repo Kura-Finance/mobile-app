@@ -17,8 +17,8 @@
  *   3. Fetch USDC / WETH balances.
  *   4. status → 'ready'
  *
- * The SCA address is deterministic (EOA + Safe version + EntryPoint), so
- * even if all caches are lost, we can always re-derive it from the Privy EOA.
+ * Transaction helpers live in `./kuraCardWallet/*` — this hook wires provisioning,
+ * balance state, and loading flags.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,159 +32,76 @@ import {
 } from '../kuraCardWalletSession';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import {
-  USDC_BASE,
-  WETH_BASE,
   WALLET_ADDRESS_STORE_KEY,
   WALLET_IMPORTED_KEY,
-  PAY_GAS_IN_USDC,
-  GAS_TOKEN,
-  GAS_RESERVE_BUFFER,
-  GAS_RESERVE_FALLBACK_USDC,
 } from '../config/cardWalletConfig';
 import { fetchWalletRecord, saveScaAddress, saveEoaAddress } from '../../../lib/api/wallet/client';
 import Logger from '../../../shared/utils/Logger';
-import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
 import { selectCanonicalEmbeddedWallet } from '../../../shared/utils/embeddedWallet';
 import i18n from '../../../shared/locales/i18n';
-import type { LiFiBridgeQuote } from '../../../lib/api/bridge/lifiClient';
-import type { SwapQuote } from '../../../lib/api/bridge/lifiSwapClient';
-import type { MorphoVaultAssetRef } from '../../../lib/wallet/morphoVault';
 import {
   fetchBaseBalances,
-  type TokenBalances,
   usdcBalanceFrom,
   useBaseBalances,
 } from '../../crypto/hooks/useBaseBalances';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
 import {
-  buildSmartAccountClientFromPrivKey as buildSmartAccountClient,
-  buildAllowanceAndTxCalls,
-  estimateErc20GasUsdc,
+  buildSmartAccountClientFromPrivKey,
   privateKeyFromMnemonic,
   resolveKuraSmartAccountClient,
   truncateAddress,
-  withGasApprovalCalls,
   type ImportMnemonicType,
-  type SmartAccountCall as Call,
-  type TypedDataInput,
 } from '../../../lib/wallet/smartAccountClient';
+import { estimateUsdcGasReserve as estimateUsdcGasReserveTx } from './kuraCardWallet/gasReserve';
+import {
+  executeMorphoBorrowTx,
+  executeMorphoDepositTx,
+  executeMorphoRepayTx,
+  executeMorphoWithdrawCollateralTx,
+  executeMorphoWithdrawTx,
+  estimateMorphoBorrowGasUsdc as estimateMorphoBorrowGasUsdcTx,
+  estimateMorphoDepositGasUsdc as estimateMorphoDepositGasUsdcTx,
+  estimateMorphoRepayGasUsdc as estimateMorphoRepayGasUsdcTx,
+  estimateMorphoWithdrawCollateralGasUsdc as estimateMorphoWithdrawCollateralGasUsdcTx,
+  estimateMorphoWithdrawGasUsdc as estimateMorphoWithdrawGasUsdcTx,
+} from './kuraCardWallet/morphoTx';
+import {
+  sendNativeEthTx,
+  sendTokenTx,
+  sendUsdcTx,
+  wrapEthToWethTx,
+} from './kuraCardWallet/sendTx';
+import { signMessageTx, signTypedDataTx } from './kuraCardWallet/signTx';
+import {
+  estimateBridgeGasUsdc as estimateBridgeGasUsdcTx,
+  estimateSwapGasUsdc as estimateSwapGasUsdcTx,
+  executeBridgeTx,
+  executeSwapTx,
+} from './kuraCardWallet/swapBridgeTx';
+import type {
+  MorphoBorrowTxParams,
+  MorphoEarnVaultParams,
+  MorphoEarnWithdrawParams,
+  MorphoRepayTxParams,
+  MorphoWithdrawCollateralTxParams,
+  ResolveSmartAccountClient,
+  TypedDataInput,
+  UseKuraCardWalletReturn,
+  WalletStatus,
+} from './kuraCardWallet/types';
 
-export type { ImportMnemonicType, TypedDataInput };
+export type {
+  ImportMnemonicType,
+  MorphoBorrowTxParams,
+  MorphoEarnVaultParams,
+  MorphoEarnWithdrawParams,
+  MorphoRepayTxParams,
+  MorphoWithdrawCollateralTxParams,
+  TypedDataInput,
+  UseKuraCardWalletReturn,
+  WalletStatus,
+};
 
-let lastSwapGasEstimateWarnAt = 0;
-let lastSwapGasEstimateWarnMsg = '';
-
-function warnSwapGasEstimateThrottled(message: string): void {
-  const now = Date.now();
-  if (message === lastSwapGasEstimateWarnMsg && now - lastSwapGasEstimateWarnAt < 60_000) {
-    return;
-  }
-  lastSwapGasEstimateWarnAt = now;
-  lastSwapGasEstimateWarnMsg = message;
-  Logger.warn('KuraCardWallet', 'Swap gas estimate failed; using fallback', { err: message });
-}
-
-export interface MorphoEarnVaultParams {
-  innerVaultAddress: `0x${string}`;
-  depositVaultAddress: `0x${string}`;
-  usesFeeWrapper: boolean;
-  asset: MorphoVaultAssetRef;
-}
-
-export interface MorphoEarnWithdrawParams extends MorphoEarnVaultParams {
-  withdrawAll: boolean;
-  amountAssets?: number;
-}
-
-export type MorphoBorrowTxParams = import('../../../lib/wallet/morphoBlue').MorphoBorrowTxParams;
-export type MorphoRepayTxParams = import('../../../lib/wallet/morphoBlue').MorphoRepayTxParams;
-export type MorphoWithdrawCollateralTxParams =
-  import('../../../lib/wallet/morphoBlue').MorphoWithdrawCollateralTxParams;
-
-export { buildSmartAccountClient, privateKeyFromMnemonic };
-
-export type WalletStatus = 'loading' | 'provisioning' | 'ready' | 'error';
-
-export interface UseKuraCardWalletReturn {
-  status: WalletStatus;
-  smartAddress: string;
-  truncatedAddress: string;
-  /** All blue-chip token balances (single source of truth). */
-  balances: TokenBalances;
-  balancesLoading: boolean;
-  balancesHasLoaded: boolean;
-  /** Derived from `balances.USDC`. */
-  usdcBalance: number;
-  errorMessage: string;
-  isSending: boolean;
-  isBridging: boolean;
-  isExecutingSwap: boolean;
-  isExecutingEarn: boolean;
-  isExecutingBorrow: boolean;
-  /** Power-user: replace the Privy EOA signer with a BIP-39 imported key */
-  importWallet: (phrase: string, type: ImportMnemonicType) => Promise<void>;
-  refreshBalance: () => Promise<void>;
-  sendUsdc: (toAddress: string, amountUsdc: number) => Promise<string>;
-  /** Transfer an ERC-20 token from the SCA on Base. */
-  sendToken: (
-    tokenAddress: `0x${string}`,
-    decimals: number,
-    toAddress: string,
-    amount: number,
-  ) => Promise<string>;
-  /** Send native ETH from the SCA on Base. */
-  sendNativeEth: (toAddress: string, amountEth: number) => Promise<string>;
-  /** Wrap native ETH into WETH on Base (required before swapping mistaken ETH deposits). */
-  wrapEthToWeth: (amountEth: number) => Promise<string>;
-  /**
-   * Estimate the USDC that must be left in the SCA to cover network fees for a
-   * single UserOp. Returns 0 when gas is sponsored. Used to reserve gas so a
-   * "max send" doesn't leave the account unable to pay the ERC-20 paymaster.
-   */
-  estimateUsdcGasReserve: () => Promise<number>;
-  executeBridge: (quote: LiFiBridgeQuote) => Promise<string>;
-  /** Estimate the actual USDC gas cost for a bridge route (0 when sponsored). */
-  estimateBridgeGasUsdc: (quote: LiFiBridgeQuote) => Promise<number>;
-  /** Same-chain token swap on Base via Li.Fi */
-  executeSwap: (quote: SwapQuote) => Promise<string>;
-  /** Estimate the actual USDC gas cost for a same-chain swap (0 when sponsored). */
-  estimateSwapGasUsdc: (quote: SwapQuote) => Promise<number>;
-  /** Deposit into a Morpho ERC-4626 vault (fee wrapper when configured). */
-  executeMorphoDeposit: (params: MorphoEarnVaultParams & { amount: number }) => Promise<string>;
-  /** Withdraw / redeem from a Morpho vault. */
-  executeMorphoWithdraw: (params: MorphoEarnWithdrawParams) => Promise<string>;
-  /** Estimate USDC gas for a Morpho earn deposit. */
-  estimateMorphoDepositGasUsdc: (params: MorphoEarnVaultParams & { amount: number }) => Promise<number>;
-  /** Estimate USDC gas for a Morpho earn withdraw. */
-  estimateMorphoWithdrawGasUsdc: (params: MorphoEarnWithdrawParams) => Promise<number>;
-  /** Supply collateral and borrow from a Morpho Blue market. */
-  executeMorphoBorrow: (params: MorphoBorrowTxParams) => Promise<string>;
-  /** Repay loan assets on a Morpho Blue market. */
-  executeMorphoRepay: (params: MorphoRepayTxParams) => Promise<string>;
-  /** Estimate USDC gas for a Morpho borrow bundle. */
-  estimateMorphoBorrowGasUsdc: (params: MorphoBorrowTxParams) => Promise<number>;
-  /** Estimate USDC gas for a Morpho repay. */
-  estimateMorphoRepayGasUsdc: (params: MorphoRepayTxParams) => Promise<number>;
-  /** Withdraw collateral from a Morpho Blue market (requires zero debt). */
-  executeMorphoWithdrawCollateral: (params: MorphoWithdrawCollateralTxParams) => Promise<string>;
-  /** Estimate USDC gas for a Morpho collateral withdraw. */
-  estimateMorphoWithdrawCollateralGasUsdc: (params: MorphoWithdrawCollateralTxParams) => Promise<number>;
-  /** Sign a plain message with the Safe SCA (ERC-1271). */
-  signMessage: (message: string) => Promise<string>;
-  /** Sign EIP-712 typed data with the Safe SCA (ERC-1271). */
-  signTypedData: (typedData: TypedDataInput) => Promise<string>;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hook (single instance — mount via KuraWalletConnectShell + context)
-// ─────────────────────────────────────────────────────────────────────────────
+export { buildSmartAccountClientFromPrivKey, privateKeyFromMnemonic };
 
 export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const authToken = useAppStore((s) => s.authToken);
@@ -198,19 +115,14 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const [isExecutingBorrow, setIsExecutingBorrow] = useState(false);
 
   const cancelRef = useRef(false);
-  const provisioningRef = useRef(false); // guard against concurrent runs
+  const provisioningRef = useRef(false);
   const provisionedScaRef = useRef<string | null>(null);
 
   const { wallets: embeddedWallets, create: createEmbeddedWallet } = useEmbeddedEthereumWallet();
   const { user } = usePrivy();
-  // Lock onto a single, deterministic EOA. Privy keeps every embedded wallet it
-  // has ever created for a user, and the array order is not stable — indexing
-  // [0] could resolve to a different EOA (and thus a different Safe SCA) between
-  // sessions. selectCanonicalEmbeddedWallet always returns the lowest-index one.
   const embeddedWallet = selectCanonicalEmbeddedWallet(embeddedWallets);
   const embeddedWalletRef = useRef(embeddedWallet);
   embeddedWalletRef.current = embeddedWallet;
-  /** Stable identity — Privy may replace wallet object refs without changing the EOA. */
   const embeddedWalletKey = embeddedWallet
     ? `${embeddedWallet.walletIndex}:${embeddedWallet.address.toLowerCase()}`
     : null;
@@ -229,26 +141,13 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const usdcBalance = usdcBalanceFrom(balances);
   const refreshBalance = refreshBalances;
 
-  // ── Resolve key source ────────────────────────────────────────────────────
-
-  async function resolveSmartAccountClient(): Promise<{
-    smartAccountClient: AnyClient;
-    smartAddress: `0x${string}`;
-    pimlicoClient: AnyClient;
-  }> {
+  const resolveSmartAccountClient = useCallback<ResolveSmartAccountClient>(async () => {
     const wallet = embeddedWalletRef.current;
     if (!wallet) {
       throw new Error('Embedded wallet not available.');
     }
     return resolveKuraSmartAccountClient(() => wallet.getProvider());
-  }
-
-  // ── Auto-provision ────────────────────────────────────────────────────────
-  // Runs whenever authToken or embeddedWallet changes.
-  // Strategy:
-  //   1. Ensure Privy EOA exists — call create() if not.
-  //   2. Resolve SCA address: SecureStore → backend → compute+register.
-  //   3. Fetch balances → ready.
+  }, [embeddedWalletKey]);
 
   useEffect(() => {
     const token = useAppStore.getState().authToken;
@@ -279,7 +178,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     }
 
     async function resolveScaAddress(wallet: NonNullable<typeof embeddedWalletRef.current>) {
-      // Global fast path — already provisioned this session (survives remounts).
       if (getGlobalProvisionedSca()) {
         return getGlobalProvisionedSca();
       }
@@ -307,10 +205,10 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
           setStatus('provisioning');
 
           const provider = await wallet.getProvider();
-          const accounts: string[] = await (provider as any).request({ method: 'eth_accounts' });
+          const accounts: string[] = await (provider as { request: (args: { method: string }) => Promise<string[]> }).request({ method: 'eth_accounts' });
           const eoaAddress = accounts[0] as string;
 
-          const { smartAddress: addr } = await resolveSmartAccountClient();
+          const { smartAddress: addr } = await resolveKuraSmartAccountClient(() => wallet.getProvider());
 
           await Promise.all([
             saveScaAddress(addr).catch((err) =>
@@ -340,7 +238,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       try {
         const wallet = embeddedWalletRef.current;
 
-        // ── Step 1: Ensure Privy embedded EOA ─────────────────────────────
         if (!wallet) {
           Logger.info('KuraCardWallet', 'No embedded wallet — creating Privy EOA...');
           setStatus('provisioning');
@@ -354,7 +251,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
           return;
         }
 
-        // ── Step 2: Resolve SCA (session + hook fast paths) ───────────────
         const cachedSca =
           getGlobalProvisionedSca() ?? (await SecureStore.getItemAsync(WALLET_ADDRESS_STORE_KEY));
 
@@ -386,673 +282,214 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       cancelRef.current = true;
       provisioningRef.current = false;
     };
-  }, [authToken, user?.id, embeddedWalletKey]);
+  }, [authToken, user?.id, embeddedWalletKey, createEmbeddedWallet]);
 
-  // ── estimateUsdcGasReserve ─────────────────────────────────────────────────
-
-  const estimateUsdcGasReserve = useCallback(async (): Promise<number> => {
-    if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-    try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const { encodeFunctionData, erc20Abi } = require('viem') as typeof import('viem');
-      const { base } = require('viem/chains') as typeof import('viem/chains');
-
-      // Gas is independent of the transferred amount, so a 0-value self-transfer
-      // is a faithful proxy for the real send's UserOp cost.
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, [
-        {
-          to: USDC_BASE as `0x${string}`,
-          data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [sca, 0n] }),
-        },
-      ]);
-      const userOperation = await client.prepareUserOperation({ calls });
-      const { costInToken } = await pimlicoClient.estimateErc20PaymasterCost({
-        userOperation,
-        token: GAS_TOKEN as `0x${string}`,
-        chain: base,
-      });
-      // costInToken is in USDC base units (6 decimals); apply the safety buffer.
-      const reserve = (Number(costInToken) / 1_000_000) * GAS_RESERVE_BUFFER;
-      return Math.max(reserve, 0.01);
-    } catch (err) {
-      Logger.warn('KuraCardWallet', 'Gas reserve estimate failed; using fallback', {
-        err: err instanceof Error ? err.message : String(err),
-      });
-      return GAS_RESERVE_FALLBACK_USDC;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
-
-  // ── sendUsdc ──────────────────────────────────────────────────────────────
-
-  const sendUsdc = useCallback(async (toAddress: string, amountUsdc: number): Promise<string> => {
+  const requireReady = useCallback(() => {
     if (!smartAddress) throw new Error('Wallet not ready.');
-    const { encodeFunctionData, erc20Abi, isAddress } = require('viem') as typeof import('viem');
-    if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
-    if (amountUsdc <= 0) throw new Error('Amount must be greater than 0.');
-    if (amountUsdc > usdcBalance) throw new Error('Insufficient USDC balance.');
+  }, [smartAddress]);
+
+  const estimateUsdcGasReserve = useCallback(async () => {
+    requireReady();
+    return estimateUsdcGasReserveTx(resolveSmartAccountClient, smartAddress);
+  }, [requireReady, resolveSmartAccountClient, smartAddress]);
+
+  const sendUsdc = useCallback(async (toAddress: string, amountUsdc: number) => {
+    requireReady();
     setIsSending(true);
     try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, [
-        {
-          to: USDC_BASE as `0x${string}`,
-          data: encodeFunctionData({
-            abi: erc20Abi,
-            functionName: 'transfer',
-            args: [toAddress as `0x${string}`, BigInt(Math.round(amountUsdc * 1_000_000))],
-          }),
-        },
-      ]);
-      const hash = await client.sendTransaction({ calls });
+      const hash = await sendUsdcTx(resolveSmartAccountClient, toAddress, amountUsdc, usdcBalance);
       scheduleBalanceRefresh();
-      return hash as string;
+      return hash;
     } finally {
       setIsSending(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, usdcBalance, embeddedWallet]);
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh, usdcBalance]);
 
-  // ── sendToken ─────────────────────────────────────────────────────────────
-
-  const sendToken = useCallback(
-    async (
-      tokenAddress: `0x${string}`,
-      decimals: number,
-      toAddress: string,
-      amount: number,
-    ): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const { encodeFunctionData, erc20Abi, isAddress, parseUnits } =
-        require('viem') as typeof import('viem');
-      if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
-      if (amount <= 0) throw new Error('Amount must be greater than 0.');
-
-      setIsSending(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const amountWei = (() => {
-          const raw = amount.toString();
-          const [whole, frac = ''] = raw.split('.');
-          const safe = frac ? `${whole}.${frac.slice(0, decimals)}` : whole;
-          return parseUnits(safe as `${number}`, decimals);
-        })();
-        const calls = await withGasApprovalCalls(pimlicoClient, sca, [
-          {
-            to: tokenAddress,
-            data: encodeFunctionData({
-              abi: erc20Abi,
-              functionName: 'transfer',
-              args: [toAddress as `0x${string}`, amountWei],
-            }),
-          },
-        ]);
-        const hash = await client.sendTransaction({ calls });
-        scheduleBalanceRefresh();
-        return hash as string;
-      } finally {
-        setIsSending(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
-  );
-
-  // ── sendNativeEth ─────────────────────────────────────────────────────────
-
-  const sendNativeEth = useCallback(async (toAddress: string, amountEth: number): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-    const { isAddress, parseUnits } = require('viem') as typeof import('viem');
-    if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
-    if (amountEth <= 0) throw new Error('Amount must be greater than 0.');
-
+  const sendToken = useCallback(async (
+    tokenAddress: `0x${string}`,
+    decimals: number,
+    toAddress: string,
+    amount: number,
+  ) => {
+    requireReady();
     setIsSending(true);
     try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const raw = amountEth.toString();
-      const [whole, frac = ''] = raw.split('.');
-      const safe = frac ? `${whole}.${frac.slice(0, 18)}` : whole;
-      const amountWei = parseUnits(safe as `${number}`, 18);
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, [
-        { to: toAddress as `0x${string}`, value: amountWei, data: '0x' },
-      ]);
-      const hash = await client.sendTransaction({ calls });
+      const hash = await sendTokenTx(resolveSmartAccountClient, tokenAddress, decimals, toAddress, amount);
       scheduleBalanceRefresh();
-      return hash as string;
+      return hash;
     } finally {
       setIsSending(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh]);
 
-  // ── wrapEthToWeth ─────────────────────────────────────────────────────────
-
-  const wrapEthToWeth = useCallback(async (amountEth: number): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-    if (amountEth <= 0) throw new Error('Amount must be greater than 0.');
-
+  const sendNativeEth = useCallback(async (toAddress: string, amountEth: number) => {
+    requireReady();
     setIsSending(true);
     try {
-      const { encodeFunctionData, parseUnits } = require('viem') as typeof import('viem');
-      const wethAbi = [
-        {
-          type: 'function',
-          name: 'deposit',
-          inputs: [],
-          outputs: [],
-          stateMutability: 'payable',
-        },
-      ] as const;
-      const raw = amountEth.toString();
-      const [whole, frac = ''] = raw.split('.');
-      const safe = frac ? `${whole}.${frac.slice(0, 18)}` : whole;
-      const amountWei = parseUnits(safe as `${number}`, 18);
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, [
-        {
-          to: WETH_BASE as `0x${string}`,
-          value: amountWei,
-          data: encodeFunctionData({ abi: wethAbi, functionName: 'deposit' }),
-        },
-      ]);
-      const hash = await client.sendTransaction({ calls });
+      const hash = await sendNativeEthTx(resolveSmartAccountClient, toAddress, amountEth);
       scheduleBalanceRefresh();
-      return hash as string;
+      return hash;
     } finally {
       setIsSending(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh]);
 
-  // ── executeBridge ─────────────────────────────────────────────────────────
+  const wrapEthToWeth = useCallback(async (amountEth: number) => {
+    requireReady();
+    setIsSending(true);
+    try {
+      const hash = await wrapEthToWethTx(resolveSmartAccountClient, amountEth);
+      scheduleBalanceRefresh();
+      return hash;
+    } finally {
+      setIsSending(false);
+    }
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh]);
 
-  const executeBridge = useCallback(async (quote: LiFiBridgeQuote): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-    const spender = quote.approvalAddress as `0x${string}`;
-    const fromToken = quote.fromToken.address as `0x${string}`;
-    const fromAmount = BigInt(quote.fromAmount);
-
+  const executeBridge = useCallback(async (quote: Parameters<typeof executeBridgeTx>[1]) => {
+    requireReady();
     setIsBridging(true);
     try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const callsRaw = await buildAllowanceAndTxCalls({
-        spender,
-        fromToken,
-        fromAmount,
-        scaAddress: sca,
-        tx: {
-          to: quote.transactionRequest.to as `0x${string}`,
-          data: quote.transactionRequest.data as `0x${string}`,
-          value: BigInt(quote.transactionRequest.value ?? '0'),
-        },
-      });
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-      const txHash = await client.sendTransaction({ calls });
+      const hash = await executeBridgeTx(resolveSmartAccountClient, quote);
       scheduleBalanceRefresh();
-      return txHash as string;
+      return hash;
     } finally {
       setIsBridging(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh]);
 
-  // ── estimateBridgeGasUsdc ──────────────────────────────────────────────────
+  const estimateBridgeGasUsdc = useCallback(async (quote: Parameters<typeof estimateBridgeGasUsdcTx>[2]) => {
+    requireReady();
+    return estimateBridgeGasUsdcTx(resolveSmartAccountClient, smartAddress, quote);
+  }, [requireReady, resolveSmartAccountClient, smartAddress]);
 
-  const estimateBridgeGasUsdc = useCallback(async (quote: LiFiBridgeQuote): Promise<number> => {
-    if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-    try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const callsRaw = await buildAllowanceAndTxCalls({
-        spender: quote.approvalAddress as `0x${string}`,
-        fromToken: quote.fromToken.address as `0x${string}`,
-        fromAmount: BigInt(quote.fromAmount),
-        scaAddress: sca,
-        tx: {
-          to: quote.transactionRequest.to as `0x${string}`,
-          data: quote.transactionRequest.data as `0x${string}`,
-          value: BigInt(quote.transactionRequest.value ?? '0'),
-        },
-      });
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-      return await estimateErc20GasUsdc(client, pimlicoClient, calls);
-    } catch (err) {
-      Logger.warn('KuraCardWallet', 'Bridge gas estimate failed; using fallback', {
-        err: err instanceof Error ? err.message : String(err),
-      });
-      return GAS_RESERVE_FALLBACK_USDC;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
-
-  // ── executeSwap (same-chain Base swap via Li.Fi) ───────────────────────────
-
-  const executeSwap = useCallback(async (quote: SwapQuote): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-
+  const executeSwap = useCallback(async (quote: Parameters<typeof executeSwapTx>[1]) => {
+    requireReady();
     setIsExecutingSwap(true);
     try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const callsRaw = await buildAllowanceAndTxCalls({
-        spender: quote.approvalAddress as `0x${string}`,
-        fromToken: quote.fromToken.address as `0x${string}`,
-        fromAmount: BigInt(quote.fromAmount),
-        scaAddress: sca,
-        tx: {
-          to: quote.transactionRequest.to as `0x${string}`,
-          data: quote.transactionRequest.data as `0x${string}`,
-          value: BigInt(quote.transactionRequest.value ?? '0'),
-        },
-      });
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-      const txHash = await client.sendTransaction({ calls });
+      const hash = await executeSwapTx(resolveSmartAccountClient, quote);
       scheduleBalanceRefresh();
-      return txHash as string;
-    } catch (err) {
-      throw new Error(userFacingTransactionError(err));
+      return hash;
     } finally {
       setIsExecutingSwap(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
+  }, [requireReady, resolveSmartAccountClient, scheduleBalanceRefresh]);
 
-  // ── estimateSwapGasUsdc ────────────────────────────────────────────────────
+  const estimateSwapGasUsdc = useCallback(async (quote: Parameters<typeof estimateSwapGasUsdcTx>[2]) => {
+    requireReady();
+    return estimateSwapGasUsdcTx(resolveSmartAccountClient, smartAddress, quote);
+  }, [requireReady, resolveSmartAccountClient, smartAddress]);
 
-  const estimateSwapGasUsdc = useCallback(async (quote: SwapQuote): Promise<number> => {
-    if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
+  const runEarnTx = useCallback(async (fn: () => Promise<string>) => {
+    requireReady();
+    setIsExecutingEarn(true);
     try {
-      const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-        await resolveSmartAccountClient();
-      const callsRaw = await buildAllowanceAndTxCalls({
-        spender: quote.approvalAddress as `0x${string}`,
-        fromToken: quote.fromToken.address as `0x${string}`,
-        fromAmount: BigInt(quote.fromAmount),
-        scaAddress: sca,
-        tx: {
-          to: quote.transactionRequest.to as `0x${string}`,
-          data: quote.transactionRequest.data as `0x${string}`,
-          value: BigInt(quote.transactionRequest.value ?? '0'),
-        },
-      });
-      const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-      return await estimateErc20GasUsdc(client, pimlicoClient, calls);
-    } catch (err) {
-      warnSwapGasEstimateThrottled(
-        userFacingTransactionError(err, 'crypto.swapSimulationFailed'),
-      );
-      return GAS_RESERVE_FALLBACK_USDC;
+      const hash = await fn();
+      scheduleBalanceRefresh();
+      return hash;
+    } finally {
+      setIsExecutingEarn(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
-
-  // ── Morpho Earn (ERC-4626 deposit / withdraw) ─────────────────────────────
+  }, [requireReady, scheduleBalanceRefresh]);
 
   const executeMorphoDeposit = useCallback(
-    async (params: MorphoEarnVaultParams & { amount: number }): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const {
-        buildMorphoDepositTx,
-      } = require('../../../lib/wallet/morphoVault') as typeof import('../../../lib/wallet/morphoVault');
-
-      setIsExecutingEarn(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const { assetsRaw, tx } = buildMorphoDepositTx({
-          vaultAddress: params.depositVaultAddress,
-          asset: params.asset,
-          amount: params.amount,
-          receiver: sca,
-        });
-        const callsRaw = await buildAllowanceAndTxCalls({
-          spender: params.depositVaultAddress,
-          fromToken: params.asset.address,
-          fromAmount: assetsRaw,
-          scaAddress: sca,
-          tx,
-        });
-        const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-        const txHash = await client.sendTransaction({ calls });
-
-        scheduleBalanceRefresh();
-        return txHash as string;
-      } finally {
-        setIsExecutingEarn(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    (params: MorphoEarnVaultParams & { amount: number }) =>
+      runEarnTx(() => executeMorphoDepositTx(resolveSmartAccountClient, params)),
+    [runEarnTx, resolveSmartAccountClient],
   );
 
   const executeMorphoWithdraw = useCallback(
-    async (params: MorphoEarnWithdrawParams): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const {
-        planMorphoWithdraw,
-        buildMorphoWithdrawCalls,
-      } = require('../../../lib/wallet/morphoVault') as typeof import('../../../lib/wallet/morphoVault');
-
-      setIsExecutingEarn(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const plan = await planMorphoWithdraw({
-          vaultAddress: params.depositVaultAddress,
-          assetDecimals: params.asset.decimals,
-          owner: sca,
-          withdrawAll: params.withdrawAll,
-          amountAssets: params.amountAssets,
-        });
-        const callsRaw = buildMorphoWithdrawCalls({
-          vaultAddress: params.depositVaultAddress,
-          owner: sca,
-          plan,
-        });
-        const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-        const txHash = await client.sendTransaction({ calls });
-
-        scheduleBalanceRefresh();
-        return txHash as string;
-      } finally {
-        setIsExecutingEarn(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    (params: MorphoEarnWithdrawParams) =>
+      runEarnTx(() => executeMorphoWithdrawTx(resolveSmartAccountClient, params)),
+    [runEarnTx, resolveSmartAccountClient],
   );
 
   const estimateMorphoDepositGasUsdc = useCallback(
-    async (params: MorphoEarnVaultParams & { amount: number }): Promise<number> => {
-      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-      try {
-        const { buildMorphoDepositTx } =
-          require('../../../lib/wallet/morphoVault') as typeof import('../../../lib/wallet/morphoVault');
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const { assetsRaw, tx } = buildMorphoDepositTx({
-          vaultAddress: params.depositVaultAddress,
-          asset: params.asset,
-          amount: params.amount,
-          receiver: sca,
-        });
-        const callsRaw = await buildAllowanceAndTxCalls({
-          spender: params.depositVaultAddress,
-          fromToken: params.asset.address,
-          fromAmount: assetsRaw,
-          scaAddress: sca,
-          tx,
-        });
-        const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-        return await estimateErc20GasUsdc(client, pimlicoClient, calls);
-      } catch (err) {
-        Logger.warn('KuraCardWallet', 'Morpho deposit gas estimate failed; using fallback', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return GAS_RESERVE_FALLBACK_USDC;
-      }
+    (params: MorphoEarnVaultParams & { amount: number }) => {
+      requireReady();
+      return estimateMorphoDepositGasUsdcTx(resolveSmartAccountClient, smartAddress, params);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    [requireReady, resolveSmartAccountClient, smartAddress],
   );
 
   const estimateMorphoWithdrawGasUsdc = useCallback(
-    async (params: MorphoEarnWithdrawParams): Promise<number> => {
-      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-      try {
-        const {
-          planMorphoWithdraw,
-          buildMorphoWithdrawCalls,
-        } = require('../../../lib/wallet/morphoVault') as typeof import('../../../lib/wallet/morphoVault');
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const plan = await planMorphoWithdraw({
-          vaultAddress: params.depositVaultAddress,
-          assetDecimals: params.asset.decimals,
-          owner: sca,
-          withdrawAll: params.withdrawAll,
-          amountAssets: params.amountAssets,
-        });
-        const callsRaw = buildMorphoWithdrawCalls({
-          vaultAddress: params.depositVaultAddress,
-          owner: sca,
-          plan,
-        });
-        const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
-        return await estimateErc20GasUsdc(client, pimlicoClient, calls);
-      } catch (err) {
-        Logger.warn('KuraCardWallet', 'Morpho withdraw gas estimate failed; using fallback', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return GAS_RESERVE_FALLBACK_USDC;
-      }
+    (params: MorphoEarnWithdrawParams) => {
+      requireReady();
+      return estimateMorphoWithdrawGasUsdcTx(resolveSmartAccountClient, smartAddress, params);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    [requireReady, resolveSmartAccountClient, smartAddress],
   );
 
-  // ── Morpho Borrow (Blue market supply collateral + borrow / repay) ───────────
+  const runBorrowTx = useCallback(async (fn: () => Promise<string>) => {
+    requireReady();
+    setIsExecutingBorrow(true);
+    try {
+      const hash = await fn();
+      scheduleBalanceRefresh();
+      return hash;
+    } finally {
+      setIsExecutingBorrow(false);
+    }
+  }, [requireReady, scheduleBalanceRefresh]);
 
   const executeMorphoBorrow = useCallback(
-    async (params: MorphoBorrowTxParams): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const {
-        buildMorphoBorrowCalls,
-        toMorphoMarketParams,
-      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
-
-      setIsExecutingBorrow(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoBorrowCalls({
-          market,
-          collateralAmount: params.collateralAmount,
-          borrowAmount: params.borrowAmount,
-          onBehalf: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        const txHash = await client.sendTransaction({ calls: callsWithGas });
-        scheduleBalanceRefresh();
-        return txHash as string;
-      } finally {
-        setIsExecutingBorrow(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    (params: MorphoBorrowTxParams) =>
+      runBorrowTx(() => executeMorphoBorrowTx(resolveSmartAccountClient, params)),
+    [runBorrowTx, resolveSmartAccountClient],
   );
 
   const executeMorphoRepay = useCallback(
-    async (params: MorphoRepayTxParams): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const {
-        buildMorphoRepayCalls,
-        toMorphoMarketParams,
-      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
-
-      setIsExecutingBorrow(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoRepayCalls({
-          market,
-          repayAmount: params.repayAmount,
-          repayAll: params.repayAll,
-          onBehalf: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        const txHash = await client.sendTransaction({ calls: callsWithGas });
-        scheduleBalanceRefresh();
-        return txHash as string;
-      } finally {
-        setIsExecutingBorrow(false);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
-  );
-
-  const estimateMorphoBorrowGasUsdc = useCallback(
-    async (params: MorphoBorrowTxParams): Promise<number> => {
-      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-      try {
-        const {
-          buildMorphoBorrowCalls,
-          toMorphoMarketParams,
-        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoBorrowCalls({
-          market,
-          collateralAmount: params.collateralAmount,
-          borrowAmount: params.borrowAmount,
-          onBehalf: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
-      } catch (err) {
-        Logger.warn('KuraCardWallet', 'Morpho borrow gas estimate failed; using fallback', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return GAS_RESERVE_FALLBACK_USDC;
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
-  );
-
-  const estimateMorphoRepayGasUsdc = useCallback(
-    async (params: MorphoRepayTxParams): Promise<number> => {
-      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-      try {
-        const {
-          buildMorphoRepayCalls,
-          toMorphoMarketParams,
-        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoRepayCalls({
-          market,
-          repayAmount: params.repayAmount,
-          repayAll: params.repayAll,
-          onBehalf: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
-      } catch (err) {
-        Logger.warn('KuraCardWallet', 'Morpho repay gas estimate failed; using fallback', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return GAS_RESERVE_FALLBACK_USDC;
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    (params: MorphoRepayTxParams) =>
+      runBorrowTx(() => executeMorphoRepayTx(resolveSmartAccountClient, params)),
+    [runBorrowTx, resolveSmartAccountClient],
   );
 
   const executeMorphoWithdrawCollateral = useCallback(
-    async (params: MorphoWithdrawCollateralTxParams): Promise<string> => {
-      if (!smartAddress) throw new Error('Wallet not ready.');
-      const {
-        buildMorphoWithdrawCollateralCalls,
-        toMorphoMarketParams,
-      } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
+    (params: MorphoWithdrawCollateralTxParams) =>
+      runBorrowTx(() => executeMorphoWithdrawCollateralTx(resolveSmartAccountClient, params)),
+    [runBorrowTx, resolveSmartAccountClient],
+  );
 
-      setIsExecutingBorrow(true);
-      try {
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoWithdrawCollateralCalls({
-          market,
-          withdrawAmount: params.withdrawAmount,
-          onBehalf: sca,
-          receiver: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        const txHash = await client.sendTransaction({ calls: callsWithGas });
-        scheduleBalanceRefresh();
-        return txHash as string;
-      } finally {
-        setIsExecutingBorrow(false);
-      }
+  const estimateMorphoBorrowGasUsdc = useCallback(
+    (params: MorphoBorrowTxParams) => {
+      requireReady();
+      return estimateMorphoBorrowGasUsdcTx(resolveSmartAccountClient, smartAddress, params);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    [requireReady, resolveSmartAccountClient, smartAddress],
+  );
+
+  const estimateMorphoRepayGasUsdc = useCallback(
+    (params: MorphoRepayTxParams) => {
+      requireReady();
+      return estimateMorphoRepayGasUsdcTx(resolveSmartAccountClient, smartAddress, params);
+    },
+    [requireReady, resolveSmartAccountClient, smartAddress],
   );
 
   const estimateMorphoWithdrawCollateralGasUsdc = useCallback(
-    async (params: MorphoWithdrawCollateralTxParams): Promise<number> => {
-      if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
-      try {
-        const {
-          buildMorphoWithdrawCollateralCalls,
-          toMorphoMarketParams,
-        } = require('../../../lib/wallet/morphoBlue') as typeof import('../../../lib/wallet/morphoBlue');
-        const { smartAccountClient: client, smartAddress: sca, pimlicoClient } =
-          await resolveSmartAccountClient();
-        const market = toMorphoMarketParams(params.market);
-        const { calls } = await buildMorphoWithdrawCollateralCalls({
-          market,
-          withdrawAmount: params.withdrawAmount,
-          onBehalf: sca,
-          receiver: sca,
-        });
-        const callsWithGas = await withGasApprovalCalls(pimlicoClient, sca, calls);
-        return await estimateErc20GasUsdc(client, pimlicoClient, callsWithGas);
-      } catch (err) {
-        Logger.warn('KuraCardWallet', 'Morpho withdraw collateral gas estimate failed; using fallback', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-        return GAS_RESERVE_FALLBACK_USDC;
-      }
+    (params: MorphoWithdrawCollateralTxParams) => {
+      requireReady();
+      return estimateMorphoWithdrawCollateralGasUsdcTx(resolveSmartAccountClient, smartAddress, params);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartAddress, embeddedWallet],
+    [requireReady, resolveSmartAccountClient, smartAddress],
   );
 
-  // ── Signing (Dinari order permits, wallet-connect nonce, etc.) ─────────────
+  const signMessage = useCallback(async (message: string) => {
+    requireReady();
+    return signMessageTx(resolveSmartAccountClient, message);
+  }, [requireReady, resolveSmartAccountClient]);
 
-  const signMessage = useCallback(async (message: string): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-    const { smartAccountClient: client } = await resolveSmartAccountClient();
-    const sig = await client.signMessage({ message });
-    return sig as string;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
-
-  const signTypedData = useCallback(async (typedData: TypedDataInput): Promise<string> => {
-    if (!smartAddress) throw new Error('Wallet not ready.');
-    const { smartAccountClient: client } = await resolveSmartAccountClient();
-    const sig = await client.signTypedData({
-      domain: typedData.domain,
-      types: typedData.types,
-      primaryType: typedData.primaryType,
-      message: typedData.message,
-    });
-    return sig as string;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [smartAddress, embeddedWallet]);
-
-  // ── importWallet (power user) ─────────────────────────────────────────────
+  const signTypedData = useCallback(async (typedData: TypedDataInput) => {
+    requireReady();
+    return signTypedDataTx(resolveSmartAccountClient, typedData);
+  }, [requireReady, resolveSmartAccountClient]);
 
   const importWallet = useCallback(async (phrase: string, type: ImportMnemonicType) => {
     setStatus('provisioning');
     setErrorMessage('');
     try {
       const privKey = privateKeyFromMnemonic(phrase, type);
-      const { smartAddress: addr } = await buildSmartAccountClient(privKey);
+      const { smartAddress: addr } = await buildSmartAccountClientFromPrivKey(privKey);
       await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey);
       await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr);
       await saveScaAddress(addr).catch(() => undefined);
@@ -1066,7 +503,6 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       setStatus('error');
       throw err;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshBalances]);
 
   return {

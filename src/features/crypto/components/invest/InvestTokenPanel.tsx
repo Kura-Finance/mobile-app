@@ -13,6 +13,7 @@ import { sortPortfolioTokens, type InvestSortKey } from '../../utils/investSort'
 import PortfolioTokenRow from '../PortfolioTokenRow';
 import InvestListCard from './InvestListCard';
 import InvestSortSheet from './InvestSortSheet';
+import InvestEmbeddedFlatList from './InvestEmbeddedFlatList';
 import LoadingDots from '../../../../shared/components/LoadingDots';
 
 const SORT_HEADER_I18N: Record<InvestSortKey, string> = {
@@ -78,42 +79,39 @@ export default function InvestTokenPanel({
     return pool.filter((item) => matchesToken(item, query));
   }, [favoriteTokens, favoritesOnly, isSearching, sortedTokens, query]);
 
-  const renderRows = (items: PortfolioToken[]) =>
-    items.map((item) => (
-      <PortfolioTokenRow
-        key={item.token.symbol}
-        item={item}
-        layout="invest"
-        onPress={onPressToken}
-      />
-    ));
+  const displayItems = useMemo(() => {
+    if (isSearching) return searchResults;
+    if (favoritesOnly) return favoriteTokens;
+    return sortedTokens;
+  }, [favoriteTokens, favoritesOnly, isSearching, searchResults, sortedTokens]);
+
+  const showEmpty = displayItems.length === 0 && (isSearching || favoritesOnly);
+  const emptyMessage = isSearching
+    ? t('crypto.searchNoResults')
+    : t('crypto.favoritesEmpty');
 
   const listContent = loading && portfolioTokens.length === 0 ? (
     <View style={styles.loadingRow}>
       <LoadingDots color={colors.textMuted} size={8} />
     </View>
-  ) : isSearching ? (
-    searchResults.length > 0 ? (
-      renderRows(searchResults)
-    ) : (
-      <View style={styles.empty}>
-        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-          {t('crypto.searchNoResults')}
-        </Text>
-      </View>
-    )
-  ) : favoritesOnly ? (
-    favoriteTokens.length > 0 ? (
-      renderRows(favoriteTokens)
-    ) : (
-      <View style={styles.empty}>
-        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-          {t('crypto.favoritesEmpty')}
-        </Text>
-      </View>
-    )
+  ) : showEmpty ? (
+    <View style={styles.empty}>
+      <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+        {emptyMessage}
+      </Text>
+    </View>
   ) : (
-    renderRows(sortedTokens)
+    <InvestEmbeddedFlatList
+      data={displayItems}
+      keyExtractor={(item) => item.token.symbol}
+      renderItem={({ item }) => (
+        <PortfolioTokenRow
+          item={item}
+          layout="invest"
+          onPress={onPressToken}
+        />
+      )}
+    />
   );
 
   return (
