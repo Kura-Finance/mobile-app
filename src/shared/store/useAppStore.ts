@@ -39,7 +39,10 @@ import { disconnectExchange as disconnectExchangeAccountApi } from '../../lib/ap
 import { fetchExchangeRates, isCacheValid, type ExchangeRates } from '../../lib/api/exchangeRate';
 import { resetTrackFiSyncPolicy } from '../../features/trackfi/utils/trackFiSyncPolicy';
 import { resetDefiPortfolioSession } from '../../features/trackfi/hooks/useDefiPortfolio';
-import { useFinanceStore } from './useFinanceStore';
+import { resetStocksStore } from '../../features/stocks/store/useStocksStore';
+import { resetDinariGateStore } from '../../features/stocks/store/useDinariGateStore';
+import { useFinanceStore } from './finance';
+import { bindMembershipLabelReader } from './membershipLabelAccess';
 import { type Currency, SUPPORTED_CURRENCIES } from '../utils/currencyFormatter';
 import { type ThemeMode } from '../theme/theme';
 import Logger from '../utils/Logger';
@@ -304,9 +307,8 @@ export const useAppStore = create<AppState>((set, get) => {
       useFinanceStore.getState().clearAssetHistory();
       resetTrackFiSyncPolicy();
       resetDefiPortfolioSession();
-      // Wipe exchange data (accounts + decrypted balances) so a different
-      // account signing in next doesn't briefly see the previous user's data.
-      useFinanceStore.setState({ exchangeAccounts: [] });
+      resetStocksStore();
+      resetDinariGateStore();
       void import('./useExchangeStore')
         .then(({ useExchangeStore }) => useExchangeStore.getState().clearAll())
         .catch((err) =>
@@ -509,11 +511,6 @@ export const useAppStore = create<AppState>((set, get) => {
       const { useExchangeStore } = await import('./useExchangeStore');
       useExchangeStore.getState().removeExchangeAccount(exchangeAccountId);
 
-      const { exchangeAccounts } = useFinanceStore.getState();
-      useFinanceStore.setState({
-        exchangeAccounts: exchangeAccounts.filter((acc) => acc.id !== exchangeAccountId),
-      });
-
       void useFinanceStore.getState().hydrateAssetHistory(undefined, true);
     },
 
@@ -543,3 +540,5 @@ export const useAppStore = create<AppState>((set, get) => {
 
   };
 });
+
+bindMembershipLabelReader(() => useAppStore.getState().userProfile.membershipLabel);

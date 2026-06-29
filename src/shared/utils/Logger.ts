@@ -16,9 +16,7 @@ const LOG_LEVEL: Record<LogLevel, number> = {
   error: 3,
 };
 
-// Temporarily set to debug to trace the full Privy login flow.
-// Change back to LOG_LEVEL.warn when done debugging.
-const MIN_LOG_LEVEL = LOG_LEVEL.debug;
+const MIN_LOG_LEVEL = LOG_LEVEL.warn;
 
 // 用於去重：同一模塊同一條消息在短時間內只記錄一次
 const DEDUP_MAP = new Map<string, number>();

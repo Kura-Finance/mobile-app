@@ -1,6 +1,9 @@
 import { INVEST_LIST_ROW_HEIGHT } from '../../crypto/components/invest/investListMetrics';
 import type { StockItem } from '../hooks/useDinari';
 
+/** Default page size — roughly one screen of stock rows before "Load more". */
+export const STOCK_LIST_PAGE_SIZE = 20;
+
 /** Stocks whose rows overlap the current list scroll viewport (+ buffer). */
 export function stocksInScrollViewport(
   stocks: StockItem[],

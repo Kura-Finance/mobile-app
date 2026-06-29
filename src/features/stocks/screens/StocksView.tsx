@@ -12,6 +12,10 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useDinariGate, type StockItem } from '../hooks/useDinari';
+import { useStockQuotes } from '../hooks/useStockQuotes';
+import { enrichStockList } from '../utils/yahooStockStats';
+import InvestEmbeddedFlatList from '../../crypto/components/invest/InvestEmbeddedFlatList';
+import { STOCK_LIST_PAGE_SIZE } from '../utils/visibleStockWindow';
 import { matchesStock, normalizeSearchQuery } from '../../crypto/utils/portfolioSearch';
 import StockLogo from '../components/StockLogo';
 import StockDetailModal from '../modals/StockDetailModal';
@@ -22,7 +26,6 @@ import {
   sortStocks,
   type InvestSortKey,
 } from '../../crypto/utils/investSort';
-import { applyYahooMarket, useYahooStockMarket } from '../hooks/useYahooStockMarket';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
@@ -147,6 +150,7 @@ export default function StocksView({
   const [selected, setSelected] = useState<StockItem | null>(null);
   const [sortKey, setSortKey] = useState<InvestSortKey>('price');
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(STOCK_LIST_PAGE_SIZE);
   const [showDinariGate, setShowDinariGate] = useState(false);
   const pendingTradeSideRef = useRef<'buy' | 'sell' | null>(null);
   const [resumeTradeSide, setResumeTradeSide] = useState<'buy' | 'sell' | null>(null);
@@ -157,6 +161,10 @@ export default function StocksView({
       onExternalSelectedStockHandled?.();
     }
   }, [externalSelectedStock, onExternalSelectedStockHandled]);
+
+  useEffect(() => {
+    setVisibleCount(STOCK_LIST_PAGE_SIZE);
+  }, [sortKey, searchQuery, favoritesOnly]);
 
   const ensureCanTrade = useCallback(async (side: 'buy' | 'sell'): Promise<boolean> => {
     if (gate.state === 'ready') return true;
@@ -193,43 +201,45 @@ export default function StocksView({
     if (side) setResumeTradeSide(side);
   }, []);
 
-  const marketBySymbol = useYahooStockMarket(stocks.map((s) => s.symbol));
-
-  const quotedStocks = useMemo(
-    () => stocks.map((item) => applyYahooMarket(item, marketBySymbol.get(item.symbol.toUpperCase()))),
-    [stocks, marketBySymbol],
-  );
-
-  const sortedStocks = useMemo(
-    () => sortStocks(quotedStocks, sortKey),
-    [quotedStocks, sortKey],
-  );
-
   const query = normalizeSearchQuery(searchQuery);
   const isSearching = query.length > 0;
 
-  const searchResults = useMemo(() => {
-    if (!isSearching) return [];
-    const pool = favoritesOnly
-      ? sortedStocks.filter((item) => favorites.includes(item.symbol))
-      : sortedStocks;
-    return pool.filter((item) => matchesStock(item, query));
-  }, [favorites, favoritesOnly, isSearching, query, sortedStocks]);
-
-  const displayedStocks = useMemo(() => {
+  const catalogPool = useMemo(() => {
     if (stocksLoading && stocks.length === 0) return [];
-    if (isSearching) return searchResults;
-    if (favoritesOnly) return sortedStocks.filter((item) => favorites.includes(item.symbol));
-    return sortedStocks;
+    let pool = stocks;
+    if (favoritesOnly) {
+      pool = pool.filter((item) => favorites.includes(item.symbol));
+    }
+    if (isSearching) {
+      pool = pool.filter((item) => matchesStock(item, query));
+    }
+    return pool;
   }, [
     stocksLoading,
-    stocks.length,
-    isSearching,
-    searchResults,
+    stocks,
     favoritesOnly,
     favorites,
-    sortedStocks,
+    isSearching,
+    query,
   ]);
+
+  const sortQuoteSymbols = useMemo(
+    () => catalogPool.map((item) => item.symbol),
+    [catalogPool],
+  );
+  const { quotes: sortQuotes, loading: sortQuotesLoading } = useStockQuotes(sortQuoteSymbols);
+
+  const sortedStocks = useMemo(() => {
+    const enriched = enrichStockList(catalogPool, sortQuotes);
+    return sortStocks(enriched, sortKey);
+  }, [catalogPool, sortKey, sortQuotes]);
+
+  const visibleStocks = useMemo(
+    () => sortedStocks.slice(0, visibleCount),
+    [sortedStocks, visibleCount],
+  );
+
+  const hasMoreStocks = visibleCount < sortedStocks.length;
 
   const unsupportedMessage = gate.error
     ? t('crypto.dinariUnavailableBody', { error: gate.error })
@@ -239,30 +249,40 @@ export default function StocksView({
     <View style={st.loadingRow}>
       <LoadingDots color={colors.textMuted} size={8} />
     </View>
-  ) : isSearching ? (
-    searchResults.length > 0 ? (
-      searchResults.map((item) => (
-        <StockRow key={item.id} item={item} onPress={setSelected} />
-      ))
-    ) : (
-      <View style={st.emptyFavorites}>
-        <Text style={st.emptyFavoritesText}>{t('crypto.searchNoResults')}</Text>
-      </View>
-    )
-  ) : favoritesOnly ? (
-    displayedStocks.length > 0 ? (
-      displayedStocks.map((item) => (
-        <StockRow key={item.id} item={item} onPress={setSelected} />
-      ))
-    ) : (
-      <View style={st.emptyFavorites}>
-        <Text style={st.emptyFavoritesText}>{t('crypto.favoritesEmpty')}</Text>
-      </View>
-    )
+  ) : catalogPool.length === 0 ? (
+    <View style={st.emptyFavorites}>
+      <Text style={st.emptyFavoritesText}>
+        {isSearching
+          ? t('crypto.searchNoResults')
+          : favoritesOnly
+            ? t('crypto.favoritesEmpty')
+            : t('crypto.searchNoResults')}
+      </Text>
+    </View>
+  ) : sortQuotesLoading && catalogPool.length > 0 ? (
+    <View style={st.loadingRow}>
+      <LoadingDots color={colors.textMuted} size={8} />
+    </View>
   ) : (
-    displayedStocks.map((item) => (
-      <StockRow key={item.id} item={item} onPress={setSelected} />
-    ))
+    <InvestEmbeddedFlatList
+      data={visibleStocks}
+      keyExtractor={(item) => item.id}
+      initialNumToRender={STOCK_LIST_PAGE_SIZE}
+      renderItem={({ item }) => (
+        <StockRow item={item} onPress={setSelected} />
+      )}
+      ListFooterComponent={
+        hasMoreStocks ? (
+          <TouchableOpacity
+            style={st.loadMoreBtn}
+            onPress={() => setVisibleCount((count) => count + STOCK_LIST_PAGE_SIZE)}
+            activeOpacity={0.7}
+          >
+            <Text style={st.loadMoreText}>{t('crypto.loadMore')}</Text>
+          </TouchableOpacity>
+        ) : null
+      }
+    />
   );
 
   const listSection = (
@@ -405,6 +425,17 @@ function makeStyles(c: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 32,
+    },
+    loadMoreBtn: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    loadMoreText: {
+      color: c.primary,
+      fontSize: 14,
+      fontWeight: '600',
     },
 
     row: {

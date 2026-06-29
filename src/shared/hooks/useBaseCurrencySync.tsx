@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { useAppStore } from '../store/useAppStore';
-import { useFinanceStore } from '../store/useFinanceStore';
+import { useFinanceStore } from '../store/finance';
 import type { CurrencyType } from '../store/finance/types';
 import { setExchangeRatesReader } from '../utils/exchangeRatesReader';
 

@@ -1,4 +1,4 @@
-import type { AssetSnapshot } from '../../../../shared/store/useFinanceStore';
+import type { AssetSnapshot } from '../../../../shared/store/finance';
 import { daysForTimeRange, type TimeRangeType } from '../../../../shared/store/finance/types';
 
 /**

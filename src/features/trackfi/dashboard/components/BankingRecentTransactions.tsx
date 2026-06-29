@@ -7,7 +7,7 @@ import type { ThemeColors } from '../../../../shared/theme/theme';
 import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
 import { useHideBalance } from '../../../../shared/hooks/useHideBalance';
 import { HIDDEN_BALANCE_TEXT } from '../../../../shared/utils/privacyDisplay';
-import type { Transaction } from '../../../../shared/store/useFinanceStore';
+import type { Transaction } from '../../../../shared/store/finance';
 
 interface Props {
   transactions: Transaction[];

@@ -67,7 +67,17 @@ export default function InvestScreen() {
 
   const stocksEnabled = features.dinariStocks;
   const earnEnabled = features.morphoEarn;
-  const gate = useDinariGate(smartAddress, signMessage, { deferInitialCheck: true });
+
+  const [assetClass, setAssetClass] = useState<AssetClass>('stablecoin');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const showStocks = stocksEnabled && assetClass === 'stock';
+
+  const gate = useDinariGate(smartAddress, signMessage, {
+    deferInitialCheck: true,
+    active: showStocks,
+  });
   const gateReady = gate.state === 'ready';
   const {
     stocks,
@@ -75,14 +85,10 @@ export default function InvestScreen() {
     refreshing: stocksRefreshing,
     error: stocksError,
     refresh: refreshStocks,
-  } = useDinariStocks(stocksEnabled, { includePortfolio: gateReady });
+  } = useDinariStocks(showStocks, { includePortfolio: gateReady });
 
   const earnRefreshRef = useRef<(() => void) | null>(null);
   const [earnRefreshing, setEarnRefreshing] = useState(false);
-
-  const [assetClass, setAssetClass] = useState<AssetClass>('stablecoin');
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!features.dinariStocks && assetClass === 'stock') {
@@ -108,7 +114,7 @@ export default function InvestScreen() {
   const handleRefresh = () => {
     refresh();
     void refreshBalance();
-    if (stocksEnabled) refreshStocks();
+    if (showStocks) refreshStocks();
     earnRefreshRef.current?.();
   };
 
@@ -118,7 +124,6 @@ export default function InvestScreen() {
 
   const showTokenPanel = isTokenAssetClass(assetClass);
   const showEarn = assetClass === 'earn';
-  const showStocks = stocksEnabled && assetClass === 'stock';
 
   const screenRefreshing =
     (showTokenPanel && isRefreshing)

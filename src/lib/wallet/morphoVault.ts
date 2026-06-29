@@ -93,28 +93,6 @@ export function buildMorphoDepositTx(params: {
   };
 }
 
-/** @deprecated Prefer buildMorphoDepositTx + buildAllowanceAndTxCalls */
-export function buildMorphoDepositCalls(params: {
-  vaultAddress: `0x${string}`;
-  asset: MorphoVaultAssetRef;
-  amount: number;
-  receiver: `0x${string}`;
-}): SmartAccountCall[] {
-  const { assetsRaw, tx } = buildMorphoDepositTx(params);
-  const { vaultAddress, asset } = params;
-  return [
-    {
-      to: asset.address,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [vaultAddress, assetsRaw],
-      }),
-    },
-    tx,
-  ];
-}
-
 export async function planMorphoWithdraw(params: {
   vaultAddress: `0x${string}`;
   assetDecimals: number;

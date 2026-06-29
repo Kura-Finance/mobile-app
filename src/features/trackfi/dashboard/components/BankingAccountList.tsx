@@ -11,7 +11,7 @@ import ConnectAccountModal from '../../../../shared/components/ConnectAccountMod
 import PlaidLinkModal from '../../../../shared/components/PlaidLinkModal';
 import ExchangeLinkModal from '../../../../shared/components/ExchangeLinkModal';
 import { useAppStore } from '../../../../shared/store/useAppStore';
-import type { Account } from '../../../../shared/store/useFinanceStore';
+import type { Account } from '../../../../shared/store/finance';
 
 interface Props {
   accounts: Account[];

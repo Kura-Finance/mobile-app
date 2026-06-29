@@ -23,7 +23,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Logger from '../utils/Logger';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
-import { useFinanceStore } from '../store/useFinanceStore';
 import { useExchangeStore } from '../store/useExchangeStore';
 import {
   connectExchange as connectExchangeAccount,
@@ -48,8 +47,7 @@ export default function ExchangeLinkModal({
 }: ExchangeLinkModalProps) {
   const { colors } = useTheme();
   const { authToken } = useAppStore();
-  const { addExchangeAccount } = useFinanceStore();
-  const { fetchExchangeBalances, addExchangeAccount: addExchangeAccountToStore } = useExchangeStore();
+  const { fetchExchangeBalances, addExchangeAccount } = useExchangeStore();
   const connectedExchanges = useExchangeStore((state) => state.exchangeAccounts);
 
   const [step, setStep] = useState<'select' | 'credentials'>('select');
@@ -193,18 +191,7 @@ export default function ExchangeLinkModal({
         return;
       }
 
-      // Add to both stores. The finance store keeps the legacy `isActive` /
-      // `lastVerifiedAt` fields; default them when the wire omits them.
-      addExchangeAccount({
-        id: connectedAccount.id,
-        exchange: connectedAccount.exchange,
-        exchangeDisplayName: connectedAccount.exchangeDisplayName,
-        icon: connectedAccount.icon,
-        isVerified: connectedAccount.isVerified,
-        isActive: connectedAccount.isActive ?? true,
-        lastVerifiedAt: connectedAccount.lastVerifiedAt ?? new Date().toISOString(),
-      });
-      addExchangeAccountToStore(connectedAccount);
+      addExchangeAccount(connectedAccount);
 
       // Attempt to fetch initial balances
       try {

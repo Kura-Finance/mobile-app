@@ -142,20 +142,6 @@ export const useExchangeStore = create<ExchangeStoreState>((set, get) => ({
       const accounts = await getExchangeAccounts();
       Logger.info('ExchangeStore', 'Exchange accounts hydrated', { count: accounts.length });
       set({ exchangeAccounts: accounts });
-
-      // Mirror into useFinanceStore.exchangeAccounts for the dashboard.
-      const { useFinanceStore } = await import('./useFinanceStore');
-      accounts.forEach((account) => {
-        useFinanceStore.getState().addExchangeAccount({
-          id: account.id,
-          exchange: account.exchange,
-          exchangeDisplayName: account.exchangeDisplayName,
-          icon: account.icon,
-          isVerified: account.isVerified,
-          isActive: account.isActive ?? true,
-          lastVerifiedAt: account.lastVerifiedAt ?? '',
-        });
-      });
     } catch (error) {
       Logger.warn('ExchangeStore', 'Failed to hydrate exchange accounts', {
         error: error instanceof Error ? error.message : String(error),

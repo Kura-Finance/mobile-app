@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import type { Transaction } from '../../../../shared/store/useFinanceStore';
+import type { Transaction } from '../../../../shared/store/finance';
 import CurrencyDisplay from '../../../../shared/components/CurrencyDisplay';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import { useTranslation } from 'react-i18next';

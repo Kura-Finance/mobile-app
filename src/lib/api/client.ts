@@ -78,11 +78,20 @@ function parseEnvelopeError(payload: Envelope | null, status: number): KuraApiEr
 
   const errField = payload.error;
   if (typeof errField === 'object' && errField !== null) {
+    const errObj = errField as Record<string, unknown>;
+    const { code, message, details, ...rest } = errObj;
+    const mergedDetails =
+      details !== undefined && details !== null
+        ? details
+        : Object.keys(rest).length > 0
+          ? rest
+          : undefined;
+
     return new KuraApiError({
-      code: errField.code || 'INTERNAL_ERROR',
-      message: errField.message || fallbackMessage,
+      code: (typeof code === 'string' && code) || 'INTERNAL_ERROR',
+      message: (typeof message === 'string' && message) || fallbackMessage,
       status,
-      details: errField.details,
+      details: mergedDetails,
     });
   }
 

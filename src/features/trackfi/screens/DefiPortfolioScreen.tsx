@@ -33,7 +33,7 @@ import DefiConnectedWalletsSection from '../components/defi/DefiConnectedWallets
 import DefiAllTokensModal from '../components/defi/DefiAllTokensModal';
 import TrackFiLegalFooter from '../components/TrackFiLegalFooter';
 import { useKuraCardWallet } from '../../card/context/KuraCardWalletContext';
-import { useFinanceStore } from '../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../shared/store/finance';
 import { getCryptoSession } from '../../../lib/crypto/session';
 import Logger from '../../../shared/utils/Logger';
 import { useTheme } from '../../../shared/theme/ThemeContext';

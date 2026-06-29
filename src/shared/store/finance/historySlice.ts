@@ -12,7 +12,7 @@
 import { StateCreator } from 'zustand';
 import { AssetSnapshot, FinanceState, HistoryState, Investment } from './types';
 import { fetchAssetHistory, fetchAssetHistoryFromCache } from '../../../lib/api/asset';
-import { useAppStore } from '../useAppStore';
+import { getMembershipLabelForHistory } from '../membershipLabelAccess';
 import { getAssetHistoryDaysLimit } from '../../utils/membership';
 import { useExchangeStore } from '../useExchangeStore';
 import Logger from '../../utils/Logger';
@@ -25,8 +25,7 @@ import {
 
 function resolveAssetHistoryDays(days?: number): number {
   if (days != null) return days;
-  const membershipLabel = useAppStore.getState().userProfile.membershipLabel;
-  return getAssetHistoryDaysLimit(membershipLabel);
+  return getAssetHistoryDaysLimit(getMembershipLabelForHistory());
 }
 
 function toAssetSnapshot(point: {

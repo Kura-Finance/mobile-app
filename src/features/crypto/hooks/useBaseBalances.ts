@@ -1,8 +1,12 @@
 /**
  * Reads ERC-20 balances for all blue-chip tokens from a given SCA address on Base.
  * Uses viem multicall for a single RPC round-trip.
+ *
+ * Polls every {@link REFRESH_INTERVAL_MS} while the app is foregrounded; pauses in
+ * background and refreshes once when returning to active.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { createPublicClient, erc20Abi, formatUnits } from 'viem';
 import { base } from 'viem/chains';
 import i18n from '../../../shared/locales/i18n';
@@ -97,7 +101,6 @@ export function useBaseBalances(scaAddress: string | null) {
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedRef = useRef(false);
 
   const refresh = useCallback(async (options?: { silent?: boolean; address?: string | null }) => {
@@ -132,10 +135,40 @@ export function useBaseBalances(scaAddress: string | null) {
   }, [scaAddress]);
 
   useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (intervalId != null) return;
+      intervalId = setInterval(() => {
+        void refresh({ silent: true });
+      }, REFRESH_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (intervalId != null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
     void refresh();
-    timerRef.current = setInterval(() => { void refresh({ silent: true }); }, REFRESH_INTERVAL_MS);
+
+    if (AppState.currentState === 'active') {
+      startPolling();
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        void refresh({ silent: true });
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      stopPolling();
+      subscription.remove();
     };
   }, [refresh]);
 

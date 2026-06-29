@@ -68,25 +68,76 @@ export interface YahooMarketSnapshot {
   change24h: number | null;
 }
 
+export function readCachedYahooMarket(symbol: string): YahooMarketSnapshot | null {
+  const key = symbol.toUpperCase();
+  const cached = statsCache.get(key);
+  if (!cached || Date.now() - cached.fetchedAt >= STATS_TTL) return null;
+  return {
+    price: cached.stats.referencePrice,
+    change24h: cached.stats.change24hPercent,
+  };
+}
+
 export async function fetchYahooMarketMap(
   symbols: string[],
 ): Promise<Map<string, YahooMarketSnapshot>> {
   const unique = [...new Set(symbols.map((s) => s.toUpperCase()).filter(Boolean))];
   const result = new Map<string, YahooMarketSnapshot>();
+  const batchSize = 10;
 
-  await Promise.all(
-    unique.map(async (symbol) => {
-      try {
-        const stats = await fetchYahooStats(symbol);
-        result.set(symbol, {
-          price: stats.referencePrice,
-          change24h: stats.change24hPercent,
-        });
-      } catch {
-        result.set(symbol, { price: null, change24h: null });
-      }
-    }),
-  );
+  for (let i = 0; i < unique.length; i += batchSize) {
+    const batch = unique.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async (symbol) => {
+        try {
+          const stats = await fetchYahooStats(symbol);
+          result.set(symbol, {
+            price: stats.referencePrice,
+            change24h: stats.change24hPercent,
+          });
+        } catch {
+          result.set(symbol, { price: null, change24h: null });
+        }
+      }),
+    );
+  }
 
   return result;
+}
+
+export interface YahooQuotableStock {
+  symbol: string;
+  price: number;
+  change24h: number | null;
+  holdings: number;
+  value: number;
+}
+
+export function applyYahooMarket<T extends YahooQuotableStock>(
+  item: T,
+  market: YahooMarketSnapshot | undefined,
+): T {
+  const price = market?.price ?? 0;
+  if (price <= 0) {
+    return {
+      ...item,
+      change24h: market?.change24h ?? item.change24h,
+    };
+  }
+
+  return {
+    ...item,
+    price,
+    change24h: market?.change24h ?? null,
+    value: item.holdings > 0 ? item.holdings * price : item.value,
+  };
+}
+
+export function enrichStockList<T extends YahooQuotableStock>(
+  items: T[],
+  quotes: Map<string, YahooMarketSnapshot>,
+): T[] {
+  return items.map((item) =>
+    applyYahooMarket(item, quotes.get(String(item.symbol).toUpperCase())),
+  );
 }

@@ -11,7 +11,6 @@ import { shouldShowPortfolioToken, shouldShowEarnVault, shouldShowPortfolioStock
 import PortfolioTokenRow from '../PortfolioTokenRow';
 import PortfolioEarnRow from './PortfolioEarnRow';
 import PortfolioStockRow from '../../../stocks/components/PortfolioStockRow';
-import { applyYahooMarket, useYahooStockMarket } from '../../../stocks/hooks/useYahooStockMarket';
 import type { PortfolioToken } from '../../hooks/usePortfolio';
 import type { BluechipToken } from '../../config/blueChips';
 import type { StockItem } from '../../../stocks/hooks/useDinari';
@@ -84,28 +83,15 @@ export default function PortfolioAssetGroup({
     return stocks.filter((item) => shouldShowPortfolioStock(item, hideSmallBalances));
   }, [stocks, group, hideSmallBalances]);
 
-  const stockSymbolsForQuotes = useMemo(
-    () => (group === 'stocks' && expanded ? visibleStocks.map((s) => s.symbol) : []),
-    [group, expanded, visibleStocks],
-  );
-  const marketBySymbol = useYahooStockMarket(stockSymbolsForQuotes);
-  const quotedStocks = useMemo(
-    () =>
-      visibleStocks.map((item) =>
-        applyYahooMarket(item, marketBySymbol.get(item.symbol.toUpperCase())),
-      ),
-    [visibleStocks, marketBySymbol],
-  );
-
   const groupTotal = useMemo(() => {
     if (groupTotalOverride != null) return groupTotalOverride;
     const tokenTotal = visibleTokens.reduce((sum, item) => sum + item.value, 0);
     const vaultTotal = visibleVaults.reduce((sum, vault) => {
       return sum + (positionsByVault[vault.address.toLowerCase()]?.assetsUsd ?? 0);
     }, 0);
-    const stockTotal = quotedStocks.reduce((sum, item) => sum + item.value, 0);
+    const stockTotal = visibleStocks.reduce((sum, item) => sum + item.value, 0);
     return tokenTotal + vaultTotal + stockTotal;
-  }, [visibleTokens, visibleVaults, quotedStocks, positionsByVault, groupTotalOverride]);
+  }, [visibleTokens, visibleVaults, visibleStocks, positionsByVault, groupTotalOverride]);
 
   const groupPct = portfolioTotal > 0 ? (groupTotal / portfolioTotal) * 100 : 0;
   const itemCount = visibleTokens.length + visibleVaults.length + visibleStocks.length;
@@ -155,7 +141,7 @@ export default function PortfolioAssetGroup({
               onPress={onPressVault ?? (() => {})}
             />
           ))}
-          {quotedStocks.map((item) => (
+          {visibleStocks.map((item) => (
             <PortfolioStockRow
               key={item.id}
               item={item}

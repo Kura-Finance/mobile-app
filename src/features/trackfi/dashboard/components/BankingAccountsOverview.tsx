@@ -9,7 +9,7 @@ import { useHideBalance } from '../../../../shared/hooks/useHideBalance';
 import { useAppStore } from '../../../../shared/store/useAppStore';
 import { HIDDEN_BALANCE_TEXT } from '../../../../shared/utils/privacyDisplay';
 import { useBankingStats } from '../hooks/useBankingStats';
-import type { Account } from '../../../../shared/store/useFinanceStore';
+import type { Account } from '../../../../shared/store/finance';
 
 interface Props {
   accounts: Account[];

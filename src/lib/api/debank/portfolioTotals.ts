@@ -127,19 +127,9 @@ export function effectiveProtocolDisplayUsd(protocol: {
   return protocol.portfolioItems.reduce((sum, item) => sum + item.usdValue, 0);
 }
 
-/** @deprecated Prefer computeWalletPortfolioTotals from normalized rows. */
-export function tokenEnvelopeTotalUsd(envelopeTotal: number): number {
-  return envelopeTotal;
-}
-
-/** @deprecated Prefer computeWalletPortfolioTotals from normalized rows. */
-export function protocolEnvelopeTotalUsd(envelopeTotal: number): number {
-  return envelopeTotal;
-}
-
 export function walletPortfolioTotalUsd(
   tokenTotal: number,
   protocolEnvelopeTotal: number,
 ): number {
-  return tokenTotal + protocolEnvelopeTotalUsd(protocolEnvelopeTotal);
+  return tokenTotal + protocolEnvelopeTotal;
 }

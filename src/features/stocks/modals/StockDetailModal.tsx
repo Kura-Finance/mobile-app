@@ -150,6 +150,8 @@ export default function StockDetailModal({
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const [tradeSide, setTradeSide] = useState<TradeSide | null>(null);
   const [quote, setQuote] = useState<DinariStockQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteLoaded, setQuoteLoaded] = useState(false);
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>('24H');
@@ -181,13 +183,30 @@ export default function StockDetailModal({
   }, [visible, resumeTradeSide, onResumeTradeHandled]);
 
   useEffect(() => {
-    if (!visible || !stock) { setQuote(null); return; }
+    if (!visible || !stock) {
+      setQuote(null);
+      setQuoteLoading(false);
+      setQuoteLoaded(false);
+      return;
+    }
     let active = true;
+    setQuote(null);
+    setQuoteLoading(true);
+    setQuoteLoaded(false);
     getStockQuote(stock.id)
-      .then((q) => { if (active) setQuote(q); })
-      .catch(() => { /* quote is best-effort */ });
+      .then((q) => {
+        if (!active) return;
+        setQuote(q);
+        setQuoteLoaded(true);
+      })
+      .catch(() => {
+        if (active) setQuoteLoaded(true);
+      })
+      .finally(() => {
+        if (active) setQuoteLoading(false);
+      });
     return () => { active = false; };
-  }, [visible, stock]);
+  }, [visible, stock?.id]);
 
   useEffect(() => {
     if (!visible || !stock) {
@@ -246,6 +265,9 @@ export default function StockDetailModal({
     if (!Number.isFinite(last) || last <= 0) return 1;
     return displayPrice / last;
   }, [displayPrice, chartStats?.referencePrice, prices]);
+
+  const hasLiveBook = quote?.bid != null || quote?.ask != null;
+  const showLiveQuoteUnavailable = quoteLoaded && !quoteLoading && displayPrice > 0 && !hasLiveBook;
 
   if (!stock) return null;
 
@@ -375,17 +397,41 @@ export default function StockDetailModal({
             />
             <StatRow
               label={t('crypto.stockBid')}
-              value={quote?.bid != null ? money.price(quote.bid) : '—'}
+              value={
+                quoteLoading
+                  ? '—'
+                  : quote?.bid != null
+                    ? money.price(quote.bid)
+                    : '—'
+              }
             />
             <StatRow
               label={t('crypto.stockAsk')}
-              value={quote?.ask != null ? money.price(quote.ask) : '—'}
+              value={
+                quoteLoading
+                  ? '—'
+                  : quote?.ask != null
+                    ? money.price(quote.ask)
+                    : '—'
+              }
             />
             <StatRow
               label={t('crypto.stockSpread')}
-              value={quote?.spread != null ? money.price(quote.spread) : '—'}
+              value={
+                quoteLoading
+                  ? '—'
+                  : quote?.spread != null
+                    ? money.price(quote.spread)
+                    : '—'
+              }
             />
           </View>
+          {showLiveQuoteUnavailable && (
+            <View style={st.quoteNoteCard}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
+              <Text style={st.quoteNoteText}>{t('crypto.stockLiveQuoteUnavailable')}</Text>
+            </View>
+          )}
 
           {chartStats && (
             <>
@@ -559,6 +605,21 @@ function makeStyles(c: ThemeColors) {
       paddingVertical: 12,
     },
     noteText: { flex: 1, color: c.textMuted, fontSize: 13, lineHeight: 19 },
+    quoteNoteCard: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginHorizontal: 16,
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    quoteNoteText: {
+      flex: 1,
+      color: c.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
 
     sectionTitle: {
       color: c.text,

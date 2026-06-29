@@ -9,7 +9,7 @@ import BrokersAccountList from '../components/BrokersAccountList';
 import HoldingsList from '../components/HoldingsList';
 import { useInitializePlaidData } from '../../../../shared/hooks/useInitializePlaidData';
 import { useRefreshInvestmentData } from '../hooks/useRefreshInvestmentData';
-import { useFinanceStore } from '../../../../shared/store/useFinanceStore';
+import { useFinanceStore } from '../../../../shared/store/finance';
 import { useExchangeStore } from '../../../../shared/store/useExchangeStore';
 import { useAppStore } from '../../../../shared/store/useAppStore';
 import { getAssetHistoryDaysLimit } from '../../../../shared/utils/membership';

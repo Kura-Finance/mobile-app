@@ -24,7 +24,6 @@ import { useHeaderStore } from '../../../../shared/store/useHeaderStore';
 import { HIDDEN_BALANCE_TEXT } from '../../../../shared/utils/privacyDisplay';
 import { features } from '../../../../config/features';
 import { useRefreshDashboardData } from '../../dashboard/hooks/useRefreshDashboardData';
-import { useDefiPortfolio } from '../../hooks/useDefiPortfolio';
 import { useAppStore } from '../../../../shared/store/useAppStore';
 import { getAssetHistoryDaysLimit } from '../../../../shared/utils/membership';
 import {
@@ -130,13 +129,12 @@ export default function TrackFiDashboard({ onNavigate, unlockSeq }: Props) {
   }, [visibleChartRanges, chartRange]);
 
   const data = useTrackFiDashboardData(true, chartRange, historyDaysLimit, unlockSeq);
-  const { refresh } = useDefiPortfolio();
   const { refreshing, handleRefresh } = useRefreshDashboardData();
 
   const onPullRefresh = useCallback(async () => {
     await handleRefresh();
-    await refresh();
-  }, [handleRefresh, refresh]);
+    await data.refreshDefi();
+  }, [handleRefresh, data.refreshDefi]);
 
   const visibleCategories = useMemo(
     () => data.categories.filter((c) => c.id !== 'defi' || features.debank),

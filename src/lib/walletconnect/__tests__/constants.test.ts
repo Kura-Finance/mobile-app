@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { BASE_CAIP2, requiredEip155ChainsSatisfied } from '../constants';
 
 describe('requiredEip155ChainsSatisfied', () => {

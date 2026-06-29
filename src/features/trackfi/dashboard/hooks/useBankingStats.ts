@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Account } from '../../../../shared/store/useFinanceStore';
+import type { Account } from '../../../../shared/store/finance';
 import {
   netBankingBalance,
   sumCreditLiabilities,

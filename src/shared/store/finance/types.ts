@@ -177,7 +177,6 @@ export interface AccountState {
   transactions: Transaction[];
   investmentAccounts: InvestmentAccount[];
   investments: Investment[];
-  exchangeAccounts: ExchangeAccount[];
 
   // Actions - Banking Accounts
   setAccounts: (accounts: Account[]) => void;
@@ -192,10 +191,6 @@ export interface AccountState {
     accountIds: string[],
     investmentAccountIds: string[]
   ) => Promise<void>;
-
-  // Actions - Exchange Accounts
-  addExchangeAccount: (account: ExchangeAccount) => void;
-  removeExchangeAccount: (exchangeAccountId: string) => void;
 }
 
 // ============================================================================
