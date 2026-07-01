@@ -208,18 +208,18 @@ export default function VirtualCard({
             <View style={faceStyles.bottomRow}>
               <View style={faceStyles.holderCol}>
                 <Text style={faceStyles.label}>{t('card.cardHolder')}</Text>
-                <Text style={faceStyles.value} numberOfLines={1}>
+                <Text style={faceStyles.valueText} numberOfLines={1}>
                   {holder}
                 </Text>
               </View>
               <View style={faceStyles.metaCol}>
                 <View style={faceStyles.metaBlock}>
                   <Text style={faceStyles.label}>{t('card.expires')}</Text>
-                  <Text style={faceStyles.value}>{expiry}</Text>
+                  <Text style={faceStyles.valueText}>{expiry}</Text>
                 </View>
                 <View style={faceStyles.metaBlock}>
                   <Text style={faceStyles.label}>{t('card.securityCode')}</Text>
-                  <Text style={faceStyles.value}>{cvv}</Text>
+                  <Text style={faceStyles.valueText}>{cvv}</Text>
                 </View>
               </View>
             </View>
@@ -320,7 +320,7 @@ const faceStyles = StyleSheet.create({
     marginBottom: 3,
     textTransform: 'uppercase',
   },
-  value: {
+  valueText: {
     color: '#1E293B',
     fontSize: 12.5,
     fontWeight: '700',

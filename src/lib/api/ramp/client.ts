@@ -20,14 +20,25 @@
 
 import { requestJson } from '../client';
 import { KuraApiError } from '../errors';
+import { normalizeRoutingNumber, normalizeSortCode, normalizeBridgeAddress } from './externalAccountNormalize';
 import { normalizeBridgeCustomer } from './bridgeKyc';
 import {
   isUnsupportedCurrencyError,
   parseEndorsementError,
   type EndorsementRequiredDetail,
 } from './bridgeErrors';
+import { normalizeDepositsList } from './bridgeDepositNormalize';
 
 export { isUnsupportedCurrencyError, parseEndorsementError, type EndorsementRequiredDetail };
+
+export {
+  BRIDGE_ADDRESS_LIMITS,
+  clampBridgeText,
+  isBridgeStreetLine1Valid,
+  normalizeBridgeAddress,
+  normalizeRoutingNumber,
+  normalizeSortCode,
+} from './externalAccountNormalize';
 
 const apiName = 'BridgeRampApi';
 
@@ -503,24 +514,35 @@ export type DepositEventType =
   | 'refunded'
   | string;
 
-export interface DepositEvent {
-  type: DepositEventType;
-  amount?: string;
-  destinationTxHash?: string;
-  occurredAt: string;
+export interface DepositPayerInfo {
+  paymentRail: string | null;
+  senderName: string | null;
+  accountLast4: string | null;
+  senderBankRoutingNumber: string | null;
+  senderDescription: string | null;
 }
 
-export interface DepositResult {
-  depositId: string;
+export interface DepositEvent extends DepositPayerInfo {
+  type: DepositEventType;
+  amount: string | null;
+  currency: string | null;
+  subtotalAmount: string | null;
+  developerFeeAmount: string | null;
+  exchangeFeeAmount: string | null;
+  gasFee: string | null;
+  destinationTxHash: string | null;
+  occurredAt: string | null;
+}
+
+export interface DepositResult extends DepositPayerInfo {
+  depositId: string | null;
   bridgeVirtualAccountId: string;
   /** Latest event type. */
   status: DepositEventType;
-  /** Whether the stablecoin has been sent to the destination. */
+  /** Whether stablecoin has reached payment_processed. */
   completed: boolean;
-  /** Gross amount received (before fees). */
   amount: string | null;
   currency: string | null;
-  /** Net amount after fees (converted amount). */
   netAmount: string | null;
   developerFeeAmount: string | null;
   exchangeFeeAmount: string | null;
@@ -528,25 +550,41 @@ export interface DepositResult {
   destinationTxHash: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Time-ascending event timeline. */
   events: DepositEvent[];
 }
 
 /** All deposit records for the user (most recent first). */
-export async function listDeposits(): Promise<DepositResult[]> {
-  return requestJson<DepositResult[]>('/api/bridge/deposits', {
+export { normalizeDepositsList };
+export type { NormalizedDepositResult } from './bridgeDepositNormalize';
+
+export interface ListDepositsOptions {
+  /** Bypass backend cache and sync history from Bridge immediately. */
+  force?: boolean;
+}
+
+function depositsQuery(options?: ListDepositsOptions): string {
+  return options?.force ? '?force=true' : '';
+}
+
+export async function listDeposits(options?: ListDepositsOptions): Promise<DepositResult[]> {
+  const raw = await requestJson<unknown>(`/api/bridge/deposits${depositsQuery(options)}`, {
     method: 'GET',
     apiName,
   });
+  return normalizeDepositsList(raw);
 }
 
 /** Deposit records for a single virtual account (most recent first). */
 export async function listAccountDeposits(
   virtualAccountId: string,
+  options?: ListDepositsOptions,
 ): Promise<DepositResult[]> {
-  return requestJson<DepositResult[]>(
-    `/api/bridge/onramp/${virtualAccountId}/deposits`,
+  const raw = await requestJson<unknown>(
+    `/api/bridge/onramp/${virtualAccountId}/deposits${depositsQuery(options)}`,
     { method: 'GET', apiName },
   );
+  return normalizeDepositsList(raw);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -625,10 +663,6 @@ export function accountTypeForCurrency(currency: FiatCurrency): ExternalAccountT
   }
 }
 
-/** Strip non-digits from a UK sort code (e.g. "12-34-56" → "123456"). */
-export function normalizeSortCode(raw: string): string {
-  return raw.replace(/\D/g, '').slice(0, 6);
-}
 
 /** Build the Kura external-account body from UI form values. */
 export function buildExternalAccountBody(
@@ -642,7 +676,7 @@ export function buildExternalAccountBody(
     accountOwnerName: `${firstName} ${lastName}`.trim(),
     firstName,
     lastName,
-    ...(input.address ? { address: input.address } : {}),
+    ...(input.address ? { address: normalizeBridgeAddress(input.address) } : {}),
     ...(input.bankName?.trim() ? { bankName: input.bankName.trim() } : {}),
   };
 
@@ -650,7 +684,7 @@ export function buildExternalAccountBody(
     case 'usd':
       return {
         ...base,
-        routingNumber: input.routingNumber!.trim(),
+        routingNumber: normalizeRoutingNumber(input.routingNumber ?? ''),
         accountNumber: input.accountNumber!.trim(),
         checkingOrSavings: input.checkingOrSavings ?? 'checking',
       };
@@ -905,28 +939,55 @@ export async function createPayoutAddress(
 export async function getOrCreatePayoutAddress(
   body: CreatePayoutAddressRequest,
 ): Promise<PayoutAddressResult> {
-  const existing = (await listPayoutAddresses()).find(
-    (a) =>
-      a.bridgeExternalAccountId === body.externalAccountId &&
-      a.destinationRail === body.destinationRail &&
-      a.destinationCurrency === body.destinationCurrency,
-  );
+  const findExisting = (rows: PayoutAddressResult[]) =>
+    rows.find(
+      (a) =>
+        a.bridgeExternalAccountId === body.externalAccountId &&
+        a.destinationRail === body.destinationRail &&
+        a.destinationCurrency === body.destinationCurrency,
+    );
+
+  const existing = findExisting(await listPayoutAddresses());
   if (existing) return existing;
-  return createPayoutAddress(body);
+
+  try {
+    return await createPayoutAddress(body);
+  } catch (error) {
+    if (error instanceof KuraApiError && error.status === 409) {
+      const retry = findExisting(await listPayoutAddresses());
+      if (retry) return retry;
+    }
+    throw error;
+  }
 }
 
 export type PayoutDrainState =
+  | 'in_review'
   | 'funds_received'
   | 'payment_submitted'
   | 'payment_processed'
+  | 'undeliverable'
+  | 'returned'
+  | 'error'
+  | 'refunded'
   | string;
+
+export interface PayoutDrainDestination {
+  payment_rail?: string;
+  currency?: string;
+  last4?: string;
+}
 
 /** One off-ramp payout triggered by a USDC deposit to the payout LA. */
 export interface PayoutDrainResult {
+  bridgeDrainId?: string;
   drainId?: string;
+  bridgeLiquidationAddressId?: string;
   state: PayoutDrainState;
   amount: string | null;
   currency: string | null;
+  depositTxHash?: string | null;
+  destination?: PayoutDrainDestination | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -958,11 +1019,19 @@ export function isPayoutDrainComplete(drain: PayoutDrainResult): boolean {
   return drain.state === 'payment_processed';
 }
 
+export function isPayoutDrainPending(drain: PayoutDrainResult): boolean {
+  return ['in_review', 'funds_received', 'payment_submitted'].includes(drain.state);
+}
+
 export function isPayoutDrainTerminal(drain: PayoutDrainResult): boolean {
   return (
     isPayoutDrainComplete(drain) ||
-    ['returned', 'refunded', 'error', 'canceled'].includes(drain.state)
+    ['undeliverable', 'returned', 'refunded', 'error', 'canceled'].includes(drain.state)
   );
+}
+
+export function payoutDrainReferenceId(drain: PayoutDrainResult): string {
+  return drain.bridgeDrainId ?? drain.drainId ?? drain.createdAt;
 }
 
 /** Format backend `payoutFee` for display, e.g. "0.5% USDC". */
@@ -984,6 +1053,22 @@ export async function listTransfers(): Promise<TransferResult[]> {
 /** Bridge liquidation-address deposits (Tron USDT → Base USDC). */
 export function listCryptoTransfers(transfers: TransferResult[]): TransferResult[] {
   return transfers.filter((t) => t.direction === 'crypto');
+}
+
+/** Fiat virtual-account on-ramps tracked via /transfers when deposit webhooks lag. */
+export function listOnrampTransfers(transfers: TransferResult[]): TransferResult[] {
+  return transfers.filter((t) => t.direction === 'onramp');
+}
+
+export function isOnrampTransferComplete(transfer: TransferResult): boolean {
+  return transfer.state === 'payment_processed';
+}
+
+export function isOnrampTransferTerminal(transfer: TransferResult): boolean {
+  return (
+    isOnrampTransferComplete(transfer) ||
+    ['returned', 'refunded', 'error', 'canceled'].includes(transfer.state)
+  );
 }
 
 export function isCryptoTransferComplete(transfer: TransferResult): boolean {

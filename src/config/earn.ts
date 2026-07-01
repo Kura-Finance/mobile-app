@@ -9,16 +9,12 @@
 
 import { env, hasPimlicoApiKey } from './env';
 import { hasEarnVaultFeeWrapper, morphoFeeWrapperConfigSummary, MORPHO_FEE_WRAPPER_OVERRIDES, normalizeMorphoVaultAddress } from './earnFeeWrapper';
+import { DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST } from './morphoVaultAddresses';
 
 // ── Defaults (Kura official app) ──────────────────────────────────────────────
 
 /** Underlying Morpho vaults (Base) — Steakhouse Prime USDC, Gauntlet EURC Balanced, Gauntlet USDC Prime, Gauntlet USDC Frontier. */
-export const DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST = [
-  '0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9',
-  '0x94Af495DE1F56Aa5576dEB17986bDCeE5Dd9778D',
-  '0x050cE30b927Da55177A4914EC73480238BAD56f0',
-  '0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765',
-] as const satisfies readonly `0x${string}`[];
+export { DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST };
 
 /**
  * Display-only stats source when the listed V2 vault TVL/APY is not representative

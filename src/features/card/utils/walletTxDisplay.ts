@@ -1,4 +1,8 @@
 import i18n from '../../../shared/locales/i18n';
+import {
+  formatDepositPayer,
+  formatDepositSenderDescription,
+} from '../../../lib/api/ramp/bridgeDepositDisplay';
 import { usdFromFiatAmount } from '../../../shared/utils/fiatFx';
 import { getLiveExchangeRates } from '../../../shared/utils/exchangeRatesReader';
 import type { WalletTx } from '../hooks/useWalletHistory';
@@ -8,11 +12,10 @@ import {
   isKnownRouterAddress,
   resolvePeerAddress,
 } from './walletTxContacts';
-import { isMorphoBlueAddress, isMorphoEarnVaultAddress } from './walletTxMorpho';
+import { isMorphoBlueAddress, isMorphoEarnVaultAddress, isMorphoEarnShareSymbol } from './walletTxMorpho';
+import { isUsdPeggedSymbol } from './walletTxConstants';
 
-const USD_PEGGED = new Set([
-  'USDC', 'USDT', 'DAI', 'USDBC', 'USD+', 'EURC', 'USDC.E', 'USDBC.E',
-]);
+export { isUsdPeggedSymbol } from './walletTxConstants';
 
 const TOKEN_INTENT_NAMES: Record<string, string> = {
   ETH: 'Ethereum',
@@ -33,6 +36,60 @@ const TOKEN_INTENT_NAMES: Record<string, string> = {
   MXNE: 'MXNe',
 };
 
+const DEPOSIT_RAIL_LABEL_KEYS: Record<string, string> = {
+  ach_push: 'card.depositRailAchPush',
+  ach: 'card.depositRailAchPush',
+  wire: 'card.depositRailWire',
+  sepa: 'card.depositRailSepa',
+  faster_payments: 'card.depositRailFasterPayments',
+  spei: 'card.depositRailSpei',
+  pix: 'card.depositRailPix',
+};
+
+export function formatDepositPaymentRail(rail: string | undefined | null): string | null {
+  if (!rail?.trim()) return null;
+  const normalized = rail.trim().toLowerCase();
+  const key = DEPOSIT_RAIL_LABEL_KEYS[normalized];
+  if (key) return i18n.t(key);
+  return normalized.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function formatFiatWithdrawRecipientLine(tx: WalletTx): string | undefined {
+  if (tx.source !== 'fiat_withdraw') return undefined;
+  const parts: string[] = [];
+  if (tx.accountLast4) {
+    parts.push(i18n.t('card.txDepositAccountLast4', { last4: tx.accountLast4 }));
+  }
+  const railLabel = formatDepositPaymentRail(tx.destinationRail);
+  if (railLabel) parts.push(railLabel);
+  else if (tx.destinationCurrency) parts.push(tx.destinationCurrency.toUpperCase());
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+export function formatFiatWithdrawRecipientName(tx: WalletTx): string {
+  if (tx.source !== 'fiat_withdraw') return i18n.t('card.txBridgeFiatWithdrawSub');
+  return tx.counterpartyName?.trim() || i18n.t('card.txBridgeFiatWithdrawSub');
+}
+
+export function formatDepositPayerFromTx(tx: WalletTx): string | null {
+  if (tx.source !== 'fiat_deposit') return null;
+  return formatDepositPayer({
+    paymentRail: tx.paymentRail ?? null,
+    senderName: tx.senderName ?? null,
+    accountLast4: tx.accountLast4 ?? null,
+    senderBankRoutingNumber: tx.senderBankRoutingNumber ?? null,
+    senderDescription: tx.senderDescription ?? null,
+  });
+}
+
+export function formatDepositPayerAccountLine(tx: WalletTx): string | undefined {
+  if (tx.source !== 'fiat_deposit') return undefined;
+  const payerLine = formatDepositPayerFromTx(tx);
+  const description = formatDepositSenderDescription(tx.senderDescription);
+  if (payerLine && description) return `${payerLine} · ${description}`;
+  return payerLine ?? description ?? undefined;
+}
+
 export interface TxSubtitleLines {
   primary: string;
   secondary?: string;
@@ -52,12 +109,8 @@ export interface TxStatusDisplay {
 
 export function getTokenIntentName(symbol: string): string {
   const upper = symbol.toUpperCase();
+  if (isMorphoEarnShareSymbol(upper)) return i18n.t('card.txSubEarn');
   return TOKEN_INTENT_NAMES[upper] ?? upper;
-}
-
-/** Stablecoins ≈ USD; other tokens use raw amount until priced. */
-export function isUsdPeggedSymbol(symbol: string): boolean {
-  return USD_PEGGED.has(symbol.toUpperCase());
 }
 
 function getBridgeSourceFiat(
@@ -78,6 +131,9 @@ export function getTxUsdValue(tx: WalletTx): number {
       return usdFromFiatAmount(fiat.amount, fiat.currency, getLiveExchangeRates());
     }
     return 0;
+  }
+  if (tx.source === 'fiat_withdraw') {
+    return Math.abs(tx.amount);
   }
   const abs = Math.abs(tx.amount);
   if (isUsdPeggedSymbol(tx.tokenSymbol)) return abs;
@@ -101,11 +157,11 @@ export function shouldShowTxTokenQuantity(tx: WalletTx): boolean {
     && !isUsdPeggedSymbol(tx.tokenSymbol);
 }
 
-/** Source currency / token used to process a bridge deposit. */
+/** Source currency / token used to process a bridge deposit or payout. */
 export function formatTxProcessedWith(tx: WalletTx): string {
   const fiat = getBridgeSourceFiat(tx);
   if (fiat) return formatTxTokenAmount(fiat.amount, fiat.currency);
-  if (tx.source === 'crypto_deposit') {
+  if (tx.source === 'crypto_deposit' || tx.source === 'fiat_withdraw') {
     return formatTxTokenAmount(tx.amount, tx.tokenSymbol);
   }
   return formatTxTokenAmount(tx.amount, tx.tokenSymbol);
@@ -231,9 +287,13 @@ export function resolveAddressDisplay(
 export function getTxTypeLabel(tx: WalletTx): string {
   switch (tx.activityKind) {
     case 'buy':
-      return i18n.t('card.txBuy', { symbol: tx.tokenSymbol.toUpperCase() });
+      return i18n.t('card.txBuy', {
+        symbol: (tx.swapToSymbol ?? tx.tokenSymbol).toUpperCase(),
+      });
     case 'sell':
-      return i18n.t('card.txSell', { symbol: tx.tokenSymbol.toUpperCase() });
+      return i18n.t('card.txSell', {
+        symbol: (tx.swapFromSymbol ?? tx.tokenSymbol).toUpperCase(),
+      });
     case 'swap':
       return i18n.t('card.txIntentConverted');
     case 'send':
@@ -254,8 +314,14 @@ export function getTxTypeLabel(tx: WalletTx): string {
       break;
   }
 
-  if (tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit') {
-    return i18n.t('card.txIntentReceived');
+  if (tx.source === 'fiat_deposit') {
+    return i18n.t('card.txBridgeFiat');
+  }
+  if (tx.source === 'fiat_withdraw') {
+    return i18n.t('card.txBridgeFiatWithdraw');
+  }
+  if (tx.source === 'crypto_deposit') {
+    return i18n.t('card.txBridgeCrypto');
   }
   if (tx.direction === 'self') return i18n.t('card.txIntentConverted');
   if (tx.direction === 'in') return i18n.t('card.txIntentReceived');
@@ -276,6 +342,29 @@ export function getTxSubtitleLines(
   smartAddress?: string,
 ): TxSubtitleLines {
   if (tx.statusLabelKey) {
+    if (tx.source === 'fiat_deposit') {
+      const railLabel = formatDepositPaymentRail(tx.paymentRail);
+      const statusText = i18n.t(tx.statusLabelKey);
+      const payerLine = formatDepositPayerFromTx(tx);
+      return {
+        primary: railLabel ?? i18n.t('card.txBridgeFiatSub'),
+        secondary: [payerLine, statusText].filter(Boolean).join(' · ') || undefined,
+      };
+    }
+    if (tx.source === 'fiat_withdraw') {
+      const recipientLine = formatFiatWithdrawRecipientLine(tx);
+      const statusText = i18n.t(tx.statusLabelKey);
+      return {
+        primary: formatFiatWithdrawRecipientName(tx),
+        secondary: [recipientLine, statusText].filter(Boolean).join(' · ') || undefined,
+      };
+    }
+    if (tx.source === 'crypto_deposit') {
+      return {
+        primary: i18n.t('card.txBridgeCryptoSub'),
+        secondary: i18n.t(tx.statusLabelKey),
+      };
+    }
     return { primary: i18n.t(tx.statusLabelKey) };
   }
 
@@ -300,7 +389,19 @@ export function getTxSubtitleLines(
   if (swapPair) return { primary: swapPair };
 
   if (tx.source === 'fiat_deposit') {
-    return { primary: i18n.t('card.txBridgeFiatSub') };
+    const railLabel = formatDepositPaymentRail(tx.paymentRail);
+    const payerLine = formatDepositPayerFromTx(tx);
+    return {
+      primary: railLabel ?? i18n.t('card.txBridgeFiatSub'),
+      secondary: payerLine ?? undefined,
+    };
+  }
+  if (tx.source === 'fiat_withdraw') {
+    const recipientLine = formatFiatWithdrawRecipientLine(tx);
+    return {
+      primary: formatFiatWithdrawRecipientName(tx),
+      secondary: recipientLine,
+    };
   }
   if (tx.source === 'crypto_deposit') {
     return { primary: i18n.t('card.txBridgeCryptoSub') };
@@ -385,12 +486,18 @@ export function getTxIconKind(tx: WalletTx): WalletTxIconKind | null {
   if (tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit') {
     return 'deposit';
   }
+  if (tx.source === 'fiat_withdraw') {
+    return null;
+  }
   return null;
 }
 
 export function getTxIconName(tx: WalletTx): string {
   if (tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit') {
     return 'arrow-down-outline';
+  }
+  if (tx.source === 'fiat_withdraw') {
+    return 'arrow-up-outline';
   }
   switch (tx.activityKind) {
     case 'buy':
@@ -420,7 +527,10 @@ export function getTxAccentColor(
   tx: WalletTx,
   colors: { textMuted: string },
 ): string {
-  const isBridge = tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit';
+  const isBridge =
+    tx.source === 'fiat_deposit'
+    || tx.source === 'crypto_deposit'
+    || tx.source === 'fiat_withdraw';
   if (isBridge) return tx.statusColor ?? '#10B981';
   if (tx.activityKind === 'buy' || tx.activityKind === 'sell') {
     return tx.direction === 'in' ? '#10B981' : '#F59E0B';
@@ -449,6 +559,7 @@ export function getTxStatusDisplay(tx: WalletTx): TxStatusDisplay {
       'card.statusRefunded',
       'card.cryptoStatusReturned',
       'card.cryptoStatusFailed',
+      'card.payoutStatusUndeliverable',
     ]);
     if (failedKeys.has(tx.statusLabelKey)) {
       return {
@@ -459,7 +570,7 @@ export function getTxStatusDisplay(tx: WalletTx): TxStatusDisplay {
     }
     if (pending) {
       return {
-        labelKey: 'card.txStatusPending',
+        labelKey: tx.statusLabelKey,
         color: tx.statusColor ?? '#60A5FA',
         pending: true,
       };
@@ -486,6 +597,16 @@ export function getTxFromToDisplays(
   const toAddr = tx.toAddress ?? (tx.direction === 'out' ? tx.counterparty : smartAddress);
 
   if (tx.source !== 'chain') {
+    if (tx.source === 'fiat_withdraw') {
+      const recipientLine = formatFiatWithdrawRecipientLine(tx);
+      return {
+        from: resolveAddressDisplay(smartAddress, contacts, smartAddress),
+        to: {
+          name: formatFiatWithdrawRecipientName(tx),
+          addressLine: recipientLine,
+        },
+      };
+    }
     return {
       from: null,
       to: resolveAddressDisplay(smartAddress, contacts, smartAddress),
@@ -505,9 +626,25 @@ export function getTxRecipientDisplay(
 ): AddressDisplay | null {
   if (tx.source === 'fiat_deposit') {
     const fiat = getBridgeSourceFiat(tx);
+    const payerLine = formatDepositPayerFromTx(tx);
+    if (payerLine) {
+      const segments = payerLine.split(' · ');
+      return {
+        name: segments[0],
+        addressLine: segments.length > 1
+          ? segments.slice(1).join(' · ')
+          : formatDepositPaymentRail(tx.paymentRail) ?? fiat?.currency,
+      };
+    }
     return {
       name: i18n.t('card.txBridgeFiatSub'),
-      addressLine: fiat?.currency,
+      addressLine: formatDepositPaymentRail(tx.paymentRail) ?? fiat?.currency,
+    };
+  }
+  if (tx.source === 'fiat_withdraw') {
+    return {
+      name: formatFiatWithdrawRecipientName(tx),
+      addressLine: formatFiatWithdrawRecipientLine(tx),
     };
   }
   if (tx.activityKind === 'borrow' || tx.activityKind === 'repay') {

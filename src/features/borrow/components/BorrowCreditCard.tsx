@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Alert, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { useHideBalance } from '../../../shared/hooks/useHideBalance';
 import { HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
@@ -30,10 +30,22 @@ export default function BorrowCreditCard({
   return (
     <View style={st.wrap}>
       <View style={st.card}>
-        <View style={st.balanceLabelRow}>
+        <TouchableOpacity
+          style={st.balanceLabelRow}
+          onPress={() =>
+            Alert.alert(
+              t('crypto.borrowAvailableCredit'),
+              t('crypto.borrowAvailableCreditHint'),
+            )
+          }
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('crypto.borrowAvailableCreditHint')}
+        >
           <Text style={st.balanceLabel}>{t('crypto.borrowAvailableCredit')}</Text>
-          <LegalDisclaimerInfoButton variant="borrow" size={16} />
-        </View>
+          <Ionicons name="information-circle-outline" size={14} color={colors.textFaint} />
+        </TouchableOpacity>
 
         <View style={st.balanceValueWrap}>
           {loading ? (

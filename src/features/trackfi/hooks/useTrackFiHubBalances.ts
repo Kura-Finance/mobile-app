@@ -2,13 +2,22 @@
  * Aggregated balances for TrackFi hub cards (banking, brokers, DeFi).
  */
 
-import { useEffect, useMemo } from 'react';
-import { useTrackFiFinanceData } from './useTrackFiFinanceData';
-import { useAppStore } from '../../../shared/store/useAppStore';
+import { useMemo } from 'react';
 import { features } from '../../../config/features';
 import { useDefiPortfolio, walletDataKey } from './useDefiPortfolio';
-import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
+import type { useTrackFiFinanceData } from './useTrackFiFinanceData';
 import { netBankingBalance } from '../utils/bankingBalances';
+import {
+  getPlaidBrokerAccounts,
+  isPlaidBrokerHoldingsPending,
+} from '../utils/plaidBrokerHoldings';
+
+export type TrackFiFinanceSnapshot = ReturnType<typeof useTrackFiFinanceData>;
+
+export type DefiPortfolioSnapshot = Pick<
+  ReturnType<typeof useDefiPortfolio>,
+  'totalUsdValue' | 'watched' | 'isInitialising' | 'walletData'
+>;
 
 export interface HubCardBalance {
   total: number;
@@ -23,7 +32,11 @@ export interface TrackFiHubBalances {
   defi: HubCardBalance;
 }
 
-export function useTrackFiHubBalances(enabled: boolean, unlockSeq = 0): TrackFiHubBalances {
+export function useTrackFiHubBalances(
+  enabled: boolean,
+  finance: TrackFiFinanceSnapshot,
+  defiPortfolio: DefiPortfolioSnapshot,
+): TrackFiHubBalances {
   const {
     accounts,
     isLoadingPlaidData,
@@ -33,39 +46,28 @@ export function useTrackFiHubBalances(enabled: boolean, unlockSeq = 0): TrackFiH
     exchangeAccounts,
     exchangeInvestments,
     exchangeIsLoading,
-  } = useTrackFiFinanceData();
-
-  const authToken = useAppStore((state) => state.authToken);
+  } = finance;
 
   const {
     totalUsdValue: defiTotal,
     watched,
     isInitialising: defiInitialising,
-    loadCached,
     walletData,
-  } = useDefiPortfolio();
-
-  useEffect(() => {
-    if (!enabled || !authToken || unlockSeq === 0) return;
-    void refreshTrackFiBrokerData(authToken, { force: true });
-  }, [enabled, authToken, unlockSeq]);
-
-  useEffect(() => {
-    if (!enabled || !features.debank || defiInitialising) return;
-    void loadCached();
-  }, [enabled, defiInitialising, loadCached]);
+  } = defiPortfolio;
 
   const bankingTotal = useMemo(() => netBankingBalance(accounts), [accounts]);
-  const brokersTotal = useMemo(() => calculateTotalAssets(), [calculateTotalAssets, investments, exchangeInvestments]);
+  const brokersTotal = useMemo(
+    () => calculateTotalAssets(),
+    [calculateTotalAssets, investments, exchangeInvestments],
+  );
 
   const anyExchangeLoading = Object.values(exchangeIsLoading).some(Boolean);
   const anyDefiWalletLoading = watched.some(
     (w) => walletData[walletDataKey(w.address)]?.isLoading,
   );
 
-  const plaidBrokerAccounts = investmentAccounts.filter(
-    (acc) => acc.type !== 'Exchange' && acc.type !== 'Web3 Wallet',
-  );
+  const plaidBrokerAccounts = getPlaidBrokerAccounts(investmentAccounts);
+  const plaidBrokerHoldingsPending = isPlaidBrokerHoldingsPending(investmentAccounts, investments);
 
   const banking: HubCardBalance = {
     total: bankingTotal,
@@ -85,8 +87,7 @@ export function useTrackFiHubBalances(enabled: boolean, unlockSeq = 0): TrackFiH
     isLoading:
       enabled &&
       brokersTotal === 0 &&
-      (isLoadingPlaidData || anyExchangeLoading) &&
-      !brokersHasData,
+      (isLoadingPlaidData || anyExchangeLoading || plaidBrokerHoldingsPending),
     hasData: brokersHasData,
     detailCount: plaidBrokerAccounts.length + exchangeAccounts.length,
   };

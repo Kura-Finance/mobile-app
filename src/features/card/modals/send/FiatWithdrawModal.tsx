@@ -29,13 +29,16 @@ import {
   accountTypeForCurrency,
   buildExternalAccountBody,
   createExternalAccount,
-  getBridgeCustomer,
   getOrCreatePayoutAddress,
   listExternalAccounts,
+  listPayoutDrains,
   listPayoutOptions,
+  isPayoutDrainComplete,
+  isPayoutDrainTerminal,
+  type PayoutDrainResult,
+  normalizeRoutingNumber,
   normalizeSortCode,
   resolveEndorsementDetail,
-  type BridgeCustomer,
   type ExternalAccountResult,
   type FiatCurrency,
   type FiatRail,
@@ -43,11 +46,19 @@ import {
   type PayoutAddressResult,
   type PayoutOption,
 } from '../../../../lib/api/ramp/client';
+import { BRIDGE_POLL_PAYOUT_PENDING_MS } from '../../hooks/bridgePollConfig';
 import { openBridgeHostedKycFlow } from '../../../../lib/api/ramp/hostedFlow';
 import { completeBridgeEndorsementFlow } from '../../../../lib/api/ramp/endorsementFlow';
+import { formatBridgeRampError } from '../../../../lib/api/ramp/bridgeErrors';
+import {
+  BRIDGE_ADDRESS_LIMITS,
+  clampBridgeText,
+  isBridgeStreetLine1Valid,
+} from '../../../../lib/api/ramp/externalAccountNormalize';
 import KycVerificationCard from '../../components/KycVerificationCard';
 import { PAY_GAS_IN_USDC } from '../../config/cardWalletConfig';
 import { formatAbaBankName, lookupAbaBank } from '../../../../lib/api/bankRouting/client';
+import { useBridgeCustomer } from '../../hooks/useBridgeCustomer';
 
 export interface WithdrawNavState {
   titleKey: string;
@@ -140,10 +151,6 @@ function payoutRailLabel(rail: FiatRail, t: (key: string) => string): string {
   return key ? t(key) : rail.replace(/_/g, ' ');
 }
 
-function errMessage(e: unknown): string {
-  return e instanceof Error ? e.message : 'Something went wrong. Please try again.';
-}
-
 export function FiatWithdrawPanel({
   active,
   onClose,
@@ -164,10 +171,16 @@ export function FiatWithdrawPanel({
   const st = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const userProfile = useAppStore((s) => s.userProfile);
+  const authToken = useAppStore((s) => s.authToken);
+  const authStatus = useAppStore((s) => s.authStatus);
 
   const [currency, setCurrency] = useState<FiatCurrency>('usd');
-  const [customer, setCustomer] = useState<BridgeCustomer | null>(null);
-  const [loadingCustomer, setLoadingCustomer] = useState(true);
+  const {
+    customer,
+    setCustomer,
+    loadingCustomer,
+    refreshCustomer: fetchBridgeCustomer,
+  } = useBridgeCustomer({ enabled: active && !!authToken });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [payoutOptions, setPayoutOptions] = useState<PayoutOption[]>([]);
@@ -208,7 +221,10 @@ export function FiatWithdrawPanel({
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [doneTxHash, setDoneTxHash] = useState<string | null>(null);
+  const [payoutDrain, setPayoutDrain] = useState<PayoutDrainResult | null>(null);
+  const [payoutDrainLoading, setPayoutDrainLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorHint, setErrorHint] = useState<string | undefined>();
   const [gasReserve, setGasReserve] = useState(0);
   const [gasEstimating, setGasEstimating] = useState(false);
 
@@ -217,6 +233,25 @@ export function FiatWithdrawPanel({
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const isAddBankScreen = screen === 'addBankCurrency' || screen === 'addBankForm';
+
+  const clearError = useCallback(() => {
+    setError('');
+    setErrorHint(undefined);
+  }, []);
+
+  const reportError = useCallback(
+    (input: unknown, hint?: string) => {
+      if (typeof input === 'string') {
+        setError(input);
+        setErrorHint(hint);
+        return;
+      }
+      const formatted = formatBridgeRampError(input, t);
+      setError(formatted.message);
+      setErrorHint(formatted.hint);
+    },
+    [t],
+  );
 
   const navigate = useCallback((next: WithdrawScreen, dir: 'forward' | 'back' = 'forward') => {
     if (dir === 'forward') historyRef.current.push(screen);
@@ -329,16 +364,20 @@ export function FiatWithdrawPanel({
 
   const openAddBank = useCallback(() => {
     resetForm();
-    setError('');
+    clearError();
     navigate('addBankCurrency');
   }, [resetForm, navigate]);
 
   const refreshCustomer = useCallback(async () => {
-    setLoadingCustomer(true);
-    setError('');
+    if (!useAppStore.getState().authToken) {
+      setAccounts([]);
+      setPayoutOptions([]);
+      setLoadingPayoutOptions(false);
+      return;
+    }
+    clearError();
     try {
-      const c = await getBridgeCustomer();
-      setCustomer(c);
+      const c = await fetchBridgeCustomer();
       if (c?.canTransact) {
         setLoadingPayoutOptions(true);
         try {
@@ -356,19 +395,19 @@ export function FiatWithdrawPanel({
         }
       }
     } catch (e) {
-      setError(errMessage(e));
-    } finally {
-      setLoadingCustomer(false);
+      reportError(e);
     }
-  }, []);
+  }, [clearError, fetchBridgeCustomer, reportError]);
 
   useEffect(() => {
     if (!active) {
       setDoneTxHash(null);
       setAmount('');
-      setError('');
+      clearError();
       setSelectedRail(null);
       setPayoutAddress(null);
+      setAccounts([]);
+      setPayoutOptions([]);
       appliedInitial.current = false;
       resetFlow();
       return;
@@ -380,9 +419,37 @@ export function FiatWithdrawPanel({
     } else {
       resetFlow();
     }
-    void refreshCustomer();
     refreshGasEstimate();
-  }, [active, startInAddBank, refreshCustomer, refreshGasEstimate, resetFlow, slideAnim]);
+  }, [active, startInAddBank, refreshGasEstimate, resetFlow, slideAnim]);
+
+  useEffect(() => {
+    if (!active || !authToken || !customer?.canTransact) return;
+
+    let cancelled = false;
+    void (async () => {
+      setLoadingPayoutOptions(true);
+      try {
+        const [list, options] = await Promise.all([
+          listExternalAccounts().catch(() => [] as ExternalAccountResult[]),
+          listPayoutOptions().catch(() => [] as PayoutOption[]),
+        ]);
+        if (cancelled) return;
+        setAccounts(list);
+        setPayoutOptions(options);
+      } catch {
+        if (!cancelled) {
+          setAccounts([]);
+          setPayoutOptions([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingPayoutOptions(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, authToken, customer?.canTransact, customer?.bridgeCustomerId]);
 
   useEffect(() => {
     if (!active || screen !== 'amount' || !payoutAddress) return;
@@ -463,32 +530,33 @@ export function FiatWithdrawPanel({
 
   const startKyc = useCallback(async (req: KycLinkRequest) => {
     if (req.type === 'individual' && !hasVerifiedEmail(userProfile)) {
-      setError(t('card.linkEmailBeforeKyc'));
+      reportError(t('card.linkEmailBeforeKyc'));
       return;
     }
     if (req.type === 'individual' && !req.email?.trim()) {
-      setError(t('card.linkEmailBeforeKyc'));
+      reportError(t('card.linkEmailBeforeKyc'));
       return;
     }
-    setError('');
+    clearError();
     setCreatingKyc(true);
     try {
       await openBridgeHostedKycFlow(req);
       await refreshCustomer();
     } catch (e) {
-      setError(errMessage(e));
+      reportError(e);
     } finally {
       setCreatingKyc(false);
     }
   }, [refreshCustomer, userProfile, t]);
 
   const ensurePayoutAddress = useCallback(async () => {
+    if (!useAppStore.getState().authToken) return;
     if (!selectedAccountId || !selectedRail || !smartAddress) return;
     const acct = accounts.find((a) => a.bridgeExternalAccountId === selectedAccountId);
     if (!acct) return;
     const destCurrency = acct.currency?.toLowerCase() as FiatCurrency;
     setLoadingPayoutAddress(true);
-    setError('');
+    clearError();
     try {
       const addr = await getOrCreatePayoutAddress({
         destinationRail: selectedRail,
@@ -496,6 +564,9 @@ export function FiatWithdrawPanel({
         externalAccountId: selectedAccountId,
         returnAddress: smartAddress,
       });
+      if (!addr.depositAddress?.trim()) {
+        throw new Error(t('card.bridgeNoAddress'));
+      }
       setPayoutAddress(addr);
     } catch (e) {
       const endorsement = resolveEndorsementDetail(e, destCurrency);
@@ -508,69 +579,85 @@ export function FiatWithdrawPanel({
             externalAccountId: selectedAccountId,
             returnAddress: smartAddress,
           });
+          if (!addr.depositAddress?.trim()) {
+            throw new Error(t('card.bridgeNoAddress'));
+          }
           setPayoutAddress(addr);
           return;
         } catch (retryErr) {
-          setError(errMessage(retryErr));
+          reportError(retryErr);
         }
       } else {
-        setError(errMessage(e));
+        reportError(e);
       }
       setPayoutAddress(null);
     } finally {
       setLoadingPayoutAddress(false);
     }
-  }, [selectedAccountId, selectedRail, smartAddress, accounts]);
+  }, [selectedAccountId, selectedRail, smartAddress, accounts, t]);
 
   useEffect(() => {
     if (!active || !customer?.canTransact || isAddBankScreen) return;
-    if (!selectedAccountId || !selectedRail) return;
+    if (!authToken || !selectedAccountId || !selectedRail || !smartAddress) return;
     void ensurePayoutAddress();
   }, [
     active,
+    authToken,
     customer?.canTransact,
     isAddBankScreen,
     selectedAccountId,
     selectedRail,
+    smartAddress,
     ensurePayoutAddress,
   ]);
 
   const saveBank = useCallback(async () => {
-    setError('');
-    if (!firstName.trim() || !lastName.trim()) {
-      setError(t('card.enterFirstLastName'));
+    clearError();
+    if (!useAppStore.getState().authToken) {
+      reportError(t('card.bridgeAuthRequired'));
       return;
     }
-    if (currency === 'usd' && (!accountNumber.trim() || !routingNumber.trim())) {
-      setError(t('card.accountRoutingRequired'));
+    if (!firstName.trim() || !lastName.trim()) {
+      reportError(t('card.enterFirstLastName'));
       return;
+    }
+    if (currency === 'usd') {
+      const normalizedRouting = normalizeRoutingNumber(routingNumber);
+      if (!accountNumber.trim() || !normalizedRouting) {
+        reportError(t('card.accountRoutingRequired'));
+        return;
+      }
+      if (normalizedRouting.length !== 9) {
+        reportError(t('card.routingNumberInvalid'), t('card.routingNumberInvalidHint'));
+        return;
+      }
     }
     if (currency === 'gbp') {
       const normalizedSortCode = normalizeSortCode(sortCode);
       if (!accountNumber.trim() || normalizedSortCode.length !== 6) {
-        setError(t('card.sortCodeAccountRequired'));
+        reportError(t('card.sortCodeAccountRequired'), t('card.sortCodeInvalidHint'));
         return;
       }
     }
     if (currency === 'brl' && (!pixKey.trim() || !documentNumber.trim())) {
-      setError(t('card.pixKeyRequired'));
+      reportError(t('card.pixKeyRequired'), t('card.pixKeyInvalidHint'));
       return;
     }
     if (currency === 'mxn') {
       const clabeDigits = clabe.trim().replace(/\D/g, '');
       if (clabeDigits.length !== 18) {
-        setError(t('card.clabeRequired'));
+        reportError(t('card.clabeRequired'), t('card.clabeInvalidHint'));
         return;
       }
     }
     if (currency === 'eur' && !iban.trim()) {
-      setError(t('card.ibanRequired'));
+      reportError(t('card.ibanRequired'), t('card.ibanInvalidHint'));
       return;
     }
     if (currency === 'cop') {
       const key = breBKey.trim();
       if (key.length < 10) {
-        setError(t('card.breBKeyRequired'));
+        reportError(t('card.breBKeyRequired'));
         return;
       }
     }
@@ -581,7 +668,30 @@ export function FiatWithdrawPanel({
         !postalCode.trim() ||
         !country.trim()
       ) {
-        setError(t('card.addressRequired'));
+        reportError(t('card.addressRequired'));
+        return;
+      }
+      if (!region.trim()) {
+        reportError(t('card.stateRequired'), t('card.stateRequiredHint'));
+        return;
+      }
+      if (!isBridgeStreetLine1Valid(street1)) {
+        reportError(
+          street1.trim().length > BRIDGE_ADDRESS_LIMITS.streetLine1Max
+            ? t('card.streetLine1TooLong')
+            : t('card.streetLine1TooShort'),
+          street1.trim().length > BRIDGE_ADDRESS_LIMITS.streetLine1Max
+            ? t('card.streetLine1TooLongHint')
+            : t('card.streetLine1Hint'),
+        );
+        return;
+      }
+      if (street2.trim().length > BRIDGE_ADDRESS_LIMITS.streetLine2Max) {
+        reportError(t('card.streetLine2TooLong'), t('card.streetLine2TooLongHint'));
+        return;
+      }
+      if (region.trim().length > BRIDGE_ADDRESS_LIMITS.stateMax) {
+        reportError(t('card.stateTooLong'), t('card.stateTooLongHint'));
         return;
       }
     }
@@ -589,13 +699,14 @@ export function FiatWithdrawPanel({
       requiresBillingAddress(currency) &&
       street1.trim() &&
       city.trim() &&
+      region.trim() &&
       postalCode.trim() &&
       country.trim()
         ? {
             street_line_1: street1.trim(),
             street_line_2: street2.trim() || undefined,
             city: city.trim(),
-            state: region.trim() || undefined,
+            state: region.trim(),
             postal_code: postalCode.trim(),
             country: country.trim().toUpperCase(),
           }
@@ -610,7 +721,7 @@ export function FiatWithdrawPanel({
           lastName: lastName.trim(),
           bankName: bankName.trim() || undefined,
           accountNumber: accountNumber.trim() || undefined,
-          routingNumber: routingNumber.trim() || undefined,
+          routingNumber: normalizeRoutingNumber(routingNumber) || undefined,
           sortCode: sortCode.trim() || undefined,
           checkingOrSavings: 'checking',
           pixKey: pixKey.trim() || undefined,
@@ -630,7 +741,7 @@ export function FiatWithdrawPanel({
       setScreen('amount');
       slideAnim.setValue(0);
     } catch (e) {
-      setError(errMessage(e));
+      reportError(e);
     } finally {
       setSavingBank(false);
     }
@@ -639,32 +750,32 @@ export function FiatWithdrawPanel({
   const validateAmount = useCallback((): number | null => {
     const value = Number(amount);
     if (!amount || Number.isNaN(value) || value <= 0) {
-      setError(t('card.enterValidAmount'));
+      reportError(t('card.enterValidAmount'));
       return null;
     }
     if (value > usdcBalance) {
-      setError(t('card.amountExceedsBalance'));
+      reportError(t('card.amountExceedsBalance'));
       return null;
     }
     if (value > maxSendable) {
-      setError(t('card.amountLeaveGas'));
+      reportError(t('card.amountLeaveGas'));
       return null;
     }
     if (!payoutAddress?.depositAddress) {
-      setError(t('card.bridgeNoAddress'));
+      reportError(t('card.bridgeNoAddress'));
       return null;
     }
     return value;
   }, [amount, usdcBalance, maxSendable, payoutAddress, t]);
 
   const continueToConfirm = useCallback(() => {
-    setError('');
+    clearError();
     if (validateAmount() == null) return;
     navigate('confirm');
   }, [validateAmount, navigate]);
 
   const sendUsdc = useCallback(async () => {
-    setError('');
+    clearError();
     const value = validateAmount();
     if (value == null) return;
     setSubmitting(true);
@@ -673,11 +784,76 @@ export function FiatWithdrawPanel({
       setDoneTxHash(hash);
       navigate('success');
     } catch (e) {
-      setError(errMessage(e));
+      reportError(e);
     } finally {
       setSubmitting(false);
     }
   }, [validateAmount, payoutAddress, onSend, navigate]);
+
+  useEffect(() => {
+    if (screen !== 'success' || !doneTxHash || !payoutAddress?.bridgeLiquidationAddressId) {
+      return;
+    }
+
+    let alive = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const poll = async () => {
+      setPayoutDrainLoading(true);
+      try {
+        const drains = await listPayoutDrains(payoutAddress.bridgeLiquidationAddressId);
+        if (!alive) return;
+        const match =
+          drains.find((d) => (d.depositTxHash ?? '').toLowerCase() === doneTxHash.toLowerCase())
+          ?? drains[0]
+          ?? null;
+        if (match) {
+          setPayoutDrain(match);
+          if (isPayoutDrainTerminal(match) && interval) {
+            clearInterval(interval);
+            interval = null;
+          }
+        }
+      } catch {
+        // Best-effort — Bridge may not have indexed the drain yet.
+      } finally {
+        if (alive) setPayoutDrainLoading(false);
+      }
+    };
+
+    void poll();
+    interval = setInterval(() => void poll(), BRIDGE_POLL_PAYOUT_PENDING_MS);
+
+    return () => {
+      alive = false;
+      if (interval) clearInterval(interval);
+    };
+  }, [screen, doneTxHash, payoutAddress?.bridgeLiquidationAddressId]);
+
+  const payoutDrainStatusKey = useMemo(() => {
+    if (!payoutDrain) return payoutDrainLoading ? 'card.payoutStatusAwaitingBridge' : null;
+    switch (payoutDrain.state) {
+      case 'in_review':
+        return 'card.statusInReview';
+      case 'funds_received':
+        return 'card.statusConverting';
+      case 'payment_submitted':
+        return 'card.statusOnItsWay';
+      case 'payment_processed':
+        return 'card.statusCompleted';
+      case 'undeliverable':
+        return 'card.payoutStatusUndeliverable';
+      case 'returned':
+        return 'card.cryptoStatusReturned';
+      case 'refunded':
+        return 'card.statusRefunded';
+      case 'error':
+      case 'canceled':
+        return 'card.cryptoStatusFailed';
+      default:
+        return 'card.payoutStatusAwaitingBridge';
+    }
+  }, [payoutDrain, payoutDrainLoading]);
 
   const fiatName = (code: FiatCurrency) =>
     t(`card.fiatName${code.charAt(0).toUpperCase()}${code.slice(1)}`);
@@ -726,7 +902,14 @@ export function FiatWithdrawPanel({
   const renderSuccess = () => (
     <View style={st.successWrap}>
       <View style={s.successBox}>
-        <Ionicons name="checkmark-circle" size={64} color={colors.success} style={s.successIcon} />
+        <Ionicons
+          name={payoutDrain && isPayoutDrainComplete(payoutDrain) ? 'checkmark-circle' : 'time-outline'}
+          size={64}
+          color={payoutDrain && isPayoutDrainTerminal(payoutDrain) && !isPayoutDrainComplete(payoutDrain)
+            ? colors.danger
+            : colors.success}
+          style={s.successIcon}
+        />
         <Text style={s.successTitle}>{t('card.withdrawalSubmitted')}</Text>
         <Text style={s.successSub}>
           {t('card.payoutSendSuccessSub', {
@@ -734,6 +917,26 @@ export function FiatWithdrawPanel({
             currency: activeCurrency.toUpperCase(),
           })}
         </Text>
+
+        {payoutDrainStatusKey ? (
+          <View style={st.drainStatusRow}>
+            {payoutDrainLoading && !payoutDrain ? (
+              <LoadingDots compact color={colors.primary} size={6} />
+            ) : (
+              <Ionicons
+                name={payoutDrain && isPayoutDrainComplete(payoutDrain) ? 'checkmark-circle' : 'ellipse-outline'}
+                size={16}
+                color={colors.primary}
+              />
+            )}
+            <Text style={st.drainStatusText}>{t(payoutDrainStatusKey)}</Text>
+          </View>
+        ) : null}
+
+        {!payoutDrain && !payoutDrainLoading ? (
+          <Text style={st.drainHint}>{t('card.payoutStatusAwaitingBridgeHint')}</Text>
+        ) : null}
+
         <View style={s.txHashBox}>
           <Text style={s.txHashLabel}>{t('card.txHash')}</Text>
           <Text style={s.txHashValue} numberOfLines={1} ellipsizeMode="middle">
@@ -765,7 +968,7 @@ export function FiatWithdrawPanel({
             style={st.bankRow}
             onPress={() => {
               setCurrency(c.code);
-              setError('');
+              clearError();
               setCountry((prev) => prev || defaultCountryForCurrency(c.code));
               navigate('addBankForm');
             }}
@@ -824,9 +1027,10 @@ export function FiatWithdrawPanel({
           <TextInput
             value={routingNumber}
             onChangeText={(v) => {
-              setRoutingNumber(v);
+              const digits = normalizeRoutingNumber(v);
+              setRoutingNumber(digits);
               bankNameManualRef.current = false;
-              if (v.replace(/\D/g, '').length !== 9) {
+              if (digits.length !== 9) {
                 lastAbaLookupRef.current = '';
               }
             }}
@@ -834,6 +1038,7 @@ export function FiatWithdrawPanel({
             placeholder={t('card.nineDigits')}
             placeholderTextColor={colors.textFaint}
             style={st.monoInput}
+            maxLength={9}
           />
         </>
       ) : currency === 'gbp' ? (
@@ -938,18 +1143,73 @@ export function FiatWithdrawPanel({
       {requiresBillingAddress(currency) ? (
         <>
           <Text style={[st.fieldLabel, { marginTop: 14 }]}>{t('card.billingAddress')}</Text>
-          <TextInput value={street1} onChangeText={setStreet1} placeholder={t('card.streetLine1')} placeholderTextColor={colors.textFaint} style={st.textInput} />
-          <TextInput value={street2} onChangeText={setStreet2} placeholder={t('card.streetLine2Optional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
+          <TextInput
+            value={street1}
+            onChangeText={(v) => setStreet1(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.streetLine1Max))}
+            placeholder={t('card.streetLine1')}
+            placeholderTextColor={colors.textFaint}
+            style={st.textInput}
+            maxLength={BRIDGE_ADDRESS_LIMITS.streetLine1Max}
+          />
+          <Text style={st.fieldHint}>
+            {t('card.streetLine1Limit', {
+              current: street1.length,
+              max: BRIDGE_ADDRESS_LIMITS.streetLine1Max,
+              min: BRIDGE_ADDRESS_LIMITS.streetLine1Min,
+            })}
+          </Text>
+          <TextInput
+            value={street2}
+            onChangeText={(v) => setStreet2(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.streetLine2Max))}
+            placeholder={t('card.streetLine2Optional')}
+            placeholderTextColor={colors.textFaint}
+            style={st.textInput}
+            maxLength={BRIDGE_ADDRESS_LIMITS.streetLine2Max}
+          />
           <View style={st.addrRow}>
-            <TextInput value={city} onChangeText={setCity} placeholder={t('card.city')} placeholderTextColor={colors.textFaint} style={[st.textInput, st.addrCol]} />
-            <TextInput value={postalCode} onChangeText={setPostalCode} placeholder={t('card.postalCode')} placeholderTextColor={colors.textFaint} style={[st.monoInput, st.addrCol]} />
+            <TextInput
+              value={city}
+              onChangeText={(v) => setCity(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.cityMax))}
+              placeholder={t('card.city')}
+              placeholderTextColor={colors.textFaint}
+              style={[st.textInput, st.addrCol]}
+              maxLength={BRIDGE_ADDRESS_LIMITS.cityMax}
+            />
+            <TextInput
+              value={postalCode}
+              onChangeText={(v) => setPostalCode(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.postalCodeMax))}
+              placeholder={t('card.postalCode')}
+              placeholderTextColor={colors.textFaint}
+              style={[st.monoInput, st.addrCol]}
+              maxLength={BRIDGE_ADDRESS_LIMITS.postalCodeMax}
+            />
           </View>
-          <TextInput value={region} onChangeText={setRegion} placeholder={t('card.stateProvinceOptional')} placeholderTextColor={colors.textFaint} style={st.textInput} />
-          <TextInput value={country} onChangeText={setCountry} autoCapitalize="characters" maxLength={3} placeholder={t('card.countryPlaceholder')} placeholderTextColor={colors.textFaint} style={st.monoInput} />
+          <TextInput
+            value={region}
+            onChangeText={(v) =>
+              setRegion(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.stateMax).toUpperCase())
+            }
+            placeholder={t('card.stateProvince')}
+            placeholderTextColor={colors.textFaint}
+            style={st.textInput}
+            maxLength={BRIDGE_ADDRESS_LIMITS.stateMax}
+            autoCapitalize="characters"
+          />
+          <TextInput
+            value={country}
+            onChangeText={(v) => setCountry(clampBridgeText(v, BRIDGE_ADDRESS_LIMITS.countryLen).toUpperCase())}
+            autoCapitalize="characters"
+            maxLength={BRIDGE_ADDRESS_LIMITS.countryLen}
+            placeholder={t('card.countryPlaceholder')}
+            placeholderTextColor={colors.textFaint}
+            style={st.monoInput}
+          />
         </>
       ) : null}
 
-      {error ? <Text style={s.errorText}>{error}</Text> : null}
+      {error ? (
+        <InlineErrorBanner message={error} hint={errorHint} style={{ marginBottom: 12 }} />
+      ) : null}
 
       <TouchableOpacity onPress={saveBank} disabled={savingBank} activeOpacity={0.85} style={st.primaryBtn}>
         <LinearGradient colors={['#7C3AED', '#4F46E5']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={st.primaryBtnInner}>
@@ -960,6 +1220,18 @@ export function FiatWithdrawPanel({
   );
 
   const renderAmountScreen = () => {
+    if (authStatus === 'loading' || (authStatus === 'authenticated' && !authToken)) {
+      return renderLoading();
+    }
+
+    if (!authToken) {
+      return (
+        <View style={st.center}>
+          <Text style={st.stepSub}>{t('card.bridgeAuthRequired')}</Text>
+        </View>
+      );
+    }
+
     if (loadingCustomer || loadingPayoutOptions) return renderLoading();
 
     if (!customer?.canTransact) {
@@ -1035,7 +1307,7 @@ export function FiatWithdrawPanel({
               onPress={() => {
                 setSelectedRail(option.destinationRail);
                 setPayoutAddress(null);
-                setError('');
+                clearError();
               }}
               activeOpacity={0.8}
             >
@@ -1055,13 +1327,59 @@ export function FiatWithdrawPanel({
       );
     }
 
-    if (loadingPayoutAddress || !payoutAddress) {
+    if (loadingPayoutAddress) {
       return (
         <View style={st.center}>
           <LoadingDots color={colors.primary} size={8}   />
           <Text style={[st.stepSub, { marginTop: 12, marginBottom: 0 }]}>
             {t('card.payoutSettingUpAddress')}
           </Text>
+        </View>
+      );
+    }
+
+    if (!payoutAddress) {
+      if (!smartAddress) {
+        return (
+          <View style={st.center}>
+            <Text style={st.stepSub}>{t('card.walletNotReady')}</Text>
+          </View>
+        );
+      }
+
+      return (
+        <View style={st.center}>
+          {error ? (
+            <InlineErrorBanner
+              message={error}
+              hint={errorHint}
+              style={{ marginBottom: 16, alignSelf: 'stretch' }}
+            />
+          ) : (
+            <Text style={[st.stepSub, { marginBottom: 16 }]}>
+              {t('card.payoutSetupFailed')}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={st.secondaryBtn}
+            onPress={() => void ensurePayoutAddress()}
+            activeOpacity={0.85}
+          >
+            <Text style={st.secondaryBtnText}>{t('card.tryAgain')}</Text>
+          </TouchableOpacity>
+          {railsForAccount.length > 1 ? (
+            <TouchableOpacity
+              style={[st.secondaryBtn, { marginTop: 10, backgroundColor: 'transparent' }]}
+              onPress={() => {
+                setSelectedRail(null);
+                setPayoutAddress(null);
+                clearError();
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={st.changeRailText}>{t('card.payoutChangeMethod')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       );
     }
@@ -1087,7 +1405,7 @@ export function FiatWithdrawPanel({
           <TouchableOpacity
             onPress={() => {
               setAmount(maxSendable.toFixed(6));
-              setError('');
+              clearError();
             }}
             disabled={maxSendable <= 0}
           >
@@ -1100,7 +1418,7 @@ export function FiatWithdrawPanel({
           value={amount}
           onChangeText={(v) => {
             setAmount(v);
-            setError('');
+            clearError();
           }}
           keyboardType="decimal-pad"
           placeholder="0.00"
@@ -1131,7 +1449,7 @@ export function FiatWithdrawPanel({
         ) : null}
 
         {error ? (
-          <InlineErrorBanner message={error} style={{ marginBottom: 12 }} />
+          <InlineErrorBanner message={error} hint={errorHint} style={{ marginBottom: 12 }} />
         ) : null}
 
         <TouchableOpacity
@@ -1179,7 +1497,9 @@ export function FiatWithdrawPanel({
           />
         </View>
 
-        {error ? <Text style={s.errorText}>{error}</Text> : null}
+        {error ? (
+          <InlineErrorBanner message={error} hint={errorHint} style={{ marginTop: 8 }} />
+        ) : null}
 
         <TouchableOpacity
           onPress={sendUsdc}
@@ -1440,6 +1760,24 @@ function makeStyles(c: ThemeColors) {
     submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 
     successWrap: { flex: 1, paddingHorizontal: 24 },
+    drainStatusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 16,
+      marginBottom: 4,
+    },
+    drainStatusText: { color: c.text, fontSize: 14, fontWeight: '600' },
+    drainHint: {
+      color: c.textMuted,
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginTop: 8,
+      marginBottom: 4,
+      paddingHorizontal: 8,
+    },
     doneBtn: {
       marginTop: 8, backgroundColor: c.primary, borderRadius: 14,
       paddingVertical: 16, alignItems: 'center', width: '100%',

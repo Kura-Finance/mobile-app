@@ -54,7 +54,7 @@ function WalletRow({
         <Text style={st.name}>{data.label ?? truncAddr(data.address)}</Text>
         <Text style={st.addr}>{truncAddr(data.address)}</Text>
       </View>
-      <Text style={st.value}>
+      <Text style={st.valueText}>
         {data.isLoading
           ? '…'
           : hideBalance
@@ -224,7 +224,7 @@ function makeRowStyles(c: ThemeColors) {
       fontFamily: 'monospace',
       marginTop: 2,
     },
-    value: {
+    valueText: {
       color: c.text,
       fontSize: 13,
       fontWeight: '700',

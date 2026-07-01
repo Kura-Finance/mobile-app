@@ -28,6 +28,10 @@ import {
   shouldAutoSyncTrackFi,
 } from '../../../features/trackfi/utils/trackFiSyncPolicy';
 
+/** Coalesce concurrent Plaid hydrates (e.g. unlock → dashboard + background sync). */
+let hydratePlaidInFlight: Promise<void> | null = null;
+let hydratePlaidPendingForce = false;
+
 import {
   Account,
   AccountBucket,
@@ -167,60 +171,83 @@ export const createPlaidSlice: StateCreator<FinanceState, [], [], PlaidState> = 
   cacheSource: null,
 
   hydratePlaidFinanceData: async (_token: string, force: boolean = false) => {
-    if (!shouldAutoSyncTrackFi('plaid', { force })) {
-      Logger.debug('PlaidSlice', 'Skipping Plaid hydrate — synced within the last hour');
-      return;
-    }
+    if (force) hydratePlaidPendingForce = true;
 
-    set({ isLoadingPlaidData: true, plaidError: null });
-    try {
-      const snapshot = await fetchPlaidFinanceSnapshot();
+    if (hydratePlaidInFlight) return hydratePlaidInFlight;
 
-      // Diagnostic: an empty decrypted snapshot can mean either (A) the backend
-      // has no synced data, or (B) the backend has raw accounts that were
-      // encrypted to a different keypair than the one we just established.
-      // Comparing against the raw (pre-encryption) cache stats tells them apart.
-      if (snapshot.accounts.length === 0) {
-        try {
-          const { cacheStats } = await getPlaidCacheInfo();
-          Logger.warn('PlaidSlice', 'Decrypted snapshot empty — backend raw cache stats', {
-            rawAccounts: cacheStats.cachedAccounts,
-            rawTransactions: cacheStats.cachedTransactions,
-            rawInvestmentAccounts: cacheStats.cachedInvestmentAccounts,
-            lastFullSync: cacheStats.lastFullSync,
-            diagnosis:
-              cacheStats.cachedAccounts > 0
-                ? 'backend HAS data but it is not in the encrypted snapshot → likely keypair/public-key mismatch'
-                : 'backend has NO synced accounts → connection did not complete or has not synced yet',
-          });
-        } catch {
-          // cache-info is best-effort diagnostic only
-        }
-      }
+    const run = async (): Promise<void> => {
+      while (true) {
+        const useForce = hydratePlaidPendingForce;
+        hydratePlaidPendingForce = false;
 
-      applySnapshot(set, get, snapshot);
-      markTrackFiSynced('plaid');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch Plaid finance data';
-      const code = error instanceof KuraApiError ? error.code : undefined;
-
-      // Network / API error — try stale cache
-      try {
-        const cached = await fetchPlaidFromCache();
-        if (cached) {
-          Logger.warn('PlaidSlice', 'Network error; serving Plaid data from local cache', { message });
-          applySnapshot(set, get, cached, CACHE_SOURCE_FROM_CACHE);
-          markTrackFiSynced('plaid');
+        if (!shouldAutoSyncTrackFi('plaid', { force: useForce })) {
+          Logger.debug('PlaidSlice', 'Skipping Plaid hydrate — synced within the last hour');
           return;
         }
-      } catch {
-        // cache miss
-      }
 
-      Logger.warn('PlaidSlice', 'Failed to hydrate Plaid data', { message, code });
-      set({ isLoadingPlaidData: false, plaidError: message });
-      throw error;
-    }
+        set({ isLoadingPlaidData: true, plaidError: null });
+        try {
+          const snapshot = await fetchPlaidFinanceSnapshot();
+
+          if (snapshot.accounts.length === 0) {
+            try {
+              const { cacheStats } = await getPlaidCacheInfo();
+              const hasRawAccounts = cacheStats.cachedAccounts > 0;
+              const payload = {
+                rawAccounts: cacheStats.cachedAccounts,
+                rawTransactions: cacheStats.cachedTransactions,
+                rawInvestmentAccounts: cacheStats.cachedInvestmentAccounts,
+                lastFullSync: cacheStats.lastFullSync,
+                diagnosis: hasRawAccounts
+                  ? 'backend HAS data but it is not in the encrypted snapshot → likely keypair/public-key mismatch'
+                  : 'backend has NO synced accounts → connection did not complete or has not synced yet',
+              };
+              if (hasRawAccounts) {
+                Logger.warn('PlaidSlice', 'Decrypted snapshot empty — backend raw cache stats', payload);
+              } else {
+                Logger.debug('PlaidSlice', 'Decrypted snapshot empty — no synced Plaid accounts yet', payload);
+              }
+            } catch {
+              // cache-info is best-effort diagnostic only
+            }
+          }
+
+          applySnapshot(set, get, snapshot);
+          markTrackFiSynced('plaid');
+          return;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to fetch Plaid finance data';
+          const code = error instanceof KuraApiError ? error.code : undefined;
+
+          try {
+            const cached = await fetchPlaidFromCache();
+            if (cached) {
+              Logger.warn('PlaidSlice', 'Network error; serving Plaid data from local cache', { message });
+              applySnapshot(set, get, cached, CACHE_SOURCE_FROM_CACHE);
+              markTrackFiSynced('plaid');
+              return;
+            }
+          } catch {
+            // cache miss
+          }
+
+          Logger.warn('PlaidSlice', 'Failed to hydrate Plaid data', { message, code });
+          set({ isLoadingPlaidData: false, plaidError: message });
+          throw error;
+        } finally {
+          if (!hydratePlaidPendingForce) {
+            set((state) => (state.isLoadingPlaidData ? { isLoadingPlaidData: false } : {}));
+          }
+        }
+
+        if (!hydratePlaidPendingForce) return;
+      }
+    };
+
+    hydratePlaidInFlight = run().finally(() => {
+      hydratePlaidInFlight = null;
+    });
+    return hydratePlaidInFlight;
   },
 
   clearPlaidFinanceData: () => {

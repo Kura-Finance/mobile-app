@@ -37,7 +37,7 @@ export default function LanguageSelector({ selectedLanguage, onSelectLanguage }:
           <Text style={st.description}>{t('settings.languageDescription')}</Text>
         </View>
         <View style={st.valueRow}>
-          <Text style={st.value}>{currentLanguage?.nativeName}</Text>
+          <Text style={st.valueText}>{currentLanguage?.nativeName}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
         </View>
       </TouchableOpacity>
@@ -75,6 +75,6 @@ function makeStyles(c: ThemeColors) {
     label: { color: c.text, fontWeight: '500' },
     description: { fontSize: 12, color: c.textMuted, marginTop: 2 },
     valueRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    value: { fontSize: 14, fontWeight: '700', color: c.primary },
+    valueText: { fontSize: 14, fontWeight: '700', color: c.primary },
   });
 }

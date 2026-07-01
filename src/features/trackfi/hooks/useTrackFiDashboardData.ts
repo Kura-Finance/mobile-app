@@ -96,10 +96,9 @@ export function useTrackFiDashboardData(
   enabled: boolean,
   chartRange: TrackFiChartRange,
   historyDaysLimit: number = FULL_ASSET_HISTORY_DAYS,
-  unlockSeq = 0,
 ) {
   const { colors } = useTheme();
-  const { finance, hub, defi } = useTrackFiData(enabled, unlockSeq);
+  const { finance, hub, defi } = useTrackFiData(enabled);
   const {
     accounts,
     transactions,
@@ -108,7 +107,6 @@ export function useTrackFiDashboardData(
     isLoadingAssetHistory,
     investmentAccounts,
     investments,
-    calculateTotalAssets,
     exchangeAccounts,
     exchangeInvestments,
   } = finance;
@@ -129,7 +127,7 @@ export function useTrackFiDashboardData(
 
   const bankDeposits = useMemo(() => sumDepositoryBalances(accounts), [accounts]);
   const creditTotal = useMemo(() => sumCreditLiabilities(accounts), [accounts]);
-  const brokersTotal = useMemo(() => calculateTotalAssets(), [calculateTotalAssets]);
+  const brokersTotal = hub.brokers.total;
   const defiTotal = hub.defi.total;
 
   const netWorth = useMemo(

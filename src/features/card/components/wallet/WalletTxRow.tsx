@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import LoadingDots from '../../../../shared/components/LoadingDots';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +24,7 @@ interface Props {
   onPress?: (tx: WalletTx) => void;
 }
 
-export default function WalletTxRow({ tx, contacts = [], onPress }: Props) {
+function WalletTxRow({ tx, contacts = [], onPress }: Props) {
   const { colors } = useTheme();
   const hideBalance = useHideBalance();
   const money = useMoneyFormat();
@@ -87,6 +87,19 @@ export default function WalletTxRow({ tx, contacts = [], onPress }: Props) {
     </TouchableOpacity>
   );
 }
+
+function areWalletTxRowPropsEqual(prev: Props, next: Props): boolean {
+  if (prev.onPress !== next.onPress || prev.contacts !== next.contacts) return false;
+  return (
+    prev.tx.id === next.tx.id
+    && prev.tx.statusPending === next.tx.statusPending
+    && prev.tx.amount === next.tx.amount
+    && prev.tx.tokenSymbol === next.tx.tokenSymbol
+    && prev.tx.activityKind === next.tx.activityKind
+  );
+}
+
+export default memo(WalletTxRow, areWalletTxRowPropsEqual);
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({

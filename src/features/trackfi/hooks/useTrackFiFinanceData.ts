@@ -19,6 +19,7 @@ export function useTrackFiFinanceData() {
   const exchangeAccounts = useExchangeStore((s) => s.exchangeAccounts);
   const exchangeInvestments = useExchangeStore((s) => s.exchangeInvestments);
   const exchangeIsLoading = useExchangeStore((s) => s.isLoading);
+  const exchangeLastSyncedTime = useExchangeStore((s) => s.lastSyncedTime);
 
   return {
     accounts,
@@ -33,5 +34,6 @@ export function useTrackFiFinanceData() {
     exchangeAccounts,
     exchangeInvestments,
     exchangeIsLoading,
+    exchangeLastSyncedTime,
   };
 }

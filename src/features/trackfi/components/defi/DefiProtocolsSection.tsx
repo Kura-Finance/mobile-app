@@ -100,7 +100,7 @@ function PositionRow({
             {hideBalance ? HIDDEN_BALANCE_TEXT : formatAmount(amount)}
           </Text>
         ) : null}
-        <Text style={[st.value, { color: hideBalance ? colors.text : valueColor }]}>
+        <Text style={[st.valueText, { color: hideBalance ? colors.text : valueColor }]}>
           {hideBalance ? HIDDEN_BALANCE_TEXT : money.compact(usdValue)}
         </Text>
       </View>
@@ -228,7 +228,7 @@ function ExpandableProtocol({
           </View>
         </View>
         <View style={st.headerRight}>
-          <Text style={st.value}>
+          <Text style={st.valueText}>
             {hideBalance ? HIDDEN_BALANCE_TEXT : money.compact(displayUsd)}
           </Text>
           <Ionicons
@@ -382,7 +382,7 @@ function makeProtocolStyles(c: ThemeColors) {
       alignItems: 'center',
       gap: 8,
     },
-    value: {
+    valueText: {
       color: c.text,
       fontSize: 14,
       fontWeight: '700',
@@ -442,7 +442,7 @@ function makePositionStyles(c: ThemeColors) {
       fontSize: 12,
       fontWeight: '500',
     },
-    value: {
+    valueText: {
       fontSize: 13,
       fontWeight: '700',
     },

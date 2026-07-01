@@ -83,4 +83,36 @@ describe('computeDefiAllocationBuckets', () => {
       other: 0,
     });
   });
+
+  test('KGTUSDCF vault share excluded from token buckets when morpho protocol covers it', () => {
+    const rows = [
+      wallet({
+        address: '0x1',
+        tokens: [
+          spotToken({ symbol: 'KGTUSDCF', usdValue: 0.01, protocolId: 'morpho-base' }),
+          spotToken({ symbol: 'USDC', usdValue: 5 }),
+        ],
+        protocols: [
+          defiProtocol({
+            id: 'morpho-base',
+            netUsdValue: 0.01,
+            portfolioItems: [
+              {
+                type: 'yield',
+                usdValue: 0.01,
+                tokens: [{ symbol: 'USDC', amount: 0.01, usdValue: 0.01, logoUrl: null }],
+              },
+            ],
+          }),
+        ],
+      }),
+    ];
+
+    expect(computeDefiAllocationBuckets(rows, 5.01)).toEqual({
+      stablecoins: 5,
+      crypto: 0,
+      yield: 0.01,
+      other: 0,
+    });
+  });
 });

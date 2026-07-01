@@ -6,6 +6,7 @@ import { useTrackFiData } from './useTrackFiData';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import {
   effectiveProtocolDisplayUsd,
+  shouldIncludeSpotTokenInAllocation,
 } from '../../../lib/api/debank/portfolioTotals';
 import { computeDefiAllocationBuckets } from '../utils/defiAllocation';
 import {
@@ -48,6 +49,14 @@ function mergeTokens(wallets: WalletData[]): DefiToken[] {
   const map = new Map<string, DefiToken>();
   for (const w of wallets) {
     for (const t of w.tokens) {
+      if (
+        !shouldIncludeSpotTokenInAllocation(
+          { protocolId: t.protocolId, symbol: t.symbol },
+          w.protocols,
+        )
+      ) {
+        continue;
+      }
       const key = `${t.chain}-${t.id}`;
       const prev = map.get(key);
       if (!prev) {

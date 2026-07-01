@@ -75,18 +75,18 @@ export default function StandardCard({
           <View style={styles.bottomRow}>
             <View style={styles.holderCol}>
               <Text style={styles.label}>{t('card.cardHolder')}</Text>
-              <Text style={styles.value} numberOfLines={1}>
+              <Text style={styles.valueText} numberOfLines={1}>
                 {holder}
               </Text>
             </View>
             <View style={styles.metaCol}>
               <View style={styles.metaBlock}>
                 <Text style={styles.label}>{t('card.expires')}</Text>
-                <Text style={styles.value}>{expiry}</Text>
+                <Text style={styles.valueText}>{expiry}</Text>
               </View>
               <View style={styles.metaBlock}>
                 <Text style={styles.label}>{t('card.securityCode')}</Text>
-                <Text style={styles.value}>{cvv}</Text>
+                <Text style={styles.valueText}>{cvv}</Text>
               </View>
             </View>
           </View>
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
     textTransform: 'uppercase',
   },
-  value: {
+  valueText: {
     color: '#F5F3FF',
     fontSize: 12.5,
     fontWeight: '700',

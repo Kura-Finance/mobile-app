@@ -16,6 +16,7 @@ import { useAppStore } from '../../../shared/store/useAppStore';
 import { useFinanceStore } from '../../../shared/store/finance';
 import { useExchangeStore } from '../../../shared/store/useExchangeStore';
 import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
+import { isPlaidBrokerHoldingsPending } from '../utils/plaidBrokerHoldings';
 import Logger from '../../../shared/utils/Logger';
 
 const TAG = 'TrackFiBackgroundSync';
@@ -36,7 +37,12 @@ export function useTrackFiBackgroundSync({ enabled, unlockSeq }: Options): void 
     const authToken = useAppStore.getState().authToken;
     if (!authToken) return;
 
-    const needsPlaid = shouldAutoSyncTrackFi('plaid', { force });
+    const financeState = useFinanceStore.getState();
+    const needsPlaidHoldings = isPlaidBrokerHoldingsPending(
+      financeState.investmentAccounts,
+      financeState.investments,
+    );
+    const needsPlaid = shouldAutoSyncTrackFi('plaid', { force }) || needsPlaidHoldings;
     const needsHistory = shouldAutoSyncTrackFi('assetHistory', { force });
     const exchangeAccountsSnapshot = useExchangeStore.getState().exchangeAccounts;
     const needsBrokerRefresh =
@@ -55,8 +61,8 @@ export function useTrackFiBackgroundSync({ enabled, unlockSeq }: Options): void 
       const { hydratePlaidFinanceData, hydrateAssetHistory } = useFinanceStore.getState();
 
       if (needsPlaid) {
-        Logger.debug(TAG, 'Syncing Plaid snapshot', { force });
-        await hydratePlaidFinanceData(authToken, force);
+        Logger.debug(TAG, 'Syncing Plaid snapshot', { force, needsPlaidHoldings });
+        await hydratePlaidFinanceData(authToken, force || needsPlaidHoldings);
         markTrackFiSynced('plaid');
       }
 

@@ -12,7 +12,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForCryptoSession(maxAttempts = 20, delayMs = 50): Promise<boolean> {
+async function waitForCryptoSession(maxAttempts = 40, delayMs = 100): Promise<boolean> {
   for (let i = 0; i < maxAttempts; i++) {
     if (getCryptoSession()) return true;
     await sleep(delayMs);
@@ -25,11 +25,6 @@ export async function refreshTrackFiBrokerData(
   options?: { force?: boolean },
 ): Promise<void> {
   const force = options?.force ?? true;
-
-  const sessionReady = await waitForCryptoSession();
-  if (!sessionReady) {
-    Logger.warn(TAG, 'Crypto session not ready — skipping exchange balance refresh');
-  }
 
   const exchangeStore = useExchangeStore.getState();
   let exchangeAccounts = exchangeStore.exchangeAccounts;
@@ -45,17 +40,23 @@ export async function refreshTrackFiBrokerData(
     }
   }
 
-  if (sessionReady && exchangeAccounts.length > 0) {
-    const { fetchExchangeBalances } = useExchangeStore.getState();
-    await Promise.all(
-      exchangeAccounts.map((account) =>
-        fetchExchangeBalances(account.id, authToken, force).catch((error) => {
-          Logger.warn(TAG, 'Exchange balance refresh failed', {
-            accountId: account.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }),
-      ),
-    );
+  if (exchangeAccounts.length === 0) return;
+
+  const sessionReady = await waitForCryptoSession();
+  if (!sessionReady) {
+    Logger.warn(TAG, 'Crypto session not ready — skipping exchange balance refresh');
+    return;
   }
+
+  const { fetchExchangeBalances } = useExchangeStore.getState();
+  await Promise.all(
+    exchangeAccounts.map((account) =>
+      fetchExchangeBalances(account.id, authToken, force).catch((error) => {
+        Logger.warn(TAG, 'Exchange balance refresh failed', {
+          accountId: account.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }),
+    ),
+  );
 }

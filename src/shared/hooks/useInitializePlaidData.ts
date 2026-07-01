@@ -2,6 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useFinanceStore } from '../store/finance';
 import { useAppStore } from '../store/useAppStore';
 import Logger from '../utils/Logger';
+import {
+  getPlaidBrokerAccounts,
+  hasPlaidBrokerHoldings,
+} from '../../features/trackfi/utils/plaidBrokerHoldings';
 
 /**
  * One-shot bootstrap hook used by Dashboard / Investment screens.
@@ -30,11 +34,15 @@ export function useInitializePlaidData(enabled = true, unlockSeq = 0) {
 
     const loadPlaid = async () => {
       const hasBanking = accounts.length > 0;
-      const hasBroker = investments.length > 0
-        || investmentAccounts.some((a) => a.type !== 'Exchange' && a.type !== 'Web3 Wallet');
-      if (!unlockedAgain && hasBanking && hasBroker) return;
+      const plaidBrokerAccounts = getPlaidBrokerAccounts(investmentAccounts);
+      const hasPlaidBrokerAccounts = plaidBrokerAccounts.length > 0;
+      const brokerHoldingsReady = hasPlaidBrokerHoldings(investmentAccounts, investments);
+      // Account metadata can load before holdings; don't skip when broker accounts exist but holdings are empty.
+      const brokerDataReady = !hasPlaidBrokerAccounts || brokerHoldingsReady;
+      const needsBrokerHoldings = hasPlaidBrokerAccounts && !brokerHoldingsReady;
+      if (!unlockedAgain && hasBanking && brokerDataReady) return;
       try {
-        await hydratePlaidFinanceData(authToken, unlockedAgain);
+        await hydratePlaidFinanceData(authToken, unlockedAgain || needsBrokerHoldings);
       } catch (error) {
         Logger.warn('useInitializePlaidData', 'Plaid hydration failed', { error: String(error) });
       }

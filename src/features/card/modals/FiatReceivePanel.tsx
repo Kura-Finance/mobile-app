@@ -18,14 +18,12 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { hasVerifiedEmail, needsEmailLink } from '../../../lib/api/auth/userProfileHelpers';
 import {
-  getBridgeCustomer,
   getOrCreateOnRampAccount,
   getPendingFiatEndorsement,
   formatDepositFeeLabel,
   isUnsupportedCurrencyError,
   listOnRampAccounts,
   resolveEndorsementDetail,
-  type BridgeCustomer,
   type EndorsementRequiredDetail,
   type FiatCurrency,
   type KycLinkRequest,
@@ -44,6 +42,7 @@ import { completeBridgeEndorsementFlow, openBridgeEndorsementHostedFlow } from '
 import KycVerificationCard from '../components/KycVerificationCard';
 import DepositBulletList from '../components/DepositBulletList';
 import { buildFiatDepositBullets } from '../config/receiveDepositBullets';
+import { useBridgeCustomer } from '../hooks/useBridgeCustomer';
 
 interface FiatReceivePanelProps {
   smartAddress: string;
@@ -85,6 +84,7 @@ export default function FiatReceivePanel({
   const { colors } = useTheme();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const userProfile = useAppStore((st) => st.userProfile);
+  const authToken = useAppStore((st) => st.authToken);
   const fiatName = (code: FiatCurrency) =>
     t(`card.fiatName${code.charAt(0).toUpperCase()}${code.slice(1)}`);
 
@@ -95,8 +95,12 @@ export default function FiatReceivePanel({
   }, [initialCurrency]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moonpayOpen, setMoonpayOpen] = useState(false);
-  const [customer, setCustomer] = useState<BridgeCustomer | null>(null);
-  const [loadingCustomer, setLoadingCustomer] = useState(true);
+  const {
+    customer,
+    setCustomer,
+    loadingCustomer,
+    refreshCustomer: fetchBridgeCustomer,
+  } = useBridgeCustomer({ enabled: !!authToken });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [accountsByCurrency, setAccountsByCurrency] = useState<
@@ -132,11 +136,13 @@ export default function FiatReceivePanel({
   const selected = FIAT_OPTIONS.find((o) => o.code === currency)!;
 
   const refreshCustomer = useCallback(async () => {
-    setLoadingCustomer(true);
+    if (!useAppStore.getState().authToken) {
+      setAccountsByCurrency({});
+      return;
+    }
     setError('');
     try {
-      const c = await getBridgeCustomer();
-      setCustomer(c);
+      const c = await fetchBridgeCustomer();
       if (c && (c.canTransact || isKycApproved(c.kycStatus))) {
         try {
           const list = await listOnRampAccounts();
@@ -149,10 +155,8 @@ export default function FiatReceivePanel({
       }
     } catch (e) {
       setError(errMessage(e));
-    } finally {
-      setLoadingCustomer(false);
     }
-  }, []);
+  }, [fetchBridgeCustomer]);
 
   const loadAccount = useCallback(
     async (code: FiatCurrency) => {
@@ -226,8 +230,29 @@ export default function FiatReceivePanel({
   );
 
   useEffect(() => {
-    void refreshCustomer();
-  }, [refreshCustomer]);
+    if (!authToken) {
+      setAccountsByCurrency({});
+      return;
+    }
+    if (!customer || !(customer.canTransact || isKycApproved(customer.kycStatus))) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await listOnRampAccounts();
+        if (cancelled) return;
+        const byCurrency: Record<string, VirtualAccount> = {};
+        for (const va of list) byCurrency[va.sourceCurrency] = va;
+        setAccountsByCurrency(byCurrency);
+      } catch {
+        // Non-fatal: accounts are lazily created on demand below.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, customer]);
 
   // When KYC is approved but a rail endorsement (pix / cop / …) is still missing,
   // surface the enable-deposits card before POST /onramp returns 409.

@@ -555,6 +555,6 @@ export default function TrackFiScreen() {
   }
 
   return (
-    <TrackFiDashboard onNavigate={handleNavigate} unlockSeq={unlockSeq} />
+    <TrackFiDashboard onNavigate={handleNavigate} />
   );
 }

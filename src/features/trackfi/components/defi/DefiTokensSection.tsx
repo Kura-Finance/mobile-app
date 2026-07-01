@@ -64,7 +64,7 @@ function TokenRow({ token }: { token: DefiToken }) {
         </Text>
       </View>
       <View style={st.valueCol}>
-        <Text style={st.value}>
+        <Text style={st.valueText}>
           {hideBalance ? HIDDEN_BALANCE_TEXT : money.compact(token.usdValue)}
         </Text>
       </View>
@@ -248,7 +248,7 @@ function makeRowStyles(c: ThemeColors) {
       width: 72,
       alignItems: 'flex-end',
     },
-    value: {
+    valueText: {
       color: c.text,
       fontSize: 13,
       fontWeight: '700',

@@ -642,7 +642,11 @@ export default function BorrowActionSheet({
           </View>
 
           {!canTransact ? (
-            <InlineErrorBanner message={t('crypto.borrowMarketUnavailable')} style={{ marginBottom: 12 }} />
+            <InlineErrorBanner
+              message={t('crypto.borrowMarketUnavailable')}
+              hint={t('crypto.borrowMarketUnavailableHint')}
+              style={{ marginBottom: 12 }}
+            />
           ) : null}
 
           {txHash ? (
@@ -830,6 +834,7 @@ export default function BorrowActionSheet({
                   {hasOnChainDebt ? (
                     <InlineErrorBanner
                       message={t('crypto.borrowRepayBeforeWithdraw')}
+                      hint={t('crypto.borrowRepayBeforeWithdrawHint')}
                       style={{ marginTop: 12 }}
                     />
                   ) : null}
@@ -839,6 +844,7 @@ export default function BorrowActionSheet({
               {isBorrow && !oracleLoading && oraclePrice == null && collateralAmount > 0 ? (
                 <InlineErrorBanner
                   message={t('crypto.borrowOracleUnavailable')}
+                  hint={t('crypto.borrowOracleUnavailableHint')}
                   style={{ marginTop: 12 }}
                 />
               ) : null}
@@ -849,6 +855,7 @@ export default function BorrowActionSheet({
                     amount: morphoMinCollateralAmount(market.collateralAsset.symbol) ?? 0,
                     symbol: market.collateralAsset.symbol,
                   })}
+                  hint={t('crypto.borrowMinCollateralHint')}
                   style={{ marginTop: 12 }}
                 />
               ) : null}
@@ -858,6 +865,9 @@ export default function BorrowActionSheet({
                   message={t('crypto.borrowLtvExceeded', {
                     max: formatUserLtvPercent(maxLltv),
                   })}
+                  hint={t('crypto.borrowLtvExceededHint', {
+                    max: formatUserLtvPercent(maxLltv),
+                  })}
                   style={{ marginTop: 12 }}
                 />
               ) : null}
@@ -865,6 +875,7 @@ export default function BorrowActionSheet({
               {isBorrow && !isBorrowMoreFlow && collateralAmount > collateralBalance + 1e-9 ? (
                 <InlineErrorBanner
                   message={t('crypto.insufficientBalance', { symbol: market.collateralAsset.symbol })}
+                  hint={t('crypto.insufficientBalanceHint', { symbol: market.collateralAsset.symbol })}
                   style={{ marginTop: 12 }}
                 />
               ) : null}

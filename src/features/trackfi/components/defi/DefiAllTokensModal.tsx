@@ -1,13 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Image,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,17 +24,46 @@ interface Props {
   tokens: DefiToken[];
 }
 
+const SHEET_HEIGHT = Dimensions.get('window').height * 0.75;
+const HEADER_HEIGHT = 56;
+
 export default function DefiAllTokensModal({ isOpen, onClose, tokens }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const money = useMoneyFormat();
   const st = useMemo(() => makeStyles(colors), [colors]);
+  const listHeight = SHEET_HEIGHT - HEADER_HEIGHT - Math.max(insets.bottom, 16);
+
+  const renderItem = useCallback(
+    ({ item: token }: { item: DefiToken }) => (
+      <View style={st.row}>
+        {token.logoUrl ? (
+          <Image source={{ uri: token.logoUrl }} style={st.logo} />
+        ) : (
+          <View style={[st.logo, st.logoFallback]}>
+            <Text style={st.logoText}>{token.symbol.slice(0, 2)}</Text>
+          </View>
+        )}
+        <View style={st.body}>
+          <Text style={st.symbol}>{token.symbol}</Text>
+          <Text style={st.name} numberOfLines={1}>{token.name}</Text>
+        </View>
+        <Text style={st.valueText}>{money.compact(token.usdValue)}</Text>
+      </View>
+    ),
+    [money, st],
+  );
+
+  const keyExtractor = useCallback(
+    (token: DefiToken) => `${token.chain}-${token.id}`,
+    [],
+  );
 
   return (
     <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={st.backdrop} onPress={onClose} />
-      <View style={[st.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[st.sheet, { height: SHEET_HEIGHT, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={st.handle} />
         <View style={st.header}>
           <Text style={st.title}>{t('trackfi.defi.allTokensTitle', { count: tokens.length })}</Text>
@@ -41,24 +71,16 @@ export default function DefiAllTokensModal({ isOpen, onClose, tokens }: Props) {
             <Ionicons name="close" size={22} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {tokens.map((token) => (
-            <View key={`${token.chain}-${token.id}`} style={st.row}>
-              {token.logoUrl ? (
-                <Image source={{ uri: token.logoUrl }} style={st.logo} />
-              ) : (
-                <View style={[st.logo, st.logoFallback]}>
-                  <Text style={st.logoText}>{token.symbol.slice(0, 2)}</Text>
-                </View>
-              )}
-              <View style={st.body}>
-                <Text style={st.symbol}>{token.symbol}</Text>
-                <Text style={st.name} numberOfLines={1}>{token.name}</Text>
-              </View>
-              <Text style={st.value}>{money.compact(token.usdValue)}</Text>
-            </View>
-          ))}
-        </ScrollView>
+        <FlatList
+          data={tokens}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          style={{ maxHeight: listHeight }}
+          initialNumToRender={16}
+          maxToRenderPerBatch={24}
+          windowSize={8}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </Modal>
   );
@@ -75,7 +97,6 @@ function makeStyles(c: ThemeColors) {
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       paddingHorizontal: 20,
-      maxHeight: '75%',
     },
     handle: {
       width: 36,
@@ -128,7 +149,7 @@ function makeStyles(c: ThemeColors) {
       color: c.textMuted,
       fontSize: 11,
     },
-    value: {
+    valueText: {
       color: c.text,
       fontSize: 14,
       fontWeight: '700',

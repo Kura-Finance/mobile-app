@@ -45,7 +45,6 @@ type SubView = 'banking' | 'brokers' | 'debank';
 
 interface Props {
   onNavigate: (view: SubView) => void;
-  unlockSeq: number;
 }
 
 function formatSyncTime(ms: number | null, t: ReturnType<typeof useTranslation>['t']): string {
@@ -101,7 +100,7 @@ function AccountCategoryCard({
   );
 }
 
-export default function TrackFiDashboard({ onNavigate, unlockSeq }: Props) {
+export default function TrackFiDashboard({ onNavigate }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const money = useMoneyFormat();
@@ -128,7 +127,7 @@ export default function TrackFiDashboard({ onNavigate, unlockSeq }: Props) {
     }
   }, [visibleChartRanges, chartRange]);
 
-  const data = useTrackFiDashboardData(true, chartRange, historyDaysLimit, unlockSeq);
+  const data = useTrackFiDashboardData(true, chartRange, historyDaysLimit);
   const { refreshing, handleRefresh } = useRefreshDashboardData();
 
   const onPullRefresh = useCallback(async () => {

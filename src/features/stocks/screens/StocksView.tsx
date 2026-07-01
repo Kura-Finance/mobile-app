@@ -97,7 +97,7 @@ function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) 
         )}
       </View>
       <View style={st.right}>
-        <Text style={st.value}>
+        <Text style={st.valueText}>
           {item.price > 0 ? money.price(item.price) : '—'}
         </Text>
         {hasChange ? (
@@ -453,7 +453,7 @@ function makeStyles(c: ThemeColors) {
     symbol: { color: c.text, fontSize: 15, fontWeight: '700' },
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     right: { alignItems: 'flex-end', gap: 3 },
-    value: { color: c.text, fontSize: 15, fontWeight: '700' },
+    valueText: { color: c.text, fontSize: 15, fontWeight: '700' },
     change: { fontSize: 11, fontWeight: '600' },
     changePos: { color: '#10B981' },
     changeNeg: { color: '#EF4444' },

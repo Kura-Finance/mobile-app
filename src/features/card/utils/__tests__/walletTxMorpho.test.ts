@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import type { WalletTx } from '../../hooks/useWalletHistory';
-import { classifyMorphoActivities, MORPHO_BLUE_ADDRESS } from '../walletTxMorpho';
+import {
+  classifyMorphoActivities,
+  isMorphoEarnShareSymbol,
+  MORPHO_BLUE_ADDRESS,
+  tryClassifyMorphoEarnShareFlow,
+} from '../walletTxMorpho';
 import { enrichWalletActivities } from '../walletTxEnrichment';
 
 const MORPHO = MORPHO_BLUE_ADDRESS;
@@ -139,6 +144,58 @@ describe('classifyMorphoActivities', () => {
     expect(withdraw.activities[0].activityKind).toBe('withdraw');
     expect(withdraw.activities[0].activitySubkind).toBe('earn');
   });
+
+  test('recognizes KGTUSDCF as Morpho Earn share token', () => {
+    expect(isMorphoEarnShareSymbol('KGTUSDCF')).toBe(true);
+    expect(isMorphoEarnShareSymbol('SCAMCOIN')).toBe(false);
+  });
+
+  test('pairs USDC out + KGTUSDCF in as earn deposit', () => {
+    const flow = tryClassifyMorphoEarnShareFlow([
+      leg({
+        id: 'out-usdc',
+        direction: 'out',
+        amount: 0.01,
+        tokenSymbol: 'USDC',
+      }),
+      leg({
+        id: 'in-share',
+        direction: 'in',
+        amount: 0.01,
+        tokenSymbol: 'KGTUSDCF',
+      }),
+    ]);
+
+    expect(flow).toHaveLength(1);
+    expect(flow![0].activityKind).toBe('deposit');
+    expect(flow![0].activitySubkind).toBe('earn');
+    expect(flow![0].tokenSymbol).toBe('USDC');
+    expect(flow![0].amount).toBe(0.01);
+  });
+
+  test('does not treat KGTUSDCF receipt as earn withdraw when paired with USDC out', () => {
+    const { activities } = classifyMorphoActivities([
+      leg({
+        direction: 'out',
+        amount: 1000,
+        tokenSymbol: 'USDC',
+        toAddress: EARN_VAULT,
+        counterparty: EARN_VAULT,
+      }),
+      leg({
+        id: 'in-share',
+        direction: 'in',
+        amount: 1000,
+        tokenSymbol: 'KGTUSDCF',
+        fromAddress: EARN_VAULT,
+        counterparty: EARN_VAULT,
+      }),
+    ]);
+
+    expect(activities).toHaveLength(1);
+    expect(activities[0].activityKind).toBe('deposit');
+    expect(activities[0].tokenSymbol).toBe('USDC');
+  });
 });
 
 describe('enrichWalletActivities morpho', () => {
@@ -164,5 +221,26 @@ describe('enrichWalletActivities morpho', () => {
     expect(txs).toHaveLength(1);
     expect(txs[0].activityKind).toBe('borrow');
     expect(txs[0].activityKind).not.toBe('sell');
+  });
+
+  test('classifies USDC to KGTUSDCF as Morpho Earn deposit, not buy', () => {
+    const txs = enrichWalletActivities([
+      leg({
+        direction: 'out',
+        amount: 0.01,
+        tokenSymbol: 'USDC',
+      }),
+      leg({
+        id: 'in-share',
+        direction: 'in',
+        amount: 0.01,
+        tokenSymbol: 'KGTUSDCF',
+      }),
+    ]);
+
+    expect(txs).toHaveLength(1);
+    expect(txs[0].activityKind).toBe('deposit');
+    expect(txs[0].activitySubkind).toBe('earn');
+    expect(txs[0].tokenSymbol).toBe('USDC');
   });
 });

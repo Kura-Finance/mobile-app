@@ -55,6 +55,17 @@ describe('getTxTypeLabel', () => {
     expect(getTxTypeLabel(tx({ activityKind: 'buy', direction: 'out', tokenSymbol: 'USDC' }))).toBe(
       'Buy USDC',
     );
+    expect(
+      getTxTypeLabel(
+        tx({
+          activityKind: 'buy',
+          direction: 'out',
+          tokenSymbol: 'USDC',
+          swapFromSymbol: 'USDC',
+          swapToSymbol: 'WETH',
+        }),
+      ),
+    ).toBe('Buy WETH');
     expect(getTxTypeLabel(tx({ activityKind: 'sell', direction: 'out', tokenSymbol: 'ETH' }))).toBe(
       'Sell ETH',
     );
@@ -76,6 +87,11 @@ describe('getTxTypeLabel', () => {
       direction: 'in',
       tokenSymbol: 'WETH',
     }))).toBe('Withdrawn');
+  });
+
+  test('labels bridge fiat and crypto deposits distinctly', () => {
+    expect(getTxTypeLabel(tx({ source: 'fiat_deposit', direction: 'in' }))).toBe('Fiat deposit');
+    expect(getTxTypeLabel(tx({ source: 'crypto_deposit', direction: 'in' }))).toBe('Crypto deposit');
   });
 });
 
@@ -254,10 +270,58 @@ describe('getTxSubtitleLines', () => {
     );
     expect(lines.primary).toBe('USDC');
   });
+
+  test('shows fiat rail and bridge status for pending on-ramp deposits', () => {
+    const lines = getTxSubtitleLines(
+      tx({
+        source: 'fiat_deposit',
+        direction: 'in',
+        statusLabelKey: 'card.statusConverting',
+        sourceFiatAmount: 1500,
+        sourceFiatCurrency: 'MXN',
+      }),
+      [],
+    );
+    expect(lines.primary).toBe('Bank transfer');
+    expect(lines.secondary).toBe('Converting');
+  });
+
+  test('shows payment rail and sender for fiat deposits with payer metadata', () => {
+    const lines = getTxSubtitleLines(
+      tx({
+        source: 'fiat_deposit',
+        direction: 'in',
+        statusLabelKey: 'card.statusCompleted',
+        paymentRail: 'ach_push',
+        senderName: 'Jane Doe',
+        senderBankRoutingNumber: '021000021',
+      }),
+      [],
+    );
+    expect(lines.primary).toBe('ACH');
+    expect(lines.secondary).toBe('Jane Doe · Routing 021000021 · Completed');
+  });
 });
 
 describe('getTxRecipientDisplay', () => {
-  test('shows bank transfer for fiat on-ramp, not external wallet', () => {
+  test('shows sender name and routing for ACH fiat deposit', () => {
+    const display = getTxRecipientDisplay(
+      tx({
+        source: 'fiat_deposit',
+        direction: 'in',
+        counterparty: 'USD',
+        senderName: 'Jane Doe',
+        senderBankRoutingNumber: '021000021',
+        paymentRail: 'ach_push',
+      }),
+      [],
+      '0xsmart',
+    );
+    expect(display?.name).toBe('Jane Doe');
+    expect(display?.addressLine).toBe('Routing 021000021');
+  });
+
+  test('shows bank transfer for fiat on-ramp without payer metadata', () => {
     const display = getTxRecipientDisplay(
       tx({
         source: 'fiat_deposit',
@@ -271,6 +335,22 @@ describe('getTxRecipientDisplay', () => {
     );
     expect(display?.name).toBe('Bank transfer');
     expect(display?.addressLine).toBe('COP');
+  });
+
+  test('shows bank account last4 for fiat withdrawal', () => {
+    const display = getTxRecipientDisplay(
+      tx({
+        source: 'fiat_withdraw',
+        direction: 'out',
+        counterparty: 'USD',
+        destinationRail: 'wire',
+        accountLast4: '1234',
+      }),
+      [],
+      '0xsmart',
+    );
+    expect(display?.name).toBe('Bank account');
+    expect(display?.addressLine).toBe('•••• 1234 · Wire');
   });
 
   test('shows Morpho for borrow', () => {

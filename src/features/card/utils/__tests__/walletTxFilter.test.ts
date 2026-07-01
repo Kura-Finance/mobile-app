@@ -54,4 +54,55 @@ describe('shouldDisplayWalletTx', () => {
       shouldDisplayWalletTx(chainTx({ amount: 0.5, tokenSymbol: 'SCAMCOIN', direction: 'out' })),
     ).toBe(false);
   });
+
+  test('hides buy payment leg and sell proceeds leg from swap pairs', () => {
+    expect(
+      shouldDisplayWalletTx(
+        chainTx({
+          amount: 0.01,
+          tokenSymbol: 'USDC',
+          direction: 'out',
+          activityKind: 'buy',
+          swapFromSymbol: 'USDC',
+          swapToSymbol: 'KGTUSDCF',
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      shouldDisplayWalletTx(
+        chainTx({
+          amount: 49.5,
+          tokenSymbol: 'USDC',
+          direction: 'in',
+          activityKind: 'sell',
+          swapFromSymbol: 'WETH',
+          swapToSymbol: 'USDC',
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      shouldDisplayWalletTx(
+        chainTx({
+          amount: 0.02,
+          tokenSymbol: 'WETH',
+          direction: 'in',
+          activityKind: 'buy',
+          swapFromSymbol: 'USDC',
+          swapToSymbol: 'WETH',
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  test('hides raw Morpho Earn share token legs', () => {
+    expect(
+      shouldDisplayWalletTx(
+        chainTx({
+          amount: 0.01,
+          tokenSymbol: 'KGTUSDCF',
+          direction: 'in',
+        }),
+      ),
+    ).toBe(false);
+  });
 });

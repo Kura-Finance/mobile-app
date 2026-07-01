@@ -18,6 +18,10 @@ export function setPendingAppleDisplayName(name: string): void {
   pendingAppleDisplayName = trimmed.length > 0 ? trimmed.slice(0, 50) : null;
 }
 
+export function getPendingAppleDisplayName(): string | null {
+  return pendingAppleDisplayName;
+}
+
 export function consumePendingAppleDisplayName(): string | null {
   const name = pendingAppleDisplayName;
   pendingAppleDisplayName = null;

@@ -15,8 +15,6 @@ import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
 const HOME_PREVIEW_LIMIT = 3;
-/** Max extra pages to fetch on Home when the first page(s) are mostly dust. */
-const HOME_PREFETCH_MAX_PAGES = 5;
 
 interface WalletHistorySectionProps {
   smartAddress: string;
@@ -39,7 +37,6 @@ export default function WalletHistorySection({
   const s = useMemo(() => makeStyles(colors), [colors]);
   const { txs, loading, error, hasMore, loadMore, refresh } = useWalletHistory(smartAddress);
   const { contacts, revision } = useCryptoContacts();
-  const prefetchPagesRef = useRef(0);
   const prevContactsRevision = useRef(revision);
 
   const isPreview = previewLimit != null;
@@ -47,27 +44,11 @@ export default function WalletHistorySection({
   const showViewAll = isPreview && onViewAll && (txs.length > previewLimit || hasMore);
 
   useEffect(() => {
-    prefetchPagesRef.current = 0;
-  }, [smartAddress]);
-
-  useEffect(() => {
     if (prevContactsRevision.current === revision) return;
     prevContactsRevision.current = revision;
     if (revision === 0) return;
     refresh();
   }, [revision, refresh]);
-
-  useEffect(() => {
-    if (!isPreview || previewLimit == null) return;
-    if (loading || !hasMore) return;
-    if (txs.length >= previewLimit) {
-      prefetchPagesRef.current = 0;
-      return;
-    }
-    if (prefetchPagesRef.current >= HOME_PREFETCH_MAX_PAGES) return;
-    prefetchPagesRef.current += 1;
-    loadMore();
-  }, [isPreview, previewLimit, txs.length, loading, hasMore, loadMore]);
 
   return (
     <>

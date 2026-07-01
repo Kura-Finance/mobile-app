@@ -17,10 +17,8 @@ import { useAppStore } from '../../../shared/store/useAppStore';
 import { hasVerifiedEmail, needsEmailLink } from '../../../lib/api/auth/userProfileHelpers';
 import { KuraApiError } from '../../../lib/api/errors';
 import {
-  getBridgeCustomer,
   getOrCreateCryptoDepositAddress,
   formatDepositFeeLabel,
-  type BridgeCustomer,
   type KycLinkRequest,
   type LiquidationAddressResult,
 } from '../../../lib/api/ramp/client';
@@ -28,6 +26,7 @@ import { openBridgeHostedKycFlow } from '../../../lib/api/ramp/hostedFlow';
 import KycVerificationCard from '../components/KycVerificationCard';
 import DepositBulletList from '../components/DepositBulletList';
 import { buildUsdtDepositBullets } from '../config/receiveDepositBullets';
+import { useBridgeCustomer } from '../hooks/useBridgeCustomer';
 
 interface UsdtReceivePanelProps {
   smartAddress: string;
@@ -49,9 +48,13 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
   const { colors } = useTheme();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const userProfile = useAppStore((st) => st.userProfile);
+  const authToken = useAppStore((st) => st.authToken);
 
-  const [customer, setCustomer] = useState<BridgeCustomer | null>(null);
-  const [loadingCustomer, setLoadingCustomer] = useState(true);
+  const {
+    customer,
+    loadingCustomer,
+    refreshCustomer: fetchBridgeCustomer,
+  } = useBridgeCustomer({ enabled: !!authToken });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [depositAddress, setDepositAddress] = useState<LiquidationAddressResult | null>(null);
@@ -61,16 +64,13 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
   const [error, setError] = useState('');
 
   const refreshCustomer = useCallback(async () => {
-    setLoadingCustomer(true);
     setError('');
     try {
-      setCustomer(await getBridgeCustomer());
+      await fetchBridgeCustomer();
     } catch (e) {
       setError(errMessage(e));
-    } finally {
-      setLoadingCustomer(false);
     }
-  }, []);
+  }, [fetchBridgeCustomer]);
 
   const loadDepositAddress = useCallback(async () => {
     if (!smartAddress) {
@@ -100,10 +100,6 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
       setLoadingAddress(false);
     }
   }, [smartAddress, t]);
-
-  useEffect(() => {
-    void refreshCustomer();
-  }, [refreshCustomer]);
 
   useEffect(() => {
     if (!customer?.canTransact) return;

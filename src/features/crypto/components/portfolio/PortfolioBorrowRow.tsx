@@ -42,7 +42,7 @@ export default function PortfolioBorrowRow({ market, borrowedUsd, onPress }: Pro
         <Text style={st.apy}>{formatApy(apy)} APY</Text>
       </View>
       <View style={st.right}>
-        <Text style={st.value}>{money.compact(borrowedUsd)}</Text>
+        <Text style={st.valueText}>{money.compact(borrowedUsd)}</Text>
         <Text style={st.sub}>{market.loanAsset.symbol}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
@@ -79,7 +79,7 @@ function makeStyles(c: ThemeColors) {
     },
     apy: { color: '#F59E0B', fontSize: 12, fontWeight: '600' },
     right: { alignItems: 'flex-end', gap: 3 },
-    value: { color: c.text, fontSize: 15, fontWeight: '700' },
+    valueText: { color: c.text, fontSize: 15, fontWeight: '700' },
     sub: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
   });
 }

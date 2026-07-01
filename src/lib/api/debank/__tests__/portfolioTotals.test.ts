@@ -105,10 +105,10 @@ describe('portfolioTotals', () => {
     ];
 
     expect(findLinkedProtocol(tokens[0]!, protocols)).toBe(protocols[0]);
-    expect(shouldCountTokenInSpotTotal(tokens[0]!, protocols)).toBe(true);
+    expect(shouldCountTokenInSpotTotal(tokens[0]!, protocols)).toBe(false);
     expect(computeWalletPortfolioTotals(tokens, protocols)).toEqual({
-      tokenTotalUsd: 3.7679,
-      protocolTotalUsd: 0,
+      tokenTotalUsd: 1.7679,
+      protocolTotalUsd: 2,
       totalUsd: 3.7679,
     });
     expect(effectiveProtocolDisplayUsd(protocols[0]!)).toBe(2);
@@ -119,8 +119,54 @@ describe('portfolioTotals', () => {
       token({ amount: 100, price: 1, protocolId: 'morpho' }),
       token({ amount: 25, price: 1, protocolId: '' }),
     ];
+    const protocols = [protocol({ id: 'morpho', netUsdValue: 100 })];
 
-    expect(walletPortfolioTotalUsd(sumTokenTotalUsd(tokens), 0)).toBe(125);
-    expect(walletPortfolioTotalUsd(sumTokenTotalUsd(tokens), 500)).toBe(625);
+    expect(
+      walletPortfolioTotalUsd(
+        computeWalletPortfolioTotals(tokens, protocols).tokenTotalUsd,
+        computeWalletPortfolioTotals(tokens, protocols).protocolTotalUsd,
+      ),
+    ).toBe(125);
+  });
+
+  test('hides KGTUSDCF vault share from spot total when morpho protocol is set', () => {
+    const tokens = [
+      token({
+        id: 'base_kgtusdcf',
+        symbol: 'KGTUSDCF',
+        amount: 0.01,
+        price: 1,
+        protocolId: 'morpho-base',
+        chain: 'base',
+      }),
+      token({
+        id: 'base_usdc',
+        symbol: 'USDC',
+        amount: 5,
+        price: 1,
+        protocolId: '',
+        chain: 'base',
+      }),
+    ];
+    const protocols = [
+      protocol({
+        id: 'morpho-base',
+        netUsdValue: 0.01,
+        chain: 'base',
+        portfolioItems: [
+          {
+            type: 'yield',
+            usdValue: 0.01,
+            tokens: [{ id: 'usdc', symbol: 'USDC', name: 'USDC', amount: 0.01, price: 1, usdValue: 0.01, logo: '' }],
+          },
+        ],
+      }),
+    ];
+
+    expect(computeWalletPortfolioTotals(tokens, protocols)).toEqual({
+      tokenTotalUsd: 5,
+      protocolTotalUsd: 0.01,
+      totalUsd: 5.01,
+    });
   });
 });

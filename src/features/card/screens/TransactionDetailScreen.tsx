@@ -17,6 +17,8 @@ import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { WalletTx } from '../hooks/useWalletHistory';
 import {
+  formatDepositPaymentRail,
+  formatDepositPayerAccountLine,
   formatTxDetailAmount,
   formatTxFullDate,
   formatTxListAmount,
@@ -103,7 +105,7 @@ function DetailNavRow({
       <View style={rs.body}>
         <Text style={rs.label}>{label}</Text>
         <View style={rs.valueRow}>
-          <Text style={rs.value} numberOfLines={2}>{value}</Text>
+          <Text style={rs.valueText} numberOfLines={2}>{value}</Text>
           {badge ? (
             <View style={rs.badge}>
               <View style={rs.badgeDot} />
@@ -248,7 +250,10 @@ export default function TransactionDetailScreen() {
   const status = getTxStatusDisplay(tx);
   const recipient = getTxRecipientDisplay(tx, contacts, smartAddress);
   const { from, to } = getTxFromToDisplays(tx, contacts, smartAddress);
-  const isBridge = tx.source === 'fiat_deposit' || tx.source === 'crypto_deposit';
+  const isBridge =
+    tx.source === 'fiat_deposit'
+    || tx.source === 'crypto_deposit'
+    || tx.source === 'fiat_withdraw';
   const displayAmount = hideBalance
     ? HIDDEN_BALANCE_TEXT
     : formatTxListAmount(tx, money.value);
@@ -293,6 +298,9 @@ export default function TransactionDetailScreen() {
       ? `${tx.destinationCurrency.toUpperCase()} · ${tx.destinationRail.toUpperCase()}`
       : tx.destinationCurrency?.toUpperCase() ?? null;
 
+  const depositPaymentRail = formatDepositPaymentRail(tx.paymentRail);
+  const depositPayerLine = formatDepositPayerAccountLine(tx);
+
   const hasAdvanced =
     feeRows.length > 0
     || !!tx.tokenContract
@@ -300,6 +308,9 @@ export default function TransactionDetailScreen() {
     || !!tx.updatedAt
     || !!(tx.swapFromSymbol && tx.swapToSymbol)
     || !!destinationLabel
+    || !!depositPaymentRail
+    || !!depositPayerLine
+    || !!tx.senderDescription
     || !!tx.hash
     || tx.source === 'chain'
     || isBridge;
@@ -370,6 +381,26 @@ export default function TransactionDetailScreen() {
             value={formatTxProcessedWith(tx)}
             colors={colors}
           />
+          {depositPaymentRail ? (
+            <DetailNavRow
+              icon="train-outline"
+              iconColor="#60A5FA"
+              iconBg="rgba(96,165,250,0.15)"
+              label={t('card.txDepositPaymentRail')}
+              value={depositPaymentRail}
+              colors={colors}
+            />
+          ) : null}
+          {depositPayerLine ? (
+            <DetailNavRow
+              icon="card-outline"
+              iconColor="#F59E0B"
+              iconBg="rgba(245,158,11,0.15)"
+              label={t('card.txDepositPayerAccount')}
+              value={depositPayerLine}
+              colors={colors}
+            />
+          ) : null}
           {from ? (
             <DetailNavRow
               icon="wallet-outline"
@@ -535,7 +566,7 @@ function navRowStyles(c: ThemeColors) {
     body: { flex: 1, gap: 3 },
     label: { color: c.textFaint, fontSize: 11, fontWeight: '600' },
     valueRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    value: { color: c.text, fontSize: 15, fontWeight: '600', flexShrink: 1 },
+    valueText: { color: c.text, fontSize: 15, fontWeight: '600', flexShrink: 1 },
     subValue: { color: c.textFaint, fontSize: 12, fontFamily: 'monospace' },
     badge: {
       flexDirection: 'row',

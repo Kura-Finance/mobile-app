@@ -42,7 +42,7 @@ export default function PortfolioStockRow({ item, onPress, showFavorite = false 
       <View style={st.right}>
         {hasHoldings ? (
           <>
-            <Text style={st.value}>{money.compact(item.value)}</Text>
+            <Text style={st.valueText}>{money.compact(item.value)}</Text>
             <Text style={st.holdings}>{formatStockHoldings(item.holdings, item.symbol)}</Text>
           </>
         ) : (
@@ -84,7 +84,7 @@ function makeStyles(c: ThemeColors) {
     price: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     right: { alignItems: 'flex-end', gap: 3 },
-    value: { color: c.text, fontSize: 15, fontWeight: '700' },
+    valueText: { color: c.text, fontSize: 15, fontWeight: '700' },
     holdings: {
       color: c.textMuted,
       fontSize: 12,

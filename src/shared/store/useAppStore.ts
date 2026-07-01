@@ -39,6 +39,7 @@ import { disconnectExchange as disconnectExchangeAccountApi } from '../../lib/ap
 import { fetchExchangeRates, isCacheValid, type ExchangeRates } from '../../lib/api/exchangeRate';
 import { resetTrackFiSyncPolicy } from '../../features/trackfi/utils/trackFiSyncPolicy';
 import { resetDefiPortfolioSession } from '../../features/trackfi/hooks/useDefiPortfolio';
+import { resetWalletHistorySession } from '../../features/card/hooks/walletHistoryStore';
 import { resetStocksStore } from '../../features/stocks/store/useStocksStore';
 import { resetDinariGateStore } from '../../features/stocks/store/useDinariGateStore';
 import { useFinanceStore } from './finance';
@@ -307,6 +308,7 @@ export const useAppStore = create<AppState>((set, get) => {
       useFinanceStore.getState().clearAssetHistory();
       resetTrackFiSyncPolicy();
       resetDefiPortfolioSession();
+      resetWalletHistorySession();
       resetStocksStore();
       resetDinariGateStore();
       void import('./useExchangeStore')

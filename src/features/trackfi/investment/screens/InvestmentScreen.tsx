@@ -17,6 +17,9 @@ import type { InvestmentCategory } from '../../../../shared/navigation/TabNaviga
 import { Ionicons } from '@expo/vector-icons';
 import TrackFiLegalFooter from '../../components/TrackFiLegalFooter';
 import { refreshTrackFiBrokerData } from '../../utils/refreshTrackFiBrokerData';
+import {
+  isPlaidBrokerHoldingsPending,
+} from '../../utils/plaidBrokerHoldings';
 
 interface InvestmentScreenProps {
   category?: InvestmentCategory;
@@ -43,6 +46,7 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
 
   const financeInvestmentAccounts = useFinanceStore((state) => state.investmentAccounts);
   const financeInvestments = useFinanceStore((state) => state.investments);
+  const isLoadingPlaidData = useFinanceStore((state) => state.isLoadingPlaidData);
   const selectedTimeRange = useFinanceStore((state) => state.selectedTimeRange);
   const setSelectedTimeRange = useFinanceStore((state) => state.setSelectedTimeRange);
   const membershipLabel = useAppStore((state) => state.userProfile.membershipLabel);
@@ -60,6 +64,14 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
   const { refreshing, handleRefresh } = useRefreshInvestmentData();
 
   const anyExchangeLoading = Object.values(exchangeIsLoading).some(Boolean);
+  const plaidBrokerHoldingsPending = isPlaidBrokerHoldingsPending(
+    financeInvestmentAccounts,
+    financeInvestments,
+  );
+  const brokerHoldingsLoading =
+    (anyExchangeLoading && exchangeAccounts.length > 0 && exchangeInvestments.length === 0) ||
+    isLoadingPlaidData ||
+    plaidBrokerHoldingsPending;
 
   const exchangeNotice = useMemo(() => {
     if (exchangeError) {
@@ -112,7 +124,7 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
     if (!category || category === 'Transaction') return investmentAccounts;
     const accountIds = new Set(investments.map((inv) => inv.accountId));
     return investmentAccounts.filter(
-      (acc) => accountIds.has(acc.id) || acc.type === 'Exchange',
+      (acc) => accountIds.has(acc.id) || acc.type === 'Exchange' || acc.type === 'Broker',
     );
   }, [investmentAccounts, investments, category]);
 
@@ -134,7 +146,7 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
           <BrokersOverview
             timeRange={selectedTimeRange}
             historyDaysLimit={historyDaysLimit}
-            isLoading={anyExchangeLoading && exchangeInvestments.length === 0}
+            isLoading={brokerHoldingsLoading}
             embedded
           />
           <WaveChart
@@ -186,7 +198,7 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
         <HoldingsList
           investments={displayedInvestments}
           selectedAccountId={selectedAccountId}
-          isLoading={anyExchangeLoading && exchangeInvestments.length === 0}
+          isLoading={brokerHoldingsLoading}
         />
         <TrackFiLegalFooter />
       </ScrollView>

@@ -16,6 +16,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import WalletTxRow from '../components/wallet/WalletTxRow';
 import { useWalletHistory, type WalletTx, DEFAULT_TX_HISTORY_WINDOW_DAYS } from '../hooks/useWalletHistory';
+import { BRIDGE_FOCUS_REFRESH_MS } from '../hooks/bridgePollConfig';
 import { useCryptoContacts } from '../hooks/useCryptoContacts';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -23,6 +24,9 @@ import type { ThemeColors } from '../../../shared/theme/theme';
 type RouteParams = {
   WalletTransactions: { smartAddress: string };
 };
+
+/** Skip focus-triggered refresh if data was loaded recently (pull-to-refresh always runs). */
+const FOCUS_REFRESH_TTL_MS = BRIDGE_FOCUS_REFRESH_MS;
 
 export default function WalletTransactionsScreen() {
   const { t } = useTranslation();
@@ -39,11 +43,20 @@ export default function WalletTransactionsScreen() {
   const { contacts, revision } = useCryptoContacts();
   const [refreshing, setRefreshing] = useState(false);
   const prevContactsRevision = useRef(revision);
+  const isFirstFocusRef = useRef(true);
+  const lastFocusRefreshAtRef = useRef(0);
 
-  // Reload last month's txs whenever this screen is opened.
+  // Refresh on focus only after TTL; initial load is handled by useWalletHistory mount.
   useFocusEffect(
     useCallback(() => {
       if (!smartAddress) return;
+      if (isFirstFocusRef.current) {
+        isFirstFocusRef.current = false;
+        return;
+      }
+      const now = Date.now();
+      if (now - lastFocusRefreshAtRef.current < FOCUS_REFRESH_TTL_MS) return;
+      lastFocusRefreshAtRef.current = now;
       refresh();
     }, [smartAddress, refresh]),
   );
@@ -58,6 +71,7 @@ export default function WalletTransactionsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    lastFocusRefreshAtRef.current = Date.now();
     refresh();
   }, [refresh]);
 

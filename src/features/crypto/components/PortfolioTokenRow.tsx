@@ -93,7 +93,7 @@ export default function PortfolioTokenRow({
 
       {isInvest ? (
         <View style={st.right}>
-          <Text style={st.value}>{money.price(price)}</Text>
+          <Text style={st.valueText}>{money.price(price)}</Text>
           {showChange ? (
             <Text style={[st.change, isPositive ? st.changePos : st.changeNeg]}>
               {isPositive ? '▲' : '▼'} {Math.abs(change24h).toFixed(2)}%
@@ -104,7 +104,7 @@ export default function PortfolioTokenRow({
         <View style={st.right}>
           {hasHoldings || showNetworkBadge ? (
             <>
-              <Text style={st.value}>{money.compact(value)}</Text>
+              <Text style={st.valueText}>{money.compact(value)}</Text>
               <Text style={st.holdings}>{formatTokenHoldings(holdings, token.displayName)}</Text>
             </>
           ) : (
@@ -185,7 +185,7 @@ function makeStyles(c: ThemeColors) {
     changeNeg: { color: '#EF4444' },
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     right: { alignItems: 'flex-end', gap: 3 },
-    value: { color: c.text, fontSize: 15, fontWeight: '700' },
+    valueText: { color: c.text, fontSize: 15, fontWeight: '700' },
     holdingsValue: { color: c.textMuted, fontSize: 12, fontWeight: '500' },
     noHoldingsSub: { color: c.textFaint, fontSize: 12, fontWeight: '500' },
     holdings: {

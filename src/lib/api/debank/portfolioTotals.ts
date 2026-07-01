@@ -22,6 +22,14 @@ export function sumTokenTotalUsd(tokens: DeBankToken[]): number {
   return tokens.reduce((sum, token) => sum + tokenUsdValue(token), 0);
 }
 
+/** Morpho / vault receipt tokens held in wallet (e.g. KGTUSDCF fee-wrapper shares). */
+export function isProtocolVaultShareToken(
+  token: Pick<DeBankToken, 'protocolId' | 'symbol'>,
+): boolean {
+  if (token.protocolId?.trim()) return true;
+  return /^KGT[A-Z0-9]+F$/i.test(token.symbol.trim());
+}
+
 function protocolsMatch(tokenProtocolId: string, protocolId: string): boolean {
   const tokenPid = tokenProtocolId.toLowerCase();
   const protocolPid = protocolId.toLowerCase();
@@ -48,25 +56,34 @@ export function findLinkedProtocol(
   return protocols.find((p) => protocolsMatch(token.protocolId, p.id));
 }
 
-/** Count wallet / mint tokens; skip receipt tokens when protocol net already covers them. */
+/** Count wallet spot; skip vault/receipt tokens covered by a protocol row. */
 export function shouldCountTokenInSpotTotal(
   token: DeBankToken,
   protocols: DeBankProtocol[],
 ): boolean {
+  if (isProtocolVaultShareToken(token)) {
+    if (!token.protocolId) return false;
+    const linked = findLinkedProtocol(token, protocols);
+    if (!linked) return false;
+    return effectiveProtocolDisplayUsd(linked) <= 0;
+  }
   if (!token.protocolId) return true;
   const linked = findLinkedProtocol(token, protocols);
   if (!linked) return true;
+  if (effectiveProtocolDisplayUsd(linked) > 0) return false;
   return linked.netUsdValue <= 0;
 }
 
-/** Spot token rows that belong in allocation (excludes protocol-linked receipt tokens). */
+/** Spot token rows that belong in allocation / token list (excludes protocol vault shares). */
 export function shouldIncludeSpotTokenInAllocation(
-  protocolId: string,
-  protocols: Array<Pick<DeBankProtocol, 'id' | 'netUsdValue'>>,
+  token: Pick<DeBankToken, 'protocolId' | 'symbol'>,
+  protocols: Array<Pick<DeBankProtocol, 'id' | 'netUsdValue' | 'portfolioItems'>>,
 ): boolean {
-  if (!protocolId) return true;
-  const linked = protocols.find((p) => protocolsMatch(protocolId, p.id));
+  if (isProtocolVaultShareToken(token)) return false;
+  if (!token.protocolId) return true;
+  const linked = protocols.find((p) => protocolsMatch(token.protocolId, p.id));
   if (!linked) return true;
+  if (effectiveProtocolDisplayUsd(linked) > 0) return false;
   return linked.netUsdValue <= 0;
 }
 
@@ -82,14 +99,12 @@ export function computeTokenSpotTotal(
   }, 0);
 }
 
-/** Sum protocol net values; zero-net mint-only rows stay in the token total. */
+/** Sum protocol display values (net or portfolio item breakdown). */
 export function computeProtocolSpotTotal(protocols: DeBankProtocol[]): number {
-  return protocols.reduce((sum, protocol) => {
-    if (protocol.netUsdValue !== 0) {
-      return sum + protocol.netUsdValue;
-    }
-    return sum;
-  }, 0);
+  return protocols.reduce(
+    (sum, protocol) => sum + effectiveProtocolDisplayUsd(protocol),
+    0,
+  );
 }
 
 export function computeWalletPortfolioTotals(

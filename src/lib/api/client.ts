@@ -47,6 +47,11 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+/** Current JWT for authenticated backend requests (null when signed out). */
+export async function readAuthToken(): Promise<string | null> {
+  return getAuthToken();
+}
+
 interface EnvelopeError {
   code?: string;
   message?: string;
@@ -196,6 +201,8 @@ export async function requestJson<T>(
     };
     if (expectedStatuses?.includes(response.status)) {
       Logger.debug(apiName, 'Response error (handled)', meta);
+    } else if (response.status === 401 && !headers.has('Authorization')) {
+      Logger.debug(apiName, 'Response error (no auth token)', meta);
     } else {
       Logger.warn(apiName, 'Response error', meta);
     }

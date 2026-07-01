@@ -17,7 +17,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { filterSpotTokensForDisplay } from '../../../lib/api/debank/displayTokens';
-import { computeWalletPortfolioTotals, effectiveProtocolDisplayUsd } from '../../../lib/api/debank/portfolioTotals';
+import {
+  computeWalletPortfolioTotals,
+  effectiveProtocolDisplayUsd,
+  shouldIncludeSpotTokenInAllocation,
+} from '../../../lib/api/debank/portfolioTotals';
 import {
   fetchDeBankProtocols,
   fetchDeBankTokens,
@@ -200,13 +204,22 @@ async function fetchWalletData(
     protocolsResult.rateLimitInfo ??
     null;
 
-  const tokens = dedupeWalletTokens(
-    filterSpotTokensForDisplay(tokensResult.tokens.map(mapBackendToken)),
-  ).sort((a, b) => b.usdValue - a.usdValue);
-
   const protocols = protocolsResult.protocols
     .map(mapBackendProtocol)
     .sort((a, b) => effectiveProtocolDisplayUsd(b) - effectiveProtocolDisplayUsd(a));
+
+  const tokens = dedupeWalletTokens(
+    filterSpotTokensForDisplay(
+      tokensResult.tokens
+        .map(mapBackendToken)
+        .filter((token) =>
+          shouldIncludeSpotTokenInAllocation(
+            { protocolId: token.protocolId, symbol: token.symbol },
+            protocolsResult.protocols,
+          ),
+        ),
+    ),
+  ).sort((a, b) => b.usdValue - a.usdValue);
 
   const totals = computeWalletPortfolioTotals(
     tokensResult.tokens,
@@ -298,40 +311,42 @@ export function useDefiPortfolio() {
         return next;
       });
 
-      for (const wallet of list) {
-        const key = walletKey(wallet.address);
-        try {
-          Logger.debug(TAG, 'Fetching wallet data', {
-            address: wallet.address,
-            refresh: forceRefresh,
-          });
-          const { wallet: data, rateLimitInfo: limitInfo } = await fetchWalletData(
-            wallet.address,
-            wallet.label,
-            forceRefresh,
-          );
-          setWalletData((prev) => ({ ...prev, [key]: { ...data, address: wallet.address } }));
-          setRateLimitInfo((prev) => ({ ...prev, [key]: limitInfo }));
-        } catch (err) {
-          const msg = userFacingApiError(err, 'trackfi.defiPortfolio.loadFailed');
-          Logger.warn(TAG, 'Wallet fetch failed', { address: wallet.address, err: msg });
-          setWalletData((prev) => ({
-            ...prev,
-            [key]: {
-              ...(prev[key] ?? {
-                address: wallet.address,
-                label: wallet.label,
-                tokenTotalUsdValue: 0,
-                protocolTotalUsdValue: 0,
-                tokens: [],
-                protocols: [],
-              }),
-              isLoading: false,
-              error: msg,
-            },
-          }));
-        }
-      }
+      await Promise.all(
+        list.map(async (wallet) => {
+          const key = walletKey(wallet.address);
+          try {
+            Logger.debug(TAG, 'Fetching wallet data', {
+              address: wallet.address,
+              refresh: forceRefresh,
+            });
+            const { wallet: data, rateLimitInfo: limitInfo } = await fetchWalletData(
+              wallet.address,
+              wallet.label,
+              forceRefresh,
+            );
+            setWalletData((prev) => ({ ...prev, [key]: { ...data, address: wallet.address } }));
+            setRateLimitInfo((prev) => ({ ...prev, [key]: limitInfo }));
+          } catch (err) {
+            const msg = userFacingApiError(err, 'trackfi.defiPortfolio.loadFailed');
+            Logger.warn(TAG, 'Wallet fetch failed', { address: wallet.address, err: msg });
+            setWalletData((prev) => ({
+              ...prev,
+              [key]: {
+                ...(prev[key] ?? {
+                  address: wallet.address,
+                  label: wallet.label,
+                  tokenTotalUsdValue: 0,
+                  protocolTotalUsdValue: 0,
+                  tokens: [],
+                  protocols: [],
+                }),
+                isLoading: false,
+                error: msg,
+              },
+            }));
+          }
+        }),
+      );
     },
     [],
   );

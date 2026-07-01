@@ -15,6 +15,7 @@ import {
   type ExternalAccountResult,
 } from '../../../../lib/api/ramp/client';
 import { KuraApiError } from '../../../../lib/api/errors';
+import { useAppStore } from '../../../../shared/store/useAppStore';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
 
@@ -108,11 +109,17 @@ export default function PickerView({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const st = useStyles();
+  const authToken = useAppStore((s) => s.authToken);
   const [bankAccounts, setBankAccounts] = useState<ExternalAccountResult[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
 
   useEffect(() => {
     if (variant !== 'bank') return;
+    if (!authToken) {
+      setBankAccounts([]);
+      setLoadingBanks(false);
+      return;
+    }
     let cancelled = false;
     setLoadingBanks(true);
     void (async () => {
@@ -126,7 +133,7 @@ export default function PickerView({
       }
     })();
     return () => { cancelled = true; };
-  }, [bankRefreshKey, variant]);
+  }, [bankRefreshKey, variant, authToken]);
 
   const handleLongPress = (contact: CryptoContact) => {
     Alert.alert(
@@ -143,6 +150,10 @@ export default function PickerView({
     account.accountOwnerName || account.bankName || t('card.recipient');
 
   const refreshBankAccounts = async () => {
+    if (!useAppStore.getState().authToken) {
+      setBankAccounts([]);
+      return;
+    }
     const list = await listExternalAccounts();
     setBankAccounts(list);
     onBankAccountsChanged?.();

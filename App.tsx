@@ -252,7 +252,13 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
             );
             if (cancelled) return;
 
+            // JWT must be in the store before authenticated /api/auth/me/* calls.
+            setPrivySession(login.token, login.user);
+
             const profile = await applyPendingOAuthDisplayName(login.user, privyUserForEmail);
+            if (profile.displayName !== login.user.displayName) {
+              useAppStore.getState().refreshUserProfile(profile);
+            }
 
             Logger.info('PrivyBridge', '[5] Kura JWT received', {
               kuraJwtPrefix: login.token.slice(0, 20) + '...',
@@ -262,7 +268,6 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
               displayName: profile.displayName,
               emailConflict: login.emailConflict,
             });
-            setPrivySession(login.token, profile);
             setExchangeStatus('idle');
             Logger.info('PrivyBridge', '[6] Session set — login complete ✓');
 

@@ -4,6 +4,7 @@ import Logger from '../../shared/utils/Logger';
 import {
   consumePendingAppleDisplayName,
   extractGoogleDisplayName,
+  getPendingAppleDisplayName,
   syncOAuthDisplayNameIfNeeded,
 } from './oauthDisplayName';
 
@@ -15,7 +16,7 @@ export async function applyPendingOAuthDisplayName(
   profile: UserProfileV1,
   privyUser?: User | null,
 ): Promise<UserProfileV1> {
-  const pendingAppleName = consumePendingAppleDisplayName();
+  const pendingAppleName = getPendingAppleDisplayName();
   const googleName = extractGoogleDisplayName(privyUser);
   const candidateName = pendingAppleName ?? googleName;
 
@@ -25,6 +26,7 @@ export async function applyPendingOAuthDisplayName(
 
   try {
     const updated = await syncOAuthDisplayNameIfNeeded(profile, candidateName);
+    if (pendingAppleName) consumePendingAppleDisplayName();
     if (updated.id === profile.id && updated.displayName !== profile.displayName) {
       Logger.info('OAuthDisplayName', 'Applied OAuth display name', {
         source: pendingAppleName ? 'apple' : 'google',

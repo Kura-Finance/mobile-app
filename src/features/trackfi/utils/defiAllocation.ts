@@ -45,7 +45,12 @@ export function computeDefiAllocationBuckets(
 
   for (const wallet of walletRows) {
     for (const token of wallet.tokens) {
-      if (!shouldIncludeSpotTokenInAllocation(token.protocolId, wallet.protocols)) continue;
+      if (
+        !shouldIncludeSpotTokenInAllocation(
+          { protocolId: token.protocolId, symbol: token.symbol },
+          wallet.protocols,
+        )
+      ) continue;
       buckets[spotTokenBucket(token)] += token.usdValue;
     }
     for (const protocol of wallet.protocols) {

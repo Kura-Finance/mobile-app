@@ -4,7 +4,8 @@
  */
 
 import type { WalletTx } from '../hooks/useWalletHistory';
-import { classifyMorphoActivities } from './walletTxMorpho';
+import { classifyMorphoActivities, tryClassifyMorphoEarnShareFlow } from './walletTxMorpho';
+import { isUsdPeggedSymbol, maxWalletTxLeg, tokenSymbolUpper } from './walletTxConstants';
 
 export type WalletActivityKind =
   | 'buy'
@@ -21,20 +22,12 @@ export type WalletActivityKind =
 /** Li.Fi Diamond on Base — primary swap/bridge router. */
 export const LIFI_DIAMOND_BASE = '0x1231deb6f5749ef6eb6945a5747841f669ba883e';
 
-const USD_PEGGED = new Set([
-  'USDC', 'USDT', 'DAI', 'USDBC', 'USD+', 'EURC', 'USDC.E', 'USDBC.E',
-]);
-
 function norm(addr: string | undefined): string {
   return (addr ?? '').toLowerCase();
 }
 
 function sym(token: string): string {
-  return token.toUpperCase();
-}
-
-function isUsdPegged(token: string): boolean {
-  return USD_PEGGED.has(sym(token));
+  return tokenSymbolUpper(token);
 }
 
 export function isLifiAddress(address: string | undefined): boolean {
@@ -50,14 +43,14 @@ function touchesLifi(tx: WalletTx): boolean {
 }
 
 function maxLeg(legs: WalletTx[]): WalletTx {
-  return legs.reduce((best, leg) => (leg.amount > best.amount ? leg : best), legs[0]);
+  return maxWalletTxLeg(legs);
 }
 
 function classifySwapKind(fromSymbol: string, toSymbol: string): WalletActivityKind {
   const from = sym(fromSymbol);
   const to = sym(toSymbol);
-  if (isUsdPegged(from) && !isUsdPegged(to)) return 'buy';
-  if (!isUsdPegged(from) && isUsdPegged(to)) return 'sell';
+  if (isUsdPeggedSymbol(from) && !isUsdPeggedSymbol(to)) return 'buy';
+  if (!isUsdPeggedSymbol(from) && isUsdPeggedSymbol(to)) return 'sell';
   return 'swap';
 }
 
@@ -213,6 +206,12 @@ export function enrichWalletActivities(txs: WalletTx[]): WalletTx[] {
   const enrichedChain: WalletTx[] = [];
 
   for (const legs of chainByHash.values()) {
+    const earnShareFlow = tryClassifyMorphoEarnShareFlow(legs);
+    if (earnShareFlow) {
+      enrichedChain.push(...earnShareFlow);
+      continue;
+    }
+
     const { activities: morphoActivities, otherLegs } = classifyMorphoActivities(legs);
 
     if (morphoActivities.length > 0) {

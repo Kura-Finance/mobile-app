@@ -3,7 +3,7 @@
  *
  * Full-screen asset detail aligned with {@link TokenDetailModal}:
  * Dinari price + live quote for trading · underlying ticker chart (Yahoo)
- * · CoinGecko about when available · fixed Sell / Buy bar.
+ * · Yahoo company profile for About · fixed Sell / Buy bar.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -26,9 +26,14 @@ import { StockItem, useDinariGate } from '../hooks/useDinari';
 import { stockGeckoId } from '../config/dinariStocks';
 import { getStockPrice, getStockQuote, DinariStockQuote } from '../../../lib/api/dinari/client';
 import PriceChart from '../../crypto/components/PriceChart';
-import { TIMEFRAMES, Timeframe, useTokenDetail } from '../../crypto/hooks/useTokenDetail';
+import { TIMEFRAMES, Timeframe } from '../../crypto/hooks/useTokenDetail';
 import { formatChartTimeframe } from '../../crypto/utils/tokenDisplay';
 import { useStockChart } from '../hooks/useStockChart';
+import { useStockProfile } from '../hooks/useStockProfile';
+import {
+  formatStockHeadquarters,
+  formatStockWebsiteLabel,
+} from '../utils/stockCompanyProfile';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -61,6 +66,10 @@ function normalizeChartToPrice(prices: number[], targetPrice: number): number[] 
 
 function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function formatEmployees(count: number): string {
+  return count.toLocaleString('en-US');
 }
 
 interface Props {
@@ -156,7 +165,6 @@ export default function StockDetailModal({
   const [priceLoading, setPriceLoading] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>('24H');
 
-  const geckoId = stock ? stockGeckoId(stock.symbol) : null;
   const chartActive = visible && !!stock?.symbol;
 
   const { prices, stats: chartStats, chartLoading } = useStockChart(
@@ -164,7 +172,12 @@ export default function StockDetailModal({
     timeframe,
     chartActive,
   );
-  const { stats: geckoStats } = useTokenDetail(visible && geckoId ? geckoId : null, '24H');
+  const { profile: companyProfile, loading: profileLoading } = useStockProfile(
+    stock?.symbol ?? null,
+    stock?.name ?? null,
+    stock ? stockGeckoId(stock.symbol) : null,
+    chartActive,
+  );
 
   const starred = stock ? favorites.includes(stock.symbol) : false;
 
@@ -281,7 +294,18 @@ export default function StockDetailModal({
     ? holdingValue - holdingValue / (1 + change24h / 100)
     : null;
 
-  const aboutText = geckoStats?.description ? stripHtml(geckoStats.description) : null;
+  const aboutText = companyProfile?.description
+    ? stripHtml(companyProfile.description)
+    : null;
+  const headquarters = companyProfile ? formatStockHeadquarters(companyProfile) : null;
+  const hasCompanyFacts = !!(
+    companyProfile?.sector
+    || companyProfile?.industry
+    || companyProfile?.exchange
+    || headquarters
+    || companyProfile?.employees
+    || companyProfile?.website
+  );
   const rangeLow = chartStats?.low24h != null ? chartStats.low24h * geckoScale : null;
   const rangeHigh = chartStats?.high24h != null ? chartStats.high24h * geckoScale : null;
 
@@ -457,8 +481,39 @@ export default function StockDetailModal({
           )}
 
           <Text style={st.sectionTitle}>{t('crypto.about')}</Text>
+          {hasCompanyFacts ? (
+            <View style={[st.statsCard, st.aboutFactsCard]}>
+              {companyProfile?.sector ? (
+                <StatRow label={t('crypto.stockSector')} value={companyProfile.sector} />
+              ) : null}
+              {companyProfile?.industry ? (
+                <StatRow label={t('crypto.stockIndustry')} value={companyProfile.industry} />
+              ) : null}
+              {companyProfile?.exchange ? (
+                <StatRow label={t('crypto.stockExchange')} value={companyProfile.exchange} />
+              ) : null}
+              {headquarters ? (
+                <StatRow label={t('crypto.stockHeadquarters')} value={headquarters} />
+              ) : null}
+              {companyProfile?.employees ? (
+                <StatRow
+                  label={t('crypto.stockEmployees')}
+                  value={formatEmployees(companyProfile.employees)}
+                />
+              ) : null}
+              {companyProfile?.website ? (
+                <StatRow
+                  label={t('crypto.stockWebsite')}
+                  value={formatStockWebsiteLabel(companyProfile.website)}
+                />
+              ) : null}
+            </View>
+          ) : null}
           <Text style={st.aboutText}>
-            {aboutText ?? t('crypto.stocksAbout', { name: stock.name, symbol: stock.symbol })}
+            {aboutText
+              ?? (!profileLoading
+                ? t('crypto.stocksAbout', { name: stock.name, symbol: stock.symbol })
+                : '…')}
           </Text>
         </ScrollView>
 
@@ -637,17 +692,33 @@ function makeStyles(c: ThemeColors) {
       borderColor: c.border,
       paddingHorizontal: 16,
     },
+    aboutFactsCard: {
+      marginBottom: 12,
+    },
     statRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      alignItems: 'flex-start',
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
-    statLabel: { color: c.textMuted, fontSize: 14, fontWeight: '500' },
-    statRight: { alignItems: 'flex-end', gap: 2 },
-    statValue: { color: c.text, fontSize: 15, fontWeight: '700' },
+    statLabel: {
+      color: c.textMuted,
+      fontSize: 14,
+      fontWeight: '500',
+      minWidth: 96,
+      maxWidth: '38%',
+      flexShrink: 0,
+      paddingTop: 1,
+    },
+    statRight: { flex: 1, alignItems: 'flex-end', marginLeft: 12, gap: 2 },
+    statValue: {
+      color: c.text,
+      fontSize: 15,
+      fontWeight: '700',
+      textAlign: 'right',
+      flexShrink: 1,
+    },
     statSub: { color: c.textMuted, fontSize: 12 },
 
     rangeWrap: {
@@ -696,6 +767,7 @@ function makeStyles(c: ThemeColors) {
       fontSize: 14,
       lineHeight: 21,
       paddingHorizontal: 20,
+      marginTop: 4,
     },
 
     actionBar: {

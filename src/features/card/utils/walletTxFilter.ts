@@ -5,8 +5,8 @@
 
 import { MIN_DISPLAY_TOKEN_USD } from '../../../lib/api/debank/displayTokens';
 import type { WalletTx } from '../hooks/useWalletHistory';
-
-const USD_PEGGED = new Set(['USDC', 'USDT', 'DAI', 'USDBC', 'USD+', 'EURC', 'USDC.E']);
+import { isMorphoEarnShareSymbol } from './walletTxMorpho';
+import { isUsdPeggedSymbol } from './walletTxConstants';
 
 /** Base blue-chip tickers we show even at small notionals (aligned with crypto/config/blueChips). */
 const KNOWN_SYMBOLS = new Set([
@@ -18,7 +18,7 @@ const KNOWN_SYMBOLS = new Set([
 /** Minimum display amount for a token symbol (same ~$0.01 intent as portfolio dust). */
 export function minWalletTxAmount(symbol: string): number {
   const sym = symbol.toUpperCase();
-  if (USD_PEGGED.has(sym)) return MIN_DISPLAY_TOKEN_USD;
+  if (isUsdPeggedSymbol(sym)) return MIN_DISPLAY_TOKEN_USD;
   if (sym === 'ETH' || sym === 'WETH') return MIN_DISPLAY_TOKEN_USD / 2000;
   if (sym === 'CBBTC' || sym === 'WBTC' || sym === 'BTC') return MIN_DISPLAY_TOKEN_USD / 60_000;
   if (sym === 'CBDOGE' || sym === 'DOGE') return MIN_DISPLAY_TOKEN_USD / 0.25;
@@ -30,6 +30,11 @@ export function minWalletTxAmount(symbol: string): number {
 
 export function shouldDisplayWalletTx(tx: WalletTx): boolean {
   if (tx.activityKind === 'bridge_out') return false;
+  // Buy/sell swaps emit two legs — show only the asset leg, not the payment/proceeds leg.
+  if (tx.activityKind === 'buy' && tx.direction === 'out') return false;
+  if (tx.activityKind === 'sell' && tx.direction === 'in') return false;
+  // Fee-wrapper share receipts/burns are folded into Morpho Earn deposit/withdraw rows.
+  if (isMorphoEarnShareSymbol(tx.tokenSymbol)) return false;
 
   if (tx.source !== 'chain') return true;
 
@@ -37,7 +42,7 @@ export function shouldDisplayWalletTx(tx: WalletTx): boolean {
   if (abs === 0) return false;
 
   const sym = tx.tokenSymbol.toUpperCase();
-  const isKnown = KNOWN_SYMBOLS.has(sym) || USD_PEGGED.has(sym);
+  const isKnown = KNOWN_SYMBOLS.has(sym) || isUsdPeggedSymbol(sym);
 
   // Hide unsolicited airdrop spam (GBT, AMORA, fake "USA", etc.).
   if (tx.direction === 'in' && !isKnown) return false;
