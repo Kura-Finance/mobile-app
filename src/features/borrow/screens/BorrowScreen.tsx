@@ -7,8 +7,8 @@ import {
   ScrollView,
   Platform,
   RefreshControl,
+  View as SafeAreaView,
 } from 'react-native';
-import { View as SafeAreaView } from 'react-native';
 
 import { useHeaderHeight } from '../../../shared/navigation/Header';
 import { useHeaderStore } from '../../../shared/store/useHeaderStore';

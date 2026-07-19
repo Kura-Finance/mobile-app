@@ -13,6 +13,7 @@
  *   Pimlico — ~13,000 UserOps/month free, $0.0075/op after
  */
 
+import { fallback, http } from 'viem';
 import { env } from '../../../config/env';
 
 /** Pimlico API key — ERC-4337 bundler + Verifying Paymaster on Base */
@@ -54,7 +55,6 @@ export function getBaseRpcUrls(): readonly string[] {
 
 /** viem transport: tries primary RPC, then {@link BASE_RPC_FALLBACK_URL}. */
 export function createBaseTransport() {
-  const { fallback, http } = require('viem') as typeof import('viem');
   return fallback(getBaseRpcUrls().map((url) => http(url)));
 }
 

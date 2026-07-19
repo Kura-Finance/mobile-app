@@ -230,7 +230,7 @@ export default function PrivyLoginScreen() {
         Enter your email
       </Text>
       <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 32 }}>
-        We'll send you a one-time code to sign in.
+        {"We'll send you a one-time code to sign in."}
       </Text>
 
       {renderError()}

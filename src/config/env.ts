@@ -3,6 +3,9 @@
  *
  * All EXPO_PUBLIC_* variables should be read here (or via helpers exported
  * from this module). See docs/fork-guide.md.
+ *
+ * Expo lint requires static `process.env.NAME` access (no dynamic keys) so
+ * Metro can inline EXPO_PUBLIC_* values at build time.
  */
 
 import Constants from 'expo-constants';
@@ -11,8 +14,7 @@ import {
   normalizeWalletConnectProjectId,
 } from './walletConnectProjectId';
 
-function readEnv(key: string): string {
-  const value = process.env[key];
+function trimEnv(value: string | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
@@ -30,8 +32,8 @@ function envBool(raw: string | undefined, fallback: boolean): boolean {
 /** Resolved Kura backend base URL (no trailing slash), or empty when unset. */
 export function getResolvedApiBaseUrl(): string {
   const fromEnv =
-    readEnv('EXPO_PUBLIC_API_BASE_URL') ||
-    readEnv('EXPO_PUBLIC_BACKEND_URL');
+    trimEnv(process.env.EXPO_PUBLIC_API_BASE_URL) ||
+    trimEnv(process.env.EXPO_PUBLIC_BACKEND_URL);
 
   const fromExtra = readExtra('apiBaseUrl') || readExtra('backendUrl');
 
@@ -39,8 +41,8 @@ export function getResolvedApiBaseUrl(): string {
 
   if (__DEV__) {
     const devOverride =
-      readEnv('EXPO_PUBLIC_API_BASE_URL_DEV') ||
-      readEnv('EXPO_PUBLIC_BACKEND_URL_DEV') ||
+      trimEnv(process.env.EXPO_PUBLIC_API_BASE_URL_DEV) ||
+      trimEnv(process.env.EXPO_PUBLIC_BACKEND_URL_DEV) ||
       readExtra('backendUrlDev');
     if (devOverride) url = devOverride;
   }
@@ -74,8 +76,8 @@ export { INVALID_WALLET_CONNECT_PROJECT_IDS, normalizeWalletConnectProjectId } f
 /** Resolved WalletConnect / Reown project ID, or empty when unset or invalid. */
 export function resolveWalletConnectProjectId(): string {
   const raw =
-    readEnv('EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID') ||
-    readEnv('WALLETCONNECT_PROJECT_ID') ||
+    trimEnv(process.env.EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID) ||
+    trimEnv(process.env.WALLETCONNECT_PROJECT_ID) ||
     readExtra('walletConnectProjectId');
   return normalizeWalletConnectProjectId(raw);
 }
@@ -89,54 +91,57 @@ export function assertValidWalletConnectProjectId(): string {
 }
 
 export const env = {
-  appEnv: readEnv('APP_ENV') || readEnv('NODE_ENV') || 'development',
+  appEnv:
+    trimEnv(process.env.APP_ENV) ||
+    trimEnv(process.env.NODE_ENV) ||
+    'development',
 
   apiBaseUrl: getResolvedApiBaseUrl(),
 
   walletConnectProjectId: resolveWalletConnectProjectId(),
 
-  kuraWalletIconUrl: readEnv('EXPO_PUBLIC_KURA_WALLET_ICON_URL'),
+  kuraWalletIconUrl: trimEnv(process.env.EXPO_PUBLIC_KURA_WALLET_ICON_URL),
 
-  privyAppId: readEnv('EXPO_PUBLIC_PRIVY_APP_ID') || readExtra('privyAppId'),
-  privyClientId: readEnv('EXPO_PUBLIC_PRIVY_CLIENT_ID') || readExtra('privyClientId'),
+  privyAppId: trimEnv(process.env.EXPO_PUBLIC_PRIVY_APP_ID) || readExtra('privyAppId'),
+  privyClientId: trimEnv(process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID) || readExtra('privyClientId'),
 
   pimlicoApiKey:
-    readEnv('EXPO_PUBLIC_PIMLICO_API_KEY') || readExtra('pimlicoApiKey'),
+    trimEnv(process.env.EXPO_PUBLIC_PIMLICO_API_KEY) || readExtra('pimlicoApiKey'),
   alchemyApiKey:
-    readEnv('EXPO_PUBLIC_ALCHEMY_API_KEY') || readExtra('alchemyApiKey'),
-  baseRpcUrl: readEnv('EXPO_PUBLIC_BASE_RPC_URL'),
-  payGasInUsdc: envBool(readEnv('EXPO_PUBLIC_PAY_GAS_IN_USDC'), true),
+    trimEnv(process.env.EXPO_PUBLIC_ALCHEMY_API_KEY) || readExtra('alchemyApiKey'),
+  baseRpcUrl: trimEnv(process.env.EXPO_PUBLIC_BASE_RPC_URL),
+  payGasInUsdc: envBool(trimEnv(process.env.EXPO_PUBLIC_PAY_GAS_IN_USDC), true),
 
   logodevToken:
-    readEnv('EXPO_PUBLIC_LOGODEV_TOKEN') || readExtra('logodevToken'),
+    trimEnv(process.env.EXPO_PUBLIC_LOGODEV_TOKEN) || readExtra('logodevToken'),
 
   lifiIntegrator:
-    readEnv('EXPO_PUBLIC_LIFI_INTEGRATOR') || readExtra('lifiIntegrator'),
-  lifiFee: readEnv('EXPO_PUBLIC_LIFI_FEE') || readExtra('lifiFee'),
+    trimEnv(process.env.EXPO_PUBLIC_LIFI_INTEGRATOR) || readExtra('lifiIntegrator'),
+  lifiFee: trimEnv(process.env.EXPO_PUBLIC_LIFI_FEE) || readExtra('lifiFee'),
   lifiApiKey:
-    readEnv('EXPO_PUBLIC_LIFI_API_KEY') || readExtra('lifiApiKey'),
+    trimEnv(process.env.EXPO_PUBLIC_LIFI_API_KEY) || readExtra('lifiApiKey'),
 
   /** Optional CoinGecko Demo API key — raises rate limits for price/chart calls. */
   coingeckoApiKey:
-    readEnv('EXPO_PUBLIC_COINGECKO_API_KEY') || readExtra('coingeckoApiKey'),
+    trimEnv(process.env.EXPO_PUBLIC_COINGECKO_API_KEY) || readExtra('coingeckoApiKey'),
 
   /** Morpho Earn — set to `false` to hide Earn tab (default: on when Pimlico key is set). */
-  morphoEarnEnabled: readEnv('EXPO_PUBLIC_MORPHO_EARN_ENABLED'),
+  morphoEarnEnabled: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_ENABLED),
   /**
    * JSON array of Morpho vault addresses on Base to list in Invest → Earn.
    * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime + Gauntlet USDC Frontier when unset.
    */
-  morphoEarnVaultAllowlist: readEnv('EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST'),
+  morphoEarnVaultAllowlist: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST),
   /** Morpho Earn — Kura performance fee (0–1 decimal, default 0.1 = 10%). */
-  morphoEarnFee: readEnv('EXPO_PUBLIC_MORPHO_EARN_FEE') || '0.1',
+  morphoEarnFee: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_FEE) || '0.1',
   /** Treasury address that receives Kura's Morpho earn performance fee. */
   kuraEarnFeeRecipient:
-    readEnv('EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT') || readExtra('kuraEarnFeeRecipient'),
+    trimEnv(process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT) || readExtra('kuraEarnFeeRecipient'),
   /**
    * Optional JSON map of inner vault → fee-wrapper vault addresses.
    * Example: {"0xee8f...":"0x002f..."}
    */
-  morphoFeeWrapperOverrides: readEnv('EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES'),
+  morphoFeeWrapperOverrides: trimEnv(process.env.EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES),
   /** When false, skip Morpho API fee-wrapper discovery (env overrides only). */
-  morphoFeeWrapperAutoDiscover: readEnv('EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER'),
+  morphoFeeWrapperAutoDiscover: trimEnv(process.env.EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER),
 } as const;

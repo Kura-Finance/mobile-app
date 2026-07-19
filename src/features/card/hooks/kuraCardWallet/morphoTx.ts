@@ -4,6 +4,17 @@ import {
 } from '../../config/cardWalletConfig';
 import Logger from '../../../../shared/utils/Logger';
 import { estimateErc20GasUsdc } from '../../../../lib/wallet/smartAccountClient';
+import {
+  buildMorphoBorrowCalls,
+  buildMorphoRepayCalls,
+  buildMorphoWithdrawCollateralCalls,
+  toMorphoMarketParams,
+} from '../../../../lib/wallet/morphoBlue';
+import {
+  buildMorphoDepositTx,
+  buildMorphoWithdrawCalls,
+  planMorphoWithdraw,
+} from '../../../../lib/wallet/morphoVault';
 import { buildAllowanceAndTxCalls, withGasApprovalCalls } from './sendTx';
 import type {
   MorphoBorrowTxParams,
@@ -18,8 +29,6 @@ export async function executeMorphoDepositTx(
   resolveClient: ResolveSmartAccountClient,
   params: MorphoEarnVaultParams & { amount: number },
 ): Promise<string> {
-  const { buildMorphoDepositTx } =
-    require('../../../../lib/wallet/morphoVault') as typeof import('../../../../lib/wallet/morphoVault');
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
   const { assetsRaw, tx } = buildMorphoDepositTx({
     vaultAddress: params.depositVaultAddress,
@@ -42,8 +51,6 @@ export async function executeMorphoWithdrawTx(
   resolveClient: ResolveSmartAccountClient,
   params: MorphoEarnWithdrawParams,
 ): Promise<string> {
-  const { planMorphoWithdraw, buildMorphoWithdrawCalls } =
-    require('../../../../lib/wallet/morphoVault') as typeof import('../../../../lib/wallet/morphoVault');
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
   const plan = await planMorphoWithdraw({
     vaultAddress: params.depositVaultAddress,
@@ -68,8 +75,6 @@ export async function estimateMorphoDepositGasUsdc(
 ): Promise<number> {
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
-    const { buildMorphoDepositTx } =
-      require('../../../../lib/wallet/morphoVault') as typeof import('../../../../lib/wallet/morphoVault');
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
     const { assetsRaw, tx } = buildMorphoDepositTx({
       vaultAddress: params.depositVaultAddress,
@@ -101,8 +106,6 @@ export async function estimateMorphoWithdrawGasUsdc(
 ): Promise<number> {
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
-    const { planMorphoWithdraw, buildMorphoWithdrawCalls } =
-      require('../../../../lib/wallet/morphoVault') as typeof import('../../../../lib/wallet/morphoVault');
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
     const plan = await planMorphoWithdraw({
       vaultAddress: params.depositVaultAddress,
@@ -130,8 +133,6 @@ export async function executeMorphoBorrowTx(
   resolveClient: ResolveSmartAccountClient,
   params: MorphoBorrowTxParams,
 ): Promise<string> {
-  const { buildMorphoBorrowCalls, toMorphoMarketParams } =
-    require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
   const market = toMorphoMarketParams(params.market);
   const { calls } = await buildMorphoBorrowCalls({
@@ -148,8 +149,6 @@ export async function executeMorphoRepayTx(
   resolveClient: ResolveSmartAccountClient,
   params: MorphoRepayTxParams,
 ): Promise<string> {
-  const { buildMorphoRepayCalls, toMorphoMarketParams } =
-    require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
   const market = toMorphoMarketParams(params.market);
   const { calls } = await buildMorphoRepayCalls({
@@ -169,8 +168,6 @@ export async function estimateMorphoBorrowGasUsdc(
 ): Promise<number> {
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
-    const { buildMorphoBorrowCalls, toMorphoMarketParams } =
-      require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
     const market = toMorphoMarketParams(params.market);
     const { calls } = await buildMorphoBorrowCalls({
@@ -196,8 +193,6 @@ export async function estimateMorphoRepayGasUsdc(
 ): Promise<number> {
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
-    const { buildMorphoRepayCalls, toMorphoMarketParams } =
-      require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
     const market = toMorphoMarketParams(params.market);
     const { calls } = await buildMorphoRepayCalls({
@@ -220,8 +215,6 @@ export async function executeMorphoWithdrawCollateralTx(
   resolveClient: ResolveSmartAccountClient,
   params: MorphoWithdrawCollateralTxParams,
 ): Promise<string> {
-  const { buildMorphoWithdrawCollateralCalls, toMorphoMarketParams } =
-    require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
   const market = toMorphoMarketParams(params.market);
   const { calls } = await buildMorphoWithdrawCollateralCalls({
@@ -241,8 +234,6 @@ export async function estimateMorphoWithdrawCollateralGasUsdc(
 ): Promise<number> {
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
-    const { buildMorphoWithdrawCollateralCalls, toMorphoMarketParams } =
-      require('../../../../lib/wallet/morphoBlue') as typeof import('../../../../lib/wallet/morphoBlue');
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
     const market = toMorphoMarketParams(params.market);
     const { calls } = await buildMorphoWithdrawCollateralCalls({

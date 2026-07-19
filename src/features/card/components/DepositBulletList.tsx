@@ -4,7 +4,7 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
 interface DepositBulletListProps {
-  items: Array<string | null | undefined>;
+  items: (string | null | undefined)[];
 }
 
 export default function DepositBulletList({ items }: DepositBulletListProps) {

@@ -141,7 +141,7 @@ export default function BorrowDetailModal({
     void fetchMarketById(market.marketId)
       .then((fresh) => { if (fresh) setDetail(fresh); })
       .finally(() => setDetailLoading(false));
-  }, [market?.marketId]);
+  }, [market]);
 
   const m = market ?? detail ?? lastMarketRef.current;
   if (m) lastMarketRef.current = m;
@@ -165,9 +165,9 @@ export default function BorrowDetailModal({
   }, [m, scaAddress]);
 
   useEffect(() => {
-    if (!visible || !m || !scaAddress) return;
+    if (!visible) return;
     void loadOnChainPosition();
-  }, [visible, m?.marketId, scaAddress, loadOnChainPosition]);
+  }, [visible, loadOnChainPosition]);
 
   const displayBorrowUsd = chainPosition?.borrowAssetsUsd ?? borrowedUsd;
   const displayCollateralUsd = chainPosition?.collateralUsd ?? collateralUsd;

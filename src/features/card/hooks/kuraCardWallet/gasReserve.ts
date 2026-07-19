@@ -1,3 +1,5 @@
+import { encodeFunctionData, erc20Abi } from 'viem';
+import { base } from 'viem/chains';
 import {
   GAS_RESERVE_BUFFER,
   GAS_RESERVE_FALLBACK_USDC,
@@ -16,8 +18,6 @@ export async function estimateUsdcGasReserve(
   if (!PAY_GAS_IN_USDC || !smartAddress) return 0;
   try {
     const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
-    const { encodeFunctionData, erc20Abi } = require('viem') as typeof import('viem');
-    const { base } = require('viem/chains') as typeof import('viem/chains');
 
     const calls = await withGasApprovalCalls(pimlicoClient, sca, [
       {
