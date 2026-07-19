@@ -4,7 +4,7 @@
 
 This project uses **local native builds** and **manual store upload**. There is **no EAS Build / EAS Submit** workflow.
 
-Store binaries should correspond to tagged commits in this repository — build from source to verify what ships. See [transparency.md](transparency.md).
+Store binaries should correspond to tagged commits in this repository. See [transparency.md](transparency.md).
 
 **Hub:** [docs/README.md](README.md) · **Secrets:** [secrets-rotation.md](secrets-rotation.md)
 

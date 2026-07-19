@@ -1,9 +1,8 @@
 /**
- * Feature flags for the open-source client.
+ * Feature flags for the mobile client.
  *
- * Core wallet + WalletConnect work without the proprietary Kura backend.
- * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL
- * (official or self-hosted).
+ * Core wallet + WalletConnect work without the Kura backend.
+ * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL.
  *
  * Morpho Earn uses Morpho's public API (no Kura backend) but needs Pimlico
  * for on-chain deposits — see src/config/earn.ts.

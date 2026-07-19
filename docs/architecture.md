@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Technical map of the open-source mobile client. The **Kura backend is proprietary** — see [transparency.md](transparency.md) and [official-services.md](official-services.md).
+Technical map of the mobile client. The **Kura backend is a separate service** — see [transparency.md](transparency.md) and [official-services.md](official-services.md).
 
 **Related:** [Threat model](threat-model.md) · [Getting started](getting-started.md)
 

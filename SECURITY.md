@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Kura Wallet follows **security through transparency**: the mobile client is open source so researchers can inspect it. This policy defines scope, reporting, and our response expectations.
+This policy defines vulnerability scope, reporting, and response expectations for the Kura Wallet mobile client.
 
 Related: [Threat model](docs/threat-model.md) · [Transparency](docs/transparency.md) · [Secrets rotation](docs/secrets-rotation.md)
 
@@ -30,7 +30,7 @@ Related: [Threat model](docs/threat-model.md) · [Transparency](docs/transparenc
 | Privy, Pimlico, Reown, Gnosis Pay SaaS | Respective vendor programs |
 | Base smart contract vulnerabilities | Chain / protocol security contacts |
 | Social engineering of individual users | Not a client code issue |
-| Issues in forked apps with modified code | Fork maintainer first |
+| Issues in third-party forks or modified builds | Operator of that build first |
 
 ### What the client protects
 
@@ -99,7 +99,7 @@ We will not pursue legal action against researchers who:
 
 - **Never commit:** `.env`, keystores, `android/gradle.properties`, `android/local.properties`.
 - **Rotate immediately** if production keys appeared in git or shipped artifacts — [docs/secrets-rotation.md](docs/secrets-rotation.md).
-- **Fork maintainers:** Use your own Privy, WalletConnect, and Pimlico projects; update this file's contact if you operate a public fork.
+- **White-label / rebrand builds:** Use your own Privy, WalletConnect, and Pimlico projects; update this file's contact if you operate a separate deployment.
 
 ### Supported versions
 
@@ -113,7 +113,7 @@ Security fixes target the **latest release on `main`**. Older store builds may n
 
 **本仓库（客户端）：** 移动应用源码、设备端密钥、WC 确认 UI、客户端 E2EE、已提交代码的供应链问题。
 
-**不在范围：** Kura 托管后端（仍发 **security@kura-finance.com**）、Privy/Pimlico/Reown 等 SaaS、Base 合约漏洞、针对个人的社工、未协调的 Fork 修改版。
+**不在范围：** Kura 托管后端（仍发 **security@kura-finance.com**）、Privy/Pimlico/Reown 等 SaaS、Base 合约漏洞、针对个人的社工、未经协调的第三方改版。
 
 ### 客户端提供的保护
 
@@ -139,7 +139,7 @@ Privy、Pimlico、Reown、第三方 ramps、（若配置）Kura 后端、**用�
 
 ### 安全开发
 
-勿提交 `.env`、keystore、`gradle.properties`；密钥泄露见 [docs/secrets-rotation.md](docs/secrets-rotation.md)。Fork 维护者请使用自有第三方项目并更新联系邮箱。
+勿提交 `.env`、keystore、`gradle.properties`；密钥泄露见 [docs/secrets-rotation.md](docs/secrets-rotation.md)。换牌 / 独立部署请使用自有第三方项目并更新联系邮箱。
 
 ### 支持版本
 

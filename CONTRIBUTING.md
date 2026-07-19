@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Thank you for helping improve the Kura Wallet mobile client. This project is **GPL-3.0-or-later** — by contributing you agree your changes are licensed under the same terms.
+Thank you for helping improve the Kura Wallet mobile client. This is **proprietary software**. By contributing you assign (or irrevocably license) your contributions to Kura Finance under the terms of [LICENSE](LICENSE) and any applicable contributor agreement.
 
 Please read our [Code of Conduct](CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](SECURITY.md) (private email only).
 
@@ -14,7 +14,7 @@ Please read our [Code of Conduct](CODE_OF_CONDUCT.md). Security issues: [SECURIT
 
 ### Before you start
 
-1. Read [docs/transparency.md](docs/transparency.md) — understand what is open vs. proprietary.
+1. Read [docs/transparency.md](docs/transparency.md) — understand client vs backend trust boundaries.
 2. Complete [docs/getting-started.md](docs/getting-started.md) — local build running.
 3. For rebranding, follow [docs/fork-guide.md](docs/fork-guide.md) instead of one-off edits.
 4. Never commit secrets — [docs/secrets-rotation.md](docs/secrets-rotation.md).
@@ -34,7 +34,7 @@ After changing `app.config.js`, branding, or `plugins/`, run `npx expo prebuild`
 
 ### Pull requests
 
-1. Fork and branch from `main`.
+1. Create a branch from `main`.
 2. Run checks locally:
    ```bash
    npm run lint
@@ -60,7 +60,7 @@ After changing `app.config.js`, branding, or `plugins/`, run `npx expo prebuild`
 ### What we welcome
 
 - Bug fixes with reproduction steps
-- Documentation and transparency improvements
+- Documentation improvements
 - Tests for `src/lib/` crypto, API parsing, wallet helpers
 - Accessibility and i18n fixes
 - Performance improvements with measurable impact
@@ -68,11 +68,11 @@ After changing `app.config.js`, branding, or `plugins/`, run `npx expo prebuild`
 ### What needs discussion first
 
 - New third-party services or telemetry
-- Breaking changes to env var names or fork branding files
+- Breaking changes to env var names or branding files
 - Features requiring undocumented Kura backend endpoints
 - Changes that weaken confirm screens, E2EE gating, or feature flags
 
-Open a GitHub Discussion or issue labeled **question** before large architectural changes.
+Open an internal issue or discussion labeled **question** before large architectural changes.
 
 ### Security contributions
 
@@ -80,9 +80,9 @@ Open a GitHub Discussion or issue labeled **question** before large architectura
 - Email **security@kura-finance.com** with details per [SECURITY.md](SECURITY.md).
 - Documentation fixes that clarify trust boundaries ([transparency.md](docs/transparency.md)) are welcome via normal PRs.
 
-### License
+### Intellectual property
 
-Contributions are accepted under [GPL-3.0-or-later](LICENSE). You must have the right to submit the code you contribute.
+Contributions become proprietary property of Kura Finance (see [LICENSE](LICENSE)). You must have the right to submit the code you contribute.
 
 ---
 
@@ -131,6 +131,6 @@ npx expo start
 
 可利用漏洞请邮件 **security@kura-finance.com**，勿公开 Issue。
 
-### 授权
+### 知识产权
 
-贡献以 [GPL-3.0-or-later](LICENSE) 发布。
+贡献归 Kura Finance 专有（见 [LICENSE](LICENSE)）。提交前须确保你有权贡献该代码。

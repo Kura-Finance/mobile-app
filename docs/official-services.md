@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-What the **open-source client** connects to — the trust boundary between code you can audit and infrastructure you must trust. Only the mobile app is published here; the Kura backend is proprietary.
+What the **mobile client** connects to — the trust boundary between on-device code and infrastructure you must trust. This repository is the mobile app only; the Kura backend is a separate service.
 
 **Related:** [transparency.md](transparency.md) · [threat-model.md](threat-model.md) · [fork-guide.md](fork-guide.md)
 
@@ -31,7 +31,7 @@ What the **open-source client** connects to — the trust boundary between code 
 | DeBank DeFi portfolio | **Yes** | Backend proxy | Client normalizes in `debank/normalize.ts` |
 | Dinari stocks | **Yes** | Feature flag `dinariStocks` | Currently off in `features.ts` |
 | Morpho Earn | No | `morphoEarn` + Pimlico | Public Morpho GraphQL; vault list in `src/config/earn.ts` |
-| Kura Card (waitlist UI) | No | — | Card manager + waitlist; no GP API in OSS client |
+| Kura Card (waitlist UI) | No | — | Card manager + waitlist; full GP onboarding is separate |
 | Stock/crypto logos | No | `EXPO_PUBLIC_LOGODEV_TOKEN` | Falls back to glyphs |
 
 ### Third-party dashboards

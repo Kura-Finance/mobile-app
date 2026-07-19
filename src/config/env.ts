@@ -1,5 +1,5 @@
 /**
- * Centralised environment configuration for the open-source mobile client.
+ * Centralised environment configuration for the mobile client.
  *
  * All EXPO_PUBLIC_* variables should be read here (or via helpers exported
  * from this module). See docs/fork-guide.md.

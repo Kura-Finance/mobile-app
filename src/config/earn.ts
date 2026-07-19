@@ -1,5 +1,5 @@
 /**
- * Morpho Earn configuration (open-source / fork-friendly).
+ * Morpho Earn configuration.
  *
  * Vault listings use Morpho's public GraphQL API. Deposits and withdrawals
  * require a Pimlico smart-account key. All env vars are read via {@link env}.

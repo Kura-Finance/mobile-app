@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-If credentials were ever committed to git, shared in chat, or built into a leaked artifact, **rotate before** continuing development or publishing. Open-source transparency does not replace key hygiene — `EXPO_PUBLIC_*` values are embedded in every store build.
+If credentials were ever committed to git, shared in chat, or built into a leaked artifact, **rotate before** continuing development or publishing. Documentation does not replace key hygiene — `EXPO_PUBLIC_*` values are embedded in every store build.
 
 **Related:** [SECURITY.md](../SECURITY.md) · [local-release.md](local-release.md) · [transparency.md](transparency.md)
 

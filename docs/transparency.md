@@ -1,51 +1,47 @@
-# Transparency & trust model / 透明度與信任模型
+# Trust model / 信任模型
 
 **English** | [中文](#中文)
 
-Kura Wallet publishes its **mobile client** under [GPL-3.0](../LICENSE) so you can inspect how signing, encryption, and WalletConnect approvals work on your device.
-
-We do **not** ask you to trust us blindly. We ask you to read the code, build the app, and decide what you still must trust third parties with.
+This document describes trust boundaries for the **Kura Wallet mobile client**: what the app handles on-device, what depends on the Kura backend or third parties, and what you can verify in a local build.
 
 ---
 
 ## English
 
-### Why this repository is open source
+### Design principles
 
 | Principle | What it means for Kura |
 |-----------|------------------------|
-| **Security through transparency** | Client logic is public. Vulnerabilities can be found by anyone, not hidden behind a binary. |
-| **Informed consent** | You can see exactly when the app sends a transaction, decrypts finance data, or talks to a backend. |
-| **Fork-friendly wallet** | Teams can ship a wallet-only build without Kura infrastructure or trademarks. |
-| **Accountability** | Security researchers have a clear scope and reporting channel ([SECURITY.md](../SECURITY.md)). |
+| **Clear boundaries** | Client logic, hosted backend, and third-party SaaS are labeled separately. |
+| **Informed consent** | Users see when the app sends a transaction, decrypts finance data, or talks to a backend. |
+| **Wallet-only mode** | Core wallet features run without `EXPO_PUBLIC_API_BASE_URL`. |
+| **Accountable security** | Researchers have a clear scope and reporting channel ([SECURITY.md](../SECURITY.md)). |
 
 ### What is in this repository
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| React Native / Expo mobile client | **Open source** | Full app UI, navigation, state, API clients |
-| On-device crypto helpers | **Open source** | E2EE envelopes, passkey unlock flow (`src/lib/crypto/`) |
-| Smart wallet client | **Open source** | Safe SCA provisioning, send, swap hooks |
-| WalletConnect wallet mode | **Open source** | Session UI, method routing, deep links |
-| Build & fork documentation | **Open source** | This `docs/` tree |
-| Environment template | **Open source** | [`.env.example`](../.env.example) — placeholders only |
+| Component | Notes |
+|-----------|--------|
+| React Native / Expo mobile client | Full app UI, navigation, state, API clients |
+| On-device crypto helpers | E2EE envelopes, passkey unlock flow (`src/lib/crypto/`) |
+| Smart wallet client | Safe SCA provisioning, send, swap hooks |
+| WalletConnect wallet mode | Session UI, method routing, deep links |
+| Build & ops documentation | This `docs/` tree |
+| Environment template | [`.env.example`](../.env.example) — placeholders only |
 
-**This project is designed to compile from GitHub** with your own API keys. See [Getting started](getting-started.md).
+Local setup: [Getting started](getting-started.md).
 
 ### What is not in this repository
 
 | Component | Status | Implication |
 |-----------|--------|-------------|
-| Kura hosted backend | **Proprietary** | Auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
-| Privy, Pimlico, Reown infrastructure | **Third-party** | You trust their SDKs and servers for auth, bundling, and WC relay |
-| Base chain & smart contracts | **Public chain** | On-chain behaviour is verifiable separately from this repo |
-| Store signing keys | **Never in git** | Keystores and `.env` stay on maintainer machines |
+| Kura hosted backend | Separate service | Auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
+| Privy, Pimlico, Reown infrastructure | Third-party | Auth, bundling, and WC relay |
+| Base chain & smart contracts | Public chain | On-chain behaviour is verifiable separately |
+| Store signing keys | Never in git | Keystores and `.env` stay on maintainer machines |
 
 TrackFi and Dinari features **require** a backend URL. Core wallet features do not — see [official-services.md](official-services.md).
 
-### What you can verify yourself
-
-Build from source and confirm:
+### What you can verify in a local build
 
 1. **Transaction approval** — WalletConnect and send flows show calldata before signing (`src/features/walletconnect/`, send modals).
 2. **Key storage** — Private material uses `expo-secure-store`; logout clears local wallet cache (`clearLocalWalletCache()`).
@@ -54,7 +50,6 @@ Build from source and confirm:
 5. **Env isolation** — Secrets are read only through [`src/config/env.ts`](../src/config/env.ts), not scattered in features.
 
 ```bash
-git clone https://github.com/Kura-Finance/mobile-app.git
 cd mobile-app
 cp .env.example .env    # your keys only — never commit
 npm install && npx expo prebuild
@@ -62,11 +57,7 @@ npm test && npm run lint
 npx expo run:ios        # or run:android
 ```
 
-Compare your build's behaviour to the store app on the same flows (login, balance read, WC reject/approve).
-
 ### What you still trust
-
-Even with full client source, you rely on:
 
 | Party | Trust assumption |
 |-------|------------------|
@@ -78,53 +69,51 @@ Even with full client source, you rely on:
 
 See [threat-model.md](threat-model.md) for adversaries and mitigations.
 
-### Transparency vs. the official Kura app
+### Client vs backend access
 
 | Question | Answer |
 |----------|--------|
-| Is the App Store / Play app built from this repo? | **Intended yes** — same source tree; maintainers sign with private keys locally ([local-release.md](local-release.md)). |
-| Can Kura ship a build with extra closed code? | Store builds should match tagged releases here. Verify by building the same tag yourself. |
-| Does open source mean the backend is zero-access? | **No.** TrackFi snapshots are encrypted for the client, but the backend stores ciphertext and orchestrates Plaid/DeBank. Wallet-only mode avoids that backend entirely. |
+| Does wallet-only mode need the Kura API? | **No.** Leave `EXPO_PUBLIC_API_BASE_URL` empty. |
+| Does TrackFi imply zero backend access? | **No.** Snapshots are encrypted for the client, but the backend stores ciphertext and orchestrates Plaid/DeBank. |
+| Where are store signing keys? | **Never in git** — local release process only ([local-release.md](local-release.md)). |
 
 ### Reporting gaps
 
-If documentation and code disagree, please open an issue or email **security@kura-finance.com** if security-relevant.
+If documentation and code disagree, open an internal issue or email **security@kura-finance.com** if security-relevant.
 
 ---
 
 ## 中文
 
-### 为何开源
+### 设计原则
 
 | 原则 | 对 Kura 的意义 |
 |------|----------------|
-| **透明即安全** | 客户端逻辑公开，漏洞可被任何人发现，而非藏在二进制里。 |
+| **边界清晰** | 客户端、托管后端、第三方 SaaS 分开标注。 |
 | **知情选择** | 可看到何时签名、何时解密财务数据、何时请求后端。 |
-| **可 Fork** | 团队可仅部署核心钱包，无需 Kura 后端或商标。 |
+| **纯钱包模式** | 不配置后端 URL 时可只跑核心钱包。 |
 | **可问责** | 安全研究人员有明确范围与报告渠道。 |
 
 ### 本仓库包含
 
-| 组件 | 状态 |
+| 组件 | 说明 |
 |------|------|
-| React Native / Expo 移动客户端 | **开源** |
-| 设备端加密（E2EE、Passkey） | **开源** |
-| 智能钱包与 WalletConnect | **开源** |
-| 构建 / Fork 文档 | **开源** |
-
-**本项目可从 GitHub 完整编译**，只需自备 API Key。
+| React Native / Expo 移动客户端 | UI、导航、状态、API 客户端 |
+| 设备端加密（E2EE、Passkey） | `src/lib/crypto/` |
+| 智能钱包与 WalletConnect | Safe SCA、会话确认 |
+| 构建 / 运维文档 | `docs/` |
 
 ### 本仓库不包含
 
 | 组件 | 状态 |
 |------|------|
-| Kura 托管后端 | **专有** |
-| Privy / Pimlico / Reown 基础设施 | **第三方** |
-| 商店签名密钥 | **永不进 git** |
+| Kura 托管后端 | 独立服务 |
+| Privy / Pimlico / Reown 基础设施 | 第三方 |
+| 商店签名密钥 | 永不进 git |
 
 未配置 `EXPO_PUBLIC_API_BASE_URL` 时，TrackFi / Dinari 自动隐藏。
 
-### 你可自行验证
+### 本地构建可核对
 
 1. 交易与 WC 请求在签名前展示 calldata  
 2. 私钥存 SecureStore，登出清除缓存  
@@ -133,7 +122,6 @@ If documentation and code disagree, please open an issue or email **security@kur
 5. 密钥仅经 `src/config/env.ts` 读取  
 
 ```bash
-git clone https://github.com/Kura-Finance/mobile-app.git
 cd mobile-app
 cp .env.example .env
 npm install && npx expo prebuild
@@ -144,6 +132,6 @@ npm test && npx expo run:ios
 
 Privy、Pimlico、Reown、（若启用）Kura 后端，以及**你自己对 UI 中 calldata 的确认**。详见 [threat-model.md](threat-model.md)。
 
-### 与官方 App 的关系
+### 客户端与后端
 
-官方商店包应对应本仓库的 tag；你可用相同 tag 自行编译比对行为。开源**不等于**后端零知识访问——TrackFi 仍依赖后端存密文；纯钱包模式可完全绕过后端。
+纯钱包模式可不依赖 Kura API。TrackFi **不等于**后端零知识访问——仍依赖后端存密文；不启用 TrackFi 时可完全绕过后端。

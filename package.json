@@ -1,7 +1,7 @@
 {
   "name": "kura",
   "version": "1.0.0",
-  "description": "Open-source React Native / Expo mobile client for Kura Wallet — non-custodial smart wallet on Base.",
+  "description": "Kura Wallet mobile client — non-custodial smart wallet on Base (React Native / Expo).",
   "main": "node_modules/expo/AppEntry.js",
   "repository": {
     "type": "git",
@@ -107,8 +107,8 @@
     "typescript": "~5.9.2",
     "vitest": "^3.2.6"
   },
-  "private": false,
-  "license": "GPL-3.0-or-later",
+  "private": true,
+  "license": "UNLICENSED",
   "overrides": {
     "valtio": "1.13.2",
     "@walletconnect/core": "2.23.9",

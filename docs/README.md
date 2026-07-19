@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Welcome to the Kura Wallet mobile client documentation. These guides explain how the app works, what you can verify in source, and how to build, fork, or contribute with confidence.
+Welcome to the Kura Wallet mobile client documentation. These guides explain how the app works, trust boundaries, and how to build or ship releases.
 
 ---
 
@@ -12,7 +12,7 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 
 | Guide | Who it's for | What you'll learn |
 |-------|--------------|-------------------|
-| [Transparency & trust model](transparency.md) | Everyone | Why we open-source, what is / isn't in this repo, how to verify a build |
+| [Trust model](transparency.md) | Everyone | Client vs backend vs third parties; what a local build can verify |
 | [Threat model](threat-model.md) | Security researchers, auditors | Assets, adversaries, mitigations, residual trust |
 | [Getting started](getting-started.md) | Developers | Clone, configure, run, test |
 | [Architecture](architecture.md) | Contributors, auditors | Layers, auth, wallet, E2EE, data flows |
@@ -22,7 +22,7 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 | Guide | Who it's for |
 |-------|--------------|
 | [Local release](local-release.md) | Maintainers publishing to App Store / Play Console |
-| [Fork guide](fork-guide.md) | Teams white-labeling or forking the client |
+| [Rebrand guide](fork-guide.md) | Teams white-labeling or rebranding the client |
 | [Official & third-party services](official-services.md) | Anyone mapping API keys and backend dependencies |
 
 ### Security & governance
@@ -31,7 +31,7 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 |----------|---------|
 | [SECURITY.md](../SECURITY.md) | Vulnerability reporting, scope, response expectations |
 | [Secrets rotation](secrets-rotation.md) | What to rotate if credentials leak |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | PR workflow, conventions, license |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | PR workflow, conventions, IP |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
 
 ### Reference
@@ -40,16 +40,14 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 |----------|---------|
 | [`.env.example`](../.env.example) | All environment variables with comments |
 | [i18n guide](../src/shared/locales/README.md) | Translation workflow (en / zh-TW) |
-| [LICENSE](../LICENSE) | GPL-3.0 obligations |
+| [LICENSE](../LICENSE) | Proprietary license — all rights reserved |
 
 ### Design principles
 
-Our documentation is built around four ideas:
-
-1. **Security through transparency** — publish client source so experts and users can inspect it, not security through obscurity.
-2. **Honest scope** — clearly label what is open, what is proprietary, and what still requires trusting a third party.
-3. **Verifiable builds** — instructions to compile the app yourself and compare behaviour to store builds.
-4. **Actionable security** — private disclosure path, rotation checklists, and threat-model alignment.
+1. **Honest scope** — clearly label client, proprietary backend, and third-party trust.
+2. **Local verifiability** — instructions to compile and exercise critical security flows.
+3. **Actionable security** — private disclosure path, rotation checklists, and threat-model alignment.
+4. **Operational clarity** — env, branding, and release steps stay in sync with code.
 
 ---
 
@@ -59,9 +57,9 @@ Our documentation is built around four ideas:
 
 | 文档 | 适合对象 | 内容 |
 |------|----------|------|
-| [透明度与信任模型](transparency.md) | 所有人 | 为何开源、仓库内外边界、如何验证构建 |
+| [信任模型](transparency.md) | 所有人 | 客户端 / 后端 / 第三方边界、本地构建可核对项 |
 | [威胁模型](threat-model.md) | 安全研究人员 | 资产、对手、缓解措施、残余信任 |
-| [快速开始](getting-started.md) | 开发者 | 克隆、配置、运行、测试 |
+| [快速开始](getting-started.md) | 开发者 | 配置、运行、测试 |
 | [架构](architecture.md) | 贡献者 / 审计 | 分层、登录、钱包、E2EE、数据流 |
 
 ### 构建与发布
@@ -69,7 +67,7 @@ Our documentation is built around four ideas:
 | 文档 | 适合对象 |
 |------|----------|
 | [本地发布](local-release.md) | 上架 App Store / Play 的维护者 |
-| [分叉指南](fork-guide.md) | 换牌 / Fork 团队 |
+| [换牌指南](fork-guide.md) | 换牌 / 白标团队 |
 | [官方与第三方服务](official-services.md) | 梳理 API Key 与后端依赖 |
 
 ### 安全与治理
@@ -79,7 +77,7 @@ Our documentation is built around four ideas:
 | [SECURITY.md](../SECURITY.md) | 漏洞报告、范围、响应预期 |
 | [密钥轮换](secrets-rotation.md) | 凭证泄露后的处理 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | PR 流程与规范 |
-| [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | 社区行为准则 |
+| [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | 行为准则 |
 
 ### 参考
 
@@ -87,8 +85,8 @@ Our documentation is built around four ideas:
 |------|------|
 | [`.env.example`](../.env.example) | 环境变量说明 |
 | [国际化指南](../src/shared/locales/README.md) | 翻译流程 |
-| [LICENSE](../LICENSE) | GPL-3.0 授权 |
+| [LICENSE](../LICENSE) | 专有授权 |
 
 ### 文档原则
 
-**透明优先**、**边界诚实**、**构建可验证**、**安全可行动**。
+**边界诚实**、**本地可核对**、**安全可行动**、**运维清晰**。

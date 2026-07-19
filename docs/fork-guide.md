@@ -1,10 +1,10 @@
-# Fork guide / 分叉指南
+# Rebrand guide / 換牌指南
 
 **English** | [中文](#中文)
 
-Rebrand the open-source client for your own wallet or white-label build. The **Kura hosted backend is not included** — see [official-services.md](official-services.md) and [transparency.md](transparency.md).
+Rebrand the mobile client for a white-label or alternate brand build. The **Kura hosted backend is not included** — see [official-services.md](official-services.md) and [transparency.md](transparency.md).
 
-**Hub:** [docs/README.md](README.md) · **Before publishing:** update [SECURITY.md](../SECURITY.md) contact, review [GPL-3.0](../LICENSE), follow [secrets-rotation.md](secrets-rotation.md).
+**Hub:** [docs/README.md](README.md) · **Before publishing:** update [SECURITY.md](../SECURITY.md) contact, follow [secrets-rotation.md](secrets-rotation.md), and comply with [LICENSE](../LICENSE).
 
 ---
 
@@ -131,7 +131,7 @@ npx expo run:ios    # or run:android
 - [ ] Rotate any keys ever committed — [secrets-rotation.md](secrets-rotation.md)
 - [ ] Never commit `.env`, keystores, `android/gradle.properties`, `android/local.properties`
 - [ ] Update [SECURITY.md](../SECURITY.md) contact email
-- [ ] Review [LICENSE](../LICENSE) (GPL-3.0) obligations
+- [ ] Confirm distribution rights under [LICENSE](../LICENSE)
 
 ---
 
@@ -170,7 +170,7 @@ npx expo prebuild --clean
 
 `kuraWalletListing.ts` 与 `AppKitConfig.ts` 自动使用 branding。可在 Reown WalletGuide 注册钱包。
 
-Earn 收益费默认地址见 `earnFeeWrapper.ts`；fork 请改 env 或设 `EXPO_PUBLIC_MORPHO_EARN_FEE=0`。
+Earn 收益费默认地址见 `earnFeeWrapper.ts`；换牌请改 env 或设 `EXPO_PUBLIC_MORPHO_EARN_FEE=0`。
 
 ### 5. 验证
 
@@ -180,4 +180,4 @@ npm run lint && npm test && npx tsc --noEmit
 
 ### 6. 发布前
 
-轮换泄露密钥、勿提交敏感文件、更新 SECURITY 联系邮箱、遵守 GPL-3.0。
+轮换泄露密钥、勿提交敏感文件、更新 SECURITY 联系邮箱、确认符合 [LICENSE](../LICENSE)。

@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-This document describes what the open-source **mobile client** defends against, what it explicitly does **not** defend against, and where trust remains. It complements [transparency.md](transparency.md) and [SECURITY.md](../SECURITY.md).
+This document describes what the **mobile client** defends against, what it explicitly does **not** defend against, and where trust remains. It complements [transparency.md](transparency.md) and [SECURITY.md](../SECURITY.md).
 
 Scope: **Kura Wallet mobile client** on iOS and Android. Out of scope: Kura backend internals, Privy/Pimlico/Reown operations, Base smart contract bugs.
 
@@ -63,7 +63,7 @@ Scope: **Kura Wallet mobile client** on iOS and Android. Out of scope: Kura back
 | Non-custodial signing UX with explicit approval | Hiding that Privy provisions the owner EOA |
 | E2EE for TrackFi snapshots **after** passkey unlock | Zero-knowledge backend for Plaid aggregation |
 | Wallet-only mode without Kura API | Replacing Base chain trust |
-| Open audit of client crypto and WC routing | Open-sourcing Kura server |
+| Clear client crypto and WC routing responsibilities | Exposing Kura server internals in this repo |
 
 ### Data flow summary
 
@@ -140,7 +140,7 @@ Privy、Pimlico、Reown、（若启用）Kura 后端、**用户自身对 calldat
 
 ### 非目标
 
-不隐藏 Privy 提供 EOA；不要求 Plaid 聚合后端零知识；不替代对 Base 链的信任；不开源 Kura 服务端。
+不隐藏 Privy 提供 EOA；不要求 Plaid 聚合后端零知识；不替代对 Base 链的信任；Kura 服务端不在此仓库。
 
 ### 审计建议路径
 

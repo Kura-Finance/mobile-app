@@ -1,5 +1,5 @@
 /**
- * Morpho V2 fee-wrapper address routing (open-source / fork-friendly).
+ * Morpho V2 fee-wrapper address routing.
  *
  * Deposits can go through a fee-wrapper vault that skims performance fee on
  * yield. Map inner (listed) vault addresses → wrapper deposit addresses via:

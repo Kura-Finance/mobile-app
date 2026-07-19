@@ -94,7 +94,7 @@ npx expo start
 
 ### 4. Verify your build
 
-Confirm the open-source tree matches expected security behaviour:
+Confirm the local tree matches expected security behaviour:
 
 ```bash
 npm run lint
