@@ -13,8 +13,11 @@ jobs:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
+      # actions:read required on private repos so analyze can call
+      # GET /repos/.../actions/runs/{id} while uploading SARIF.
+      actions: read
       contents: read
+      security-events: write
 
     steps:
       - name: Checkout repository
