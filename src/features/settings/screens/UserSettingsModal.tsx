@@ -44,7 +44,6 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
   const setBaseCurrency = useAppStore((state) => state.setBaseCurrency);
   const setLanguage = useAppStore((state) => state.setLanguage);
   const setThemeMode = useAppStore((state) => state.setThemeMode);
-  const clearAuthSession = useAppStore((state) => state.clearAuthSession);
   const updateAvatar = useAppStore((state) => state.updateAvatar);
   const { logout } = usePrivy();
 

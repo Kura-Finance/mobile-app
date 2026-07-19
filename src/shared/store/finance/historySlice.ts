@@ -47,7 +47,7 @@ function toAssetSnapshot(point: {
   };
 }
 
-export const createHistorySlice: StateCreator<FinanceState, [], [], HistoryState> = (set, get) => ({
+export const createHistorySlice: StateCreator<FinanceState, [], [], HistoryState> = (set, get, _api) => ({
   assetHistory: [],
   lastRecordedTime: null,
   lastFetchedDays: null,

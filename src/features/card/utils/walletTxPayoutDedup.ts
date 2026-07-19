@@ -126,7 +126,6 @@ function pickBestPayoutChainLeg(
     candidates = chains.filter((chain) => {
       if (!isUsdcChainSend(chain)) return false;
       if (!withinPayoutWindow(payout, chain)) return false;
-      const chainTo = normAddr(chain.toAddress ?? chain.counterparty);
       if (!isPayoutLaRecipient(chain, payoutTos)) return false;
       if (targetAmount <= 0 || amountsMatch(chain.amount, targetAmount)) return true;
       return payout.source === 'fiat_withdraw';

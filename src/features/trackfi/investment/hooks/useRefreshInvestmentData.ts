@@ -24,8 +24,8 @@ export function useRefreshInvestmentData() {
 
     setRefreshing(true);
     try {
-      // Phase 3: encrypted snapshot is cache-driven; backend updates via webhooks.
-      // Mobile just refetches what the server has.
+      // Phase 3: encrypted snapshot lazy-refreshes when cache TTL expires (and
+      // seeds AssetSnapshot history). Pull-to-refresh re-fetches that path.
       await hydratePlaidFinanceData(authToken, true);
 
       if (exchangeAccounts.length > 0) {

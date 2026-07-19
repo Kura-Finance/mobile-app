@@ -6,7 +6,7 @@ import Logger from '../../utils/Logger';
  * Account Slice - 處理核心帳戶增刪改查
  * 包括：銀行帳戶、投資帳戶、交易所帳戶
  */
-export const createAccountSlice: StateCreator<FinanceState, [], [], AccountState> = (set) => ({
+export const createAccountSlice: StateCreator<FinanceState, [], [], AccountState> = (set, _get, _api) => ({
   // Initial State
   accounts: [],
   transactions: [],

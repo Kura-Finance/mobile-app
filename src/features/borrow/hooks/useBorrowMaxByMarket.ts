@@ -97,7 +97,7 @@ async function computeMarketBorrowCapacity(
       readMorphoOnChainPosition(mp, user),
     ]);
 
-    let borrowRaw = 0n;
+    let borrowRaw: bigint;
     try {
       borrowRaw = BigInt(position?.borrowAssets ?? '0');
     } catch {

@@ -9,7 +9,6 @@ import {
   isCryptoTransferComplete,
   isCryptoTransferTerminal,
   isOnrampTransferComplete,
-  isOnrampTransferTerminal,
   isPayoutDrainComplete,
   isPayoutDrainTerminal,
   listAccountDeposits,

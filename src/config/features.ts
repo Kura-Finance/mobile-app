@@ -10,7 +10,7 @@
  */
 
 import { isMorphoEarnEnabled } from './earn';
-import { env, hasKuraBackend, hasValidWalletConnectProjectId } from './env';
+import { hasKuraBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
   /** Base smart account: send, receive, swap (with third-party keys). */

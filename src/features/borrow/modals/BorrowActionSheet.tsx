@@ -230,7 +230,6 @@ export default function BorrowActionSheet({
   const maxRepay = Math.max(currentBorrowAmount, 0);
   const maxWithdraw = Math.max(collateralDeposited, 0);
   const maxLltv = market ? parseMarketMaxLltv(market.lltv) : null;
-  const hasExistingPosition = positionCollateralRaw > 0n || positionBorrowShares > 0n;
   const isAddCollateralFlow = isBorrow && borrowFlow === 'addCollateral';
   const isBorrowMoreFlow = isBorrow && borrowFlow === 'borrowMore';
   const isOpenBorrowFlow = isBorrow && borrowFlow === 'open';

@@ -9,7 +9,6 @@
  *     receive `data` directly
  *   - Throw {@link KuraApiError} (or {@link KuraNetworkError}) on any failure,
  *     including `success: false` envelopes that come with HTTP 200
- *   - Mask sensitive fields via {@link safeRedact} before logging
  *
  * Mobile MUST go through the JWT path; we never read or set cookies.
  *
@@ -19,7 +18,6 @@
 import Logger from '../../shared/utils/Logger';
 import { resolveRequestUrl } from './baseUrl';
 import { KuraApiError, KuraNetworkError } from './errors';
-import { safeRedact } from './safeLog';
 
 const CLIENT_TYPE = 'mobile';
 

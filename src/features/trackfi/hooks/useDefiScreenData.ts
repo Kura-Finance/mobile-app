@@ -11,7 +11,6 @@ import {
 import { computeDefiAllocationBuckets } from '../utils/defiAllocation';
 import {
   walletDataKey,
-  walletPortfolioTotal,
   type DefiProtocol,
   type DefiToken,
   type WalletData,

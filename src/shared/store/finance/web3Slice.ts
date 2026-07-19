@@ -142,7 +142,7 @@ async function getCoinPrice(
  * Web3 Slice - 處理 Web3 錢包同步
  * 包括：同步錢包位置、移除錢包位置
  */
-export const createWeb3Slice: StateCreator<FinanceState, [], [], Web3State> = (set, get) => ({
+export const createWeb3Slice: StateCreator<FinanceState, [], [], Web3State> = (set, get, _api) => ({
   // ========================================================================
   // Web3 Wallet Operations
   // ========================================================================

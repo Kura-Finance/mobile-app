@@ -333,7 +333,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
         Logger.error('PrivyBridge', '[5] login failed after all retries — showing retry screen');
         setExchangeStatus('error');
       })();
-    } else if (!user) {
+    } else {
       // Privy user gone (logout / session expired / account deleted) → wipe crypto + auth
       Logger.info('PrivyBridge', '[logout] Privy user cleared → wiping session', { prevAuthStatus: authStatus });
       activePrivyUserIdRef.current = null;

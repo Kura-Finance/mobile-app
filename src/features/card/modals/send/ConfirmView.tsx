@@ -5,7 +5,6 @@ import {
   StyleSheet, Platform, Animated,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -318,7 +317,7 @@ export default function ConfirmView({
           <View style={st.refreshLabel}>
             <Ionicons name="refresh-outline" size={12} color={colors.textMuted} />
             <Text style={st.refreshText}>
-              {isFetching ? t('card.refreshingRate') : t('card.rateRefreshesIn', { seconds: countdown })}
+              {t('card.rateRefreshesIn', { seconds: countdown })}
             </Text>
           </View>
         </View>

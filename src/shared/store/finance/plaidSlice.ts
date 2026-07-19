@@ -164,7 +164,7 @@ function applySnapshot(
   void state;
 }
 
-export const createPlaidSlice: StateCreator<FinanceState, [], [], PlaidState> = (set, get) => ({
+export const createPlaidSlice: StateCreator<FinanceState, [], [], PlaidState> = (set, get, _api) => ({
   isLoadingPlaidData: false,
   plaidError: null,
   lastRefreshInfo: null,

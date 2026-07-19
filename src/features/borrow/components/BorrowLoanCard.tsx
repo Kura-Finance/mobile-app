@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
 
 import SymbolLogo from './SymbolLogo';
 import { useTheme } from '../../../shared/theme/ThemeContext';

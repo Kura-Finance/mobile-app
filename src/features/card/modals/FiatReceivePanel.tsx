@@ -36,7 +36,6 @@ import {
   isKycApproved,
   isKycInReview,
   isKycPaused,
-  normalizeKycStatus,
 } from '../../../lib/api/ramp/bridgeKyc';
 import { openBridgeHostedKycFlow } from '../../../lib/api/ramp/hostedFlow';
 import { completeBridgeEndorsementFlow, openBridgeEndorsementHostedFlow } from '../../../lib/api/ramp/endorsementFlow';

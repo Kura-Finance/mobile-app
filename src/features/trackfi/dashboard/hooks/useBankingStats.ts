@@ -3,7 +3,6 @@ import type { Account } from '../../../../shared/store/finance';
 import {
   netBankingBalance,
   sumCreditLiabilities,
-  sumDepositoryBalances,
 } from '../../utils/bankingBalances';
 
 export function useBankingStats(accounts: Account[]) {
@@ -13,7 +12,6 @@ export function useBankingStats(accounts: Account[]) {
     );
     const creditAccounts = accounts.filter((a) => a.type === 'credit');
 
-    const depositoryTotal = sumDepositoryBalances(accounts);
     const creditUsed = sumCreditLiabilities(accounts);
     const netBalance = netBankingBalance(accounts);
 

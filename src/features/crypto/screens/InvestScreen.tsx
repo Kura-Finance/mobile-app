@@ -45,7 +45,6 @@ export default function InvestScreen() {
   const st = useStyles();
   const headerHeight = useHeaderHeight();
   const setScrolled = useHeaderStore((s) => s.setScrolled);
-  const favorites = useFavoritesStore((s) => s.favorites);
   const hydrateFavorites = useFavoritesStore((s) => s.hydrate);
 
   useEffect(() => { hydrateFavorites(); }, [hydrateFavorites]);

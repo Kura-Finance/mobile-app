@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest';
 import {
   formatTxListAmount,
   formatTxProcessedWith,
-  formatTxTokenAmount,
   getTxSubtitleLines,
   getTxRecipientDisplay,
   getTxIconKind,

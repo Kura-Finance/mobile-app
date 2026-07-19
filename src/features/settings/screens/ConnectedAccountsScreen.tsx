@@ -102,16 +102,6 @@ export default function ConnectedAccountsScreen({ onClose }: ConnectedAccountsSc
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleConnectPlaid = async () => {
-    setShowConnectModal(true);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleConnectWalletConnect = async () => {
-    setShowConnectModal(true);
-  };
-
   // 合并所有账户（银行账户 + 投资账户 + 交易所账户）
   const allConnectedAccounts = [
     ...accounts.map((acc) => ({

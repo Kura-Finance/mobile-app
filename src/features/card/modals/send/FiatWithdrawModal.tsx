@@ -181,7 +181,6 @@ export function FiatWithdrawPanel({
   const [currency, setCurrency] = useState<FiatCurrency>('usd');
   const {
     customer,
-    setCustomer,
     loadingCustomer,
     refreshCustomer: fetchBridgeCustomer,
   } = useBridgeCustomer({ enabled: active && sessionUsable });

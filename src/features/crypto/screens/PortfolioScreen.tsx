@@ -60,7 +60,6 @@ export default function PortfolioScreen() {
   const setScrolled = useHeaderStore((s) => s.setScrolled);
   const hideBalance = useHideBalance();
   const setHideBalance = useAppStore((s) => s.setHideBalance);
-  const favorites = useFavoritesStore((s) => s.favorites);
   const hydrateFavorites = useFavoritesStore((s) => s.hydrate);
 
   useEffect(() => { hydrateFavorites(); }, [hydrateFavorites]);
