@@ -1,6 +1,5 @@
 // src/AppKitConfig.ts - AppKit initialization with WalletConnect support
 import '@walletconnect/react-native-compat'
-import '../../lib/walletconnect/walletConnectBootstrap';
 import { warmWalletConnectWalletMode } from '../../lib/walletconnect/walletConnectBootstrap';
 
 import { createAppKit } from '@reown/appkit-react-native'

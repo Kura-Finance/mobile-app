@@ -27,11 +27,6 @@ import {
   markTrackFiSynced,
   shouldAutoSyncTrackFi,
 } from '../../../features/trackfi/utils/trackFiSyncPolicy';
-
-/** Coalesce concurrent Plaid hydrates (e.g. unlock → dashboard + background sync). */
-let hydratePlaidInFlight: Promise<void> | null = null;
-let hydratePlaidPendingForce = false;
-
 import {
   Account,
   AccountBucket,
@@ -43,6 +38,10 @@ import {
   PlaidState,
   Transaction,
 } from './types';
+
+/** Coalesce concurrent Plaid hydrates (e.g. unlock → dashboard + background sync). */
+let hydratePlaidInFlight: Promise<void> | null = null;
+let hydratePlaidPendingForce = false;
 
 function toStoreAccount(acc: PlaidAccount): Account {
   return {
@@ -214,32 +213,35 @@ export const createPlaidSlice: StateCreator<FinanceState, [], [], PlaidState> = 
 
           applySnapshot(set, get, snapshot);
           markTrackFiSynced('plaid');
-          return;
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to fetch Plaid finance data';
           const code = error instanceof KuraApiError ? error.code : undefined;
 
+          let servedFromCache = false;
           try {
             const cached = await fetchPlaidFromCache();
             if (cached) {
               Logger.warn('PlaidSlice', 'Network error; serving Plaid data from local cache', { message });
               applySnapshot(set, get, cached, CACHE_SOURCE_FROM_CACHE);
               markTrackFiSynced('plaid');
-              return;
+              servedFromCache = true;
             }
           } catch {
             // cache miss
           }
 
-          Logger.warn('PlaidSlice', 'Failed to hydrate Plaid data', { message, code });
-          set({ isLoadingPlaidData: false, plaidError: message });
-          throw error;
+          if (!servedFromCache) {
+            Logger.warn('PlaidSlice', 'Failed to hydrate Plaid data', { message, code });
+            set({ isLoadingPlaidData: false, plaidError: message });
+            throw error;
+          }
         } finally {
           if (!hydratePlaidPendingForce) {
             set((state) => (state.isLoadingPlaidData ? { isLoadingPlaidData: false } : {}));
           }
         }
 
+        // Another caller requested a forced refresh while we were in flight — loop once more.
         if (!hydratePlaidPendingForce) return;
       }
     };

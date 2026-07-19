@@ -6,6 +6,8 @@
  * symbols fall back to a neutral colour and their ticker initials.
  */
 
+import { tickerLogoUrl } from '../../../config/logodev';
+
 export interface StockMeta {
   color: string;
   /** CoinGecko coin id for chart / stats enrichment (null = no listing). */
@@ -77,8 +79,6 @@ export function stockColor(symbol: string): string {
 export function stockGlyph(symbol: string): string {
   return (symbol || '?').slice(0, 2).toUpperCase();
 }
-
-import { tickerLogoUrl } from '../../../config/logodev';
 
 export function stockLogoUrl(symbol: string, size = 64): string | null {
   return tickerLogoUrl(symbol, size);

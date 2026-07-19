@@ -36,7 +36,7 @@ import {
   disconnectPlaidItem,
   exchangePlaidPublicToken,
 } from '../../lib/api/plaid';
-import { waitForPlaidAccountsSynced } from '../utils/webhookWait';
+import { waitForPlaidAccountsSynced, waitForWebhookCompletion } from '../utils/webhookWait';
 import { disconnectExchange as disconnectExchangeAccountApi } from '../../lib/api/exchange';
 import { fetchExchangeRates, isCacheValid, type ExchangeRates } from '../../lib/api/exchangeRate';
 import { resetTrackFiSyncPolicy } from '../../features/trackfi/utils/trackFiSyncPolicy';
@@ -49,7 +49,6 @@ import { bindMembershipLabelReader } from './membershipLabelAccess';
 import { type Currency, SUPPORTED_CURRENCIES } from '../utils/currencyFormatter';
 import { type ThemeMode } from '../theme/theme';
 import Logger from '../utils/Logger';
-import { waitForWebhookCompletion } from '../utils/webhookWait';
 import { clearDataKey } from '../../lib/crypto/dataKeySession';
 import { clearCryptoSession } from '../../lib/crypto/session';
 import { applyScreenshotPolicy } from '../../lib/security/screenshotGuard';

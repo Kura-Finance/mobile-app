@@ -16,7 +16,7 @@
   console.log('[defaultWritable] Installing Object.defineProperty patch');
 
   // ── Part 1: patch Object.defineProperty ───────────────────────────────
-  var _orig = Object.defineProperty;
+  const _orig = Object.defineProperty;
   if (!_orig.__kura_patched) {
     function patched(obj, prop, desc) {
       if (
@@ -26,9 +26,9 @@
         typeof desc.get === 'function' &&
         !desc.set
       ) {
-        var _get = desc.get;
-        var _override;
-        var _hasOverride = false;
+        const _get = desc.get;
+        let _override;
+        let _hasOverride = false;
         return _orig.call(Object, obj, prop, {
           enumerable: desc.enumerable !== false,
           configurable: true,
@@ -45,9 +45,9 @@
   // ── Part 2: capture the offending stack trace ─────────────────────────
   // React Native exposes ErrorUtils for early error capture, well before the
   // React DevTools redbox is wired up.
-  var ErrorUtils = global.ErrorUtils;
+  const ErrorUtils = global.ErrorUtils;
   if (ErrorUtils && typeof ErrorUtils.setGlobalHandler === 'function') {
-    var prevHandler = ErrorUtils.getGlobalHandler && ErrorUtils.getGlobalHandler();
+    const prevHandler = ErrorUtils.getGlobalHandler && ErrorUtils.getGlobalHandler();
     ErrorUtils.setGlobalHandler(function (error, isFatal) {
       if (
         error &&

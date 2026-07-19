@@ -1,5 +1,10 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import {
+  formatDisplayError,
+  userFacingTransactionError,
+} from '../userFacingTransactionError';
+
 vi.mock('../../../shared/locales/i18n', () => ({
   default: {
     t: (key: string, opts?: { reason?: string }) =>
@@ -10,11 +15,6 @@ vi.mock('../../../shared/locales/i18n', () => ({
 vi.mock('../../../features/card/config/cardWalletConfig', () => ({
   PAY_GAS_IN_USDC: true,
 }));
-
-import {
-  formatDisplayError,
-  userFacingTransactionError,
-} from '../userFacingTransactionError';
 
 describe('userFacingTransactionError', () => {
   test('replaces Request Argument Error with callData blob', () => {

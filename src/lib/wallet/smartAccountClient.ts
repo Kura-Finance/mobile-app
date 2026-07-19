@@ -3,6 +3,24 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { Mnemonic, HDNodeWallet } from 'ethers';
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  decodeFunctionData,
+  encodeFunctionData,
+  erc20Abi,
+  formatUnits,
+  http,
+  maxUint256,
+} from 'viem';
+import { entryPoint07Address } from 'viem/account-abstraction';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+import { createSmartAccountClient } from 'permissionless';
+import { toSafeSmartAccount } from 'permissionless/accounts';
+import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import { IMPORTED_KEY_SECURE_STORE } from '../security/secureStoreOptions';
 import {
   assertPimlicoConfigured,
@@ -19,19 +37,15 @@ import {
 
 import { userFacingTransactionError } from './userFacingTransactionError';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyClient = any;
+export type AnyClient = any;  
 
 export type ImportMnemonicType = 'bip44' | 'kura';
 
 export interface TypedDataInput {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  domain: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  types: Record<string, any>;
+  domain: Record<string, any>;  
+  types: Record<string, any>;  
   primaryType: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  message: Record<string, any>;
+  message: Record<string, any>;  
 }
 
 export interface SmartAccountBundle {
@@ -47,20 +61,16 @@ let _publicClient: AnyClient | null = null;
 
 export function getPublicClient(): AnyClient {
   if (!_publicClient) {
-    const { createPublicClient } = require('viem') as typeof import('viem');
-    const { base } = require('viem/chains') as typeof import('viem/chains');
     _publicClient = createPublicClient({ chain: base, transport: createBaseTransport() });
   }
   return _publicClient;
 }
 
 function getEntryPoint() {
-  const { entryPoint07Address } = require('viem/account-abstraction') as typeof import('viem/account-abstraction');
   return { address: entryPoint07Address, version: '0.7' } as const;
 }
 
 export function privateKeyFromMnemonic(phrase: string, type: ImportMnemonicType): string {
-  const { Mnemonic, HDNodeWallet } = require('ethers') as typeof import('ethers');
   const cleaned = phrase.trim().replace(/\s+/g, ' ');
   if (!Mnemonic.isValidMnemonic(cleaned)) {
     throw new Error('Invalid mnemonic — please check every word and try again.');
@@ -75,21 +85,16 @@ export function privateKeyFromMnemonic(phrase: string, type: ImportMnemonicType)
 }
 
 async function buildSmartAccountClientFromProvider(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  eip1193Provider: any,
+  eip1193Provider: any,  
 ): Promise<SmartAccountBundle> {
   assertPimlicoConfigured();
-  const { http, createWalletClient, custom } = require('viem') as typeof import('viem');
-  const { base } = require('viem/chains') as typeof import('viem/chains');
-  const { toSafeSmartAccount } = require('permissionless/accounts') as typeof import('permissionless/accounts');
-  const { createSmartAccountClient } = require('permissionless') as typeof import('permissionless');
-  const { createPimlicoClient } = require('permissionless/clients/pimlico') as typeof import('permissionless/clients/pimlico');
 
   const entryPoint = getEntryPoint();
   const publicClient = getPublicClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const accounts: string[] = await (eip1193Provider as any).request({ method: 'eth_accounts' });
+  const accounts: string[] = await (eip1193Provider as { request: (args: { method: string }) => Promise<string[]> }).request({
+    method: 'eth_accounts',
+  });
   const eoaAddress = accounts[0] as `0x${string}`;
 
   const ownerWalletClient = createWalletClient({
@@ -126,12 +131,6 @@ async function buildSmartAccountClientFromProvider(
 
 export async function buildSmartAccountClientFromPrivKey(ethPrivKey: string): Promise<SmartAccountBundle> {
   assertPimlicoConfigured();
-  const { http } = require('viem') as typeof import('viem');
-  const { base } = require('viem/chains') as typeof import('viem/chains');
-  const { privateKeyToAccount } = require('viem/accounts') as typeof import('viem/accounts');
-  const { toSafeSmartAccount } = require('permissionless/accounts') as typeof import('permissionless/accounts');
-  const { createSmartAccountClient } = require('permissionless') as typeof import('permissionless');
-  const { createPimlicoClient } = require('permissionless/clients/pimlico') as typeof import('permissionless/clients/pimlico');
 
   const entryPoint = getEntryPoint();
   const owner = privateKeyToAccount(`0x${ethPrivKey}` as `0x${string}`);
@@ -179,7 +178,6 @@ export async function fetchTokenBalanceHuman(
   holder: `0x${string}`,
   decimals: number,
 ): Promise<number> {
-  const { erc20Abi, formatUnits } = require('viem') as typeof import('viem');
   const raw = (await getPublicClient().readContract({
     address: token,
     abi: erc20Abi,
@@ -231,9 +229,6 @@ export async function withGasApprovalCalls(
 ): Promise<SmartAccountCall[]> {
   if (!PAY_GAS_IN_USDC) return calls;
 
-  const { encodeFunctionData, erc20Abi, maxUint256 } = require('viem') as typeof import('viem');
-  const { base } = require('viem/chains') as typeof import('viem/chains');
-
   const quotes = await pimlicoClient.getTokenQuotes({ tokens: [GAS_TOKEN], chain: base });
   const paymaster = quotes[0]?.paymaster as `0x${string}` | undefined;
   if (!paymaster) throw new Error('Pimlico ERC-20 paymaster is unavailable for USDC on Base.');
@@ -258,7 +253,6 @@ export async function withGasApprovalCalls(
 
 /** Sum explicit USDC `transfer` amounts in a UserOp batch (router swaps may omit this). */
 export function sumUsdcTransferOutflow(calls: SmartAccountCall[]): bigint {
-  const { decodeFunctionData, erc20Abi } = require('viem') as typeof import('viem');
   let total = 0n;
 
   for (const call of calls) {
@@ -312,7 +306,6 @@ export async function assertSufficientUsdcForUserOp(
 ): Promise<void> {
   if (!PAY_GAS_IN_USDC) return;
 
-  const { erc20Abi } = require('viem') as typeof import('viem');
   const balanceRaw = (await getPublicClient().readContract({
     address: GAS_TOKEN as `0x${string}`,
     abi: erc20Abi,
@@ -346,7 +339,6 @@ export async function buildAllowanceAndTxCalls(params: {
   scaAddress: `0x${string}`;
   tx: SmartAccountCall;
 }): Promise<SmartAccountCall[]> {
-  const { encodeFunctionData, erc20Abi, maxUint256 } = require('viem') as typeof import('viem');
   const { spender, fromToken, fromAmount, scaAddress, tx } = params;
 
   const calls: SmartAccountCall[] = [];
@@ -371,7 +363,6 @@ export async function estimateErc20GasUsdc(
   pimlicoClient: AnyClient,
   calls: SmartAccountCall[],
 ): Promise<number> {
-  const { base } = require('viem/chains') as typeof import('viem/chains');
   const userOperation = await client.prepareUserOperation({ calls });
   const { costInToken } = await pimlicoClient.estimateErc20PaymasterCost({
     userOperation,

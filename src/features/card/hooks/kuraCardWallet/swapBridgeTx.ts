@@ -64,7 +64,7 @@ export async function executeSwapTx(
   quote: SwapQuote,
 ): Promise<string> {
   const { smartAccountClient: client, smartAddress: sca, pimlicoClient } = await resolveClient();
-  const callsRaw = await buildQuoteCalls(resolveClient, quote);
+  const callsRaw = await buildQuoteCalls(sca, quote);
   const calls = await withGasApprovalCalls(pimlicoClient, sca, callsRaw);
   try {
     return (await client.sendTransaction({ calls })) as string;

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, RefreshControl, StyleSheet } from 'react-native';
-import { View as SafeAreaView } from 'react-native';
+import { ScrollView, RefreshControl, StyleSheet , View as SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFinanceStore } from '../../../../shared/store/finance';
 import BankingAccountsOverview from '../components/BankingAccountsOverview';

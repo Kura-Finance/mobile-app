@@ -57,12 +57,12 @@ export function applyIntegratorParams(qs: URLSearchParams): void {
 
 /** USD value of the integrator's share from Li.Fi feeCosts.feeSplit (if present). */
 export function integratorFeeUsdFromQuote(json: {
-  estimate?: { feeCosts?: Array<{
+  estimate?: { feeCosts?: {
     token?: { decimals?: number; priceUSD?: string };
     feeSplit?: {
-      recipients?: Array<{ name?: string; fee?: string }>;
+      recipients?: { name?: string; fee?: string }[];
     };
-  }> };
+  }[] };
 }): number {
   if (!LIFI_INTEGRATOR) return 0;
   for (const cost of json.estimate?.feeCosts ?? []) {

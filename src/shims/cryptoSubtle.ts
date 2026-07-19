@@ -34,11 +34,11 @@ const subtleShim = {
 
 if (typeof global !== 'undefined') {
   if (!global.crypto) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (global as any).crypto = {};
   }
   if (!global.crypto.subtle) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     (global.crypto as any).subtle = subtleShim;
   }
 }

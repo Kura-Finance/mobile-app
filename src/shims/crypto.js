@@ -15,8 +15,8 @@
 
 'use strict';
 
-var _sha2   = require('@noble/hashes/sha2.js');
-var _legacy = require('@noble/hashes/legacy.js');
+const _sha2 = require('@noble/hashes/sha2.js');
+const _legacy = require('@noble/hashes/legacy.js');
 
 function toBytes(data) {
   if (data instanceof Uint8Array) return data;
@@ -24,16 +24,16 @@ function toBytes(data) {
   return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 }
 
-var subtle = {
-  digest: function(algorithm, data) {
-    var alg = typeof algorithm === 'string' ? algorithm : algorithm.name;
-    var b   = toBytes(data);
+const subtle = {
+  digest: function (algorithm, data) {
+    const alg = typeof algorithm === 'string' ? algorithm : algorithm.name;
+    const b = toBytes(data);
     if (alg === 'SHA-256') return Promise.resolve(_sha2.sha256(b).buffer);
     if (alg === 'SHA-512') return Promise.resolve(_sha2.sha512(b).buffer);
     if (alg === 'SHA-384') return Promise.resolve(_sha2.sha384(b).buffer);
-    if (alg === 'SHA-1')   return Promise.resolve(_legacy.sha1(b).buffer);
+    if (alg === 'SHA-1') return Promise.resolve(_legacy.sha1(b).buffer);
     return Promise.reject(new Error('crypto shim: unsupported "' + alg + '"'));
-  }
+  },
 };
 
 function getRandomValues(arr) {
@@ -43,7 +43,7 @@ function getRandomValues(arr) {
   throw new Error('getRandomValues: polyfill not yet ready');
 }
 
-var webcrypto = { subtle: subtle, getRandomValues: getRandomValues };
+const webcrypto = { subtle: subtle, getRandomValues: getRandomValues };
 
 module.exports = {
   webcrypto: webcrypto,

@@ -72,7 +72,7 @@ export function parseWikipediaSummary(json: unknown): { tagline: string | null; 
 }
 
 export function parseChartMeta(json: unknown): ChartMeta {
-  const meta = (json as { chart?: { result?: Array<{ meta?: Record<string, unknown> }> } })
+  const meta = (json as { chart?: { result?: { meta?: Record<string, unknown> }[] } })
     ?.chart?.result?.[0]?.meta ?? {};
   return {
     longName: readString(meta.longName) ?? readString(meta.shortName),

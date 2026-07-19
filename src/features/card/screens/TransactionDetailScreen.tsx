@@ -32,12 +32,11 @@ import {
   truncateAddress,
 } from '../utils/walletTxDisplay';
 import WalletTxIcon from '../components/wallet/WalletTxIcon';
-import { BASE_CHAIN } from '../hooks/useCryptoContacts';
+import { BASE_CHAIN , useCryptoContacts } from '../hooks/useCryptoContacts';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useHideBalance } from '../../../shared/hooks/useHideBalance';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import { useCryptoContacts } from '../hooks/useCryptoContacts';
 import { HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
 import type { AddressDisplay } from '../utils/walletTxDisplay';
 

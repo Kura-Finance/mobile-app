@@ -7,6 +7,7 @@ import {
   type BiometricAuthDeps,
   type BiometricAuthResult,
   type BiometricAuthMethod,
+  type DeviceSecurityLevel,
 } from './biometricAuthCore';
 
 export type {
@@ -14,7 +15,6 @@ export type {
   BiometricAuthDeps,
   BiometricAuthResult,
   BiometricAuthMethod,
-  DeviceSecurityLevel,
   BiometricPreferenceProvider,
 } from './biometricAuthCore';
 
@@ -26,7 +26,8 @@ export {
 } from './biometricAuthCore';
 
 const defaultDeps: BiometricAuthDeps = {
-  getEnrolledLevelAsync: () => LocalAuthentication.getEnrolledLevelAsync(),
+  getEnrolledLevelAsync: async () =>
+    (await LocalAuthentication.getEnrolledLevelAsync()) as DeviceSecurityLevel,
   supportedAuthenticationTypesAsync: () =>
     LocalAuthentication.supportedAuthenticationTypesAsync(),
   isEnrolledAsync: () => LocalAuthentication.isEnrolledAsync(),

@@ -56,7 +56,7 @@ export interface AllTimePnL {
 }
 
 export function computeAllTimePnL(
-  positions: Array<{ key: string; valueUsd: number }>,
+  positions: { key: string; valueUsd: number }[],
   lots: Record<string, CostLot>,
 ): AllTimePnL {
   let totalValue = 0;

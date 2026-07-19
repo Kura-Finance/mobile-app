@@ -91,7 +91,7 @@ interface RegisterChallengeResponse {
 interface AuthenticateChallengeResponse {
   challengeId: string;
   challenge: string; // base64url
-  allowCredentials?: Array<{ id: string; type: string }>;
+  allowCredentials?: { id: string; type: string }[];
 }
 
 interface AuthenticateVerifyResponse {

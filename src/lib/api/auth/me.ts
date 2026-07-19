@@ -5,6 +5,8 @@
 import { requestJson } from '../client';
 import { userProfileV1Schema, type UserProfileV1 } from './schemas';
 
+import { z } from 'zod';
+
 const apiName = 'AuthMeApi';
 
 export async function fetchCurrentUserProfile(): Promise<UserProfileV1> {
@@ -123,8 +125,6 @@ export async function logoutCurrentSession(): Promise<{ message: string } | null
     return null;
   }
 }
-
-import { z } from 'zod';
 
 export type CashbackStatus = 'pending' | 'available' | 'reversed';
 

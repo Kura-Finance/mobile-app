@@ -20,9 +20,9 @@ interface GqlFeeWrapperItem {
   performanceFee: number;
   performanceFeeRecipient: string;
   adapters: {
-    items: Array<{
+    items: {
       innerVault?: { address: string } | null;
-    }>;
+    }[];
   } | null;
 }
 

@@ -29,7 +29,7 @@ export type MorphoWithdrawCollateralTxParams =
 
 export type WalletStatus = 'loading' | 'provisioning' | 'ready' | 'error';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export type AnySmartAccountClient = any;
 
 export interface KuraSmartAccountClients {

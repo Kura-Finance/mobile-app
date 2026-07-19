@@ -56,7 +56,7 @@ async function fetchChart(geckoId: string, tf: Timeframe): Promise<number[]> {
   const url =
     `/coins/${geckoId}/market_chart` +
     `?vs_currency=usd&days=${DAYS_BY_TF[tf]}`;
-  const json = await coingeckoJson<{ prices?: Array<[number, number]> }>(url);
+  const json = await coingeckoJson<{ prices?: [number, number][] }>(url);
   const prices: number[] = Array.isArray(json?.prices)
     ? json.prices.map((p: [number, number]) => p[1]).filter((n: number) => Number.isFinite(n))
     : [];

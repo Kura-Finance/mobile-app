@@ -62,7 +62,7 @@ async function fetchSp500Quote(): Promise<{
 
   const json = await res.json();
   const result = (json as {
-    chart?: { result?: Array<{ meta?: Record<string, number>; indicators?: { quote?: Array<{ close?: Array<number | null> }> } }> };
+    chart?: { result?: { meta?: Record<string, number>; indicators?: { quote?: { close?: (number | null)[] }[] } }[] };
   })?.chart?.result?.[0];
   const meta = result?.meta ?? {};
   const price = meta.regularMarketPrice ?? null;
@@ -80,7 +80,7 @@ async function fetchFearGreedIndex(): Promise<{ value: number | null; label: str
   if (!res.ok) throw new Error(`F&G ${res.status}`);
 
   const json = await res.json() as {
-    data?: Array<{ value?: string; value_classification?: string }>;
+    data?: { value?: string; value_classification?: string }[];
   };
   const row = json.data?.[0];
   const value = row?.value != null ? Number(row.value) : null;
@@ -107,10 +107,10 @@ async function fetchAltcoinSeasonIndex(): Promise<number | null> {
     const res = await coingeckoFetch(url);
     if (!res.ok) throw new Error(`Alt season ${res.status}`);
 
-    const rows = await res.json() as Array<{
+    const rows = await res.json() as {
       id: string;
       price_change_percentage_30d_in_currency?: number;
-    }>;
+    }[];
 
     const btc = rows.find((row) => row.id === 'bitcoin');
     const btcChange = btc?.price_change_percentage_30d_in_currency;

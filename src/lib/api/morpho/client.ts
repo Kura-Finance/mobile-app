@@ -3,6 +3,13 @@
  * @see https://docs.morpho.org/tools/offchain/api/morpho-vaults/
  */
 
+import { morphoQuery, MORPHO_BASE_CHAIN_ID } from './graphql';
+import {
+  filterEarnVaultAllowlist,
+  getEarnVaultStatsSource,
+  MORPHO_EARN_VAULT_ALLOWLIST,
+} from '../../../config/earn';
+
 export { MORPHO_BASE_CHAIN_ID } from './graphql';
 export {
   clearMorphoFeeWrapperCache,
@@ -10,13 +17,6 @@ export {
   loadMorphoFeeWrapperMap,
   resolveMorphoDepositVault,
 } from './feeWrapper';
-
-import { morphoQuery, MORPHO_BASE_CHAIN_ID } from './graphql';
-import {
-  filterEarnVaultAllowlist,
-  getEarnVaultStatsSource,
-  MORPHO_EARN_VAULT_ALLOWLIST,
-} from '../../../config/earn';
 
 export interface MorphoVaultAsset {
   symbol: string;
@@ -282,7 +282,7 @@ const VAULT_V2_NET_APY_HISTORY_QUERY = `
 `;
 
 /** Sort chronologically and drop likely bad V2 avgNetApy spikes (e.g. near-zero gaps). */
-function extractApySeries(points: Array<{ x: number; y: number | null }> | null | undefined): number[] {
+function extractApySeries(points: { x: number; y: number | null }[] | null | undefined): number[] {
   const sorted = (points ?? [])
     .filter(
       (p): p is { x: number; y: number } =>
@@ -310,7 +310,7 @@ export async function getVaultNetApyHistory(
     const v1 = await morphoQuery<{
       vaultByAddress: {
         historicalState: {
-          netApy: Array<{ x: number; y: number | null }> | null;
+          netApy: { x: number; y: number | null }[] | null;
         } | null;
       } | null;
     }>(VAULT_NET_APY_HISTORY_QUERY, vars);
@@ -324,7 +324,7 @@ export async function getVaultNetApyHistory(
   const v2 = await morphoQuery<{
     vaultV2ByAddress: {
       historicalState: {
-        avgNetApy: Array<{ x: number; y: number | null }> | null;
+        avgNetApy: { x: number; y: number | null }[] | null;
       } | null;
     } | null;
   }>(VAULT_V2_NET_APY_HISTORY_QUERY, vars);
@@ -335,10 +335,10 @@ export async function getVaultNetApyHistory(
 export async function getMorphoVaultPositions(userAddress: string): Promise<MorphoVaultPosition[]> {
   const data = await morphoQuery<{
     userByAddress: {
-      vaultPositions: Array<{
+      vaultPositions: {
         vault: { address: string };
         state: { assetsUsd: number; shares: string } | null;
-      }>;
+      }[];
     } | null;
   }>(USER_VAULT_POSITIONS_QUERY, {
     address: userAddress,

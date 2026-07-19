@@ -113,7 +113,7 @@ function ProtocolPositions({ items }: { items: ProtocolPortfolioItem[] }) {
   const { colors } = useTheme();
 
   const rows = useMemo(() => {
-    const out: Array<{
+    const out: {
       key: string;
       symbol: string;
       logoUrl: string | null;
@@ -121,7 +121,7 @@ function ProtocolPositions({ items }: { items: ProtocolPortfolioItem[] }) {
       amount: number | null;
       usdValue: number;
       isDebt: boolean;
-    }> = [];
+    }[] = [];
 
     for (const item of items) {
       const typeLabel = positionTypeLabel(item.type, t);

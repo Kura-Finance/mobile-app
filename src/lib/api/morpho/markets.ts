@@ -177,7 +177,7 @@ const MARKET_BORROW_APY_HISTORY_QUERY = `
   }
 `;
 
-function extractApySeries(points: Array<{ x: number; y: number | null }> | null | undefined): number[] {
+function extractApySeries(points: { x: number; y: number | null }[] | null | undefined): number[] {
   return (points ?? [])
     .filter(
       (p): p is { x: number; y: number } =>
@@ -195,7 +195,7 @@ export async function getMarketBorrowApyHistory(
   const data = await morphoQuery<{
     marketById: {
       historicalState: {
-        borrowApy: Array<{ x: number; y: number | null }> | null;
+        borrowApy: { x: number; y: number | null }[] | null;
       } | null;
     } | null;
   }>(MARKET_BORROW_APY_HISTORY_QUERY, {
@@ -262,7 +262,7 @@ export async function fetchUserBorrowPositions(
   const normalized = userAddress.toLowerCase();
   const data = await morphoQuery<{
     marketPositions: {
-      items: Array<{
+      items: {
         market: {
           marketId: string;
           loanAsset: { symbol: string };
@@ -273,7 +273,7 @@ export async function fetchUserBorrowPositions(
           collateralUsd: number;
           borrowAssets: string;
         } | null;
-      }>;
+      }[];
     };
   }>(USER_BORROW_POSITIONS_QUERY, { address: normalized });
 

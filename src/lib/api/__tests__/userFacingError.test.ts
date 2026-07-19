@@ -1,13 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { KuraApiError } from '../errors';
+import { userFacingApiError } from '../userFacingError';
+
 vi.mock('../../../shared/locales/i18n', () => ({
   default: {
     t: (key: string) => key,
   },
 }));
-
-import { KuraApiError } from '../errors';
-import { userFacingApiError } from '../userFacingError';
 
 describe('userFacingApiError', () => {
   test('maps 429 to trackfi.rateLimitError', () => {

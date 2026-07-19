@@ -21,9 +21,9 @@ function parseYahooStats(json: unknown): StockChartStats {
   const result = (json as any)?.chart?.result?.[0];
   const meta = result?.meta ?? {};
   const quote = result?.indicators?.quote?.[0] ?? {};
-  const highs: Array<number | null> = quote.high ?? [];
-  const lows: Array<number | null> = quote.low ?? [];
-  const volumes: Array<number | null> = quote.volume ?? [];
+  const highs: (number | null)[] = quote.high ?? [];
+  const lows: (number | null)[] = quote.low ?? [];
+  const volumes: (number | null)[] = quote.volume ?? [];
 
   const validHighs = highs.filter((n): n is number => n != null && Number.isFinite(n));
   const validLows = lows.filter((n): n is number => n != null && Number.isFinite(n));

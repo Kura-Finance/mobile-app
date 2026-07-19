@@ -26,7 +26,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { privateKeyToAccount } from 'viem/accounts';
+import { toSimpleSmartAccount } from 'permissionless/accounts';
+import { createPublicClient } from 'viem';
+import { base } from 'viem/chains';
+import { entryPoint07Address } from 'viem/account-abstraction';
 import { privateKeyFromMnemonic, ImportMnemonicType } from '../hooks/useKuraCardWallet';
+import { createBaseTransport } from '../config/cardWalletConfig';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useHeaderHeight } from '../../../shared/navigation/Header';
@@ -67,15 +73,8 @@ export default function ImportWalletScreen({ onClose, onImport }: ImportWalletSc
       previewTimeout.current = setTimeout(async () => {
         setIsPreviewLoading(true);
         try {
-          const { privateKeyToAccount } = require('viem/accounts') as typeof import('viem/accounts');
-          const { toSimpleSmartAccount } = require('permissionless/accounts') as typeof import('permissionless/accounts');
-          const { createPublicClient } = require('viem') as typeof import('viem');
-          const { base } = require('viem/chains') as typeof import('viem/chains');
-          const { createBaseTransport, PIMLICO_URL: _, entryPoint07Address: __ } = require('../config/cardWalletConfig');
-
           const privKey = privateKeyFromMnemonic(text.trim(), type);
           const owner = privateKeyToAccount(`0x${privKey}` as `0x${string}`);
-          const { entryPoint07Address } = require('viem/account-abstraction') as typeof import('viem/account-abstraction');
           const client = createPublicClient({ chain: base, transport: createBaseTransport() });
           const account = await toSimpleSmartAccount({
             client,

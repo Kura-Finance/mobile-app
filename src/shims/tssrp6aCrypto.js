@@ -27,12 +27,12 @@
 
 'use strict';
 
-var _sha2   = require('@noble/hashes/sha2.js');
-var _legacy = require('@noble/hashes/legacy.js');
+const _sha2 = require('@noble/hashes/sha2.js');
+const _legacy = require('@noble/hashes/legacy.js');
 
 function digest(hashFn) {
   return function (data) {
-    var bytes = data instanceof Uint8Array
+    const bytes = data instanceof Uint8Array
       ? data
       : (data instanceof ArrayBuffer
           ? new Uint8Array(data)
@@ -54,7 +54,7 @@ function randomBytes(arr) {
 exports.crossEnvCrypto = {
   randomBytes: randomBytes,
   hashFunctions: {
-    SHA1:   digest(_legacy.sha1),
+    SHA1: digest(_legacy.sha1),
     SHA256: digest(_sha2.sha256),
     SHA384: digest(_sha2.sha384),
     SHA512: digest(_sha2.sha512),

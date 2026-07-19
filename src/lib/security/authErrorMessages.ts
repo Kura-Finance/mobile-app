@@ -15,8 +15,14 @@ export function biometricFailureMessage(
   }
 }
 
+/** PIN / unlock failure reasons surfaced by AppStore unlock helpers. */
+export type PinOrUnlockFailureReason =
+  | AppPinFailureReason
+  | BiometricAuthFailureReason
+  | 'failed';
+
 export function appPinSetupFailureMessage(
-  reason: AppPinFailureReason | 'failed',
+  reason: PinOrUnlockFailureReason,
   t: (key: string) => string,
 ): string {
   if (reason === 'failed') return t('auth.appPinSaveFailed');
@@ -24,16 +30,23 @@ export function appPinSetupFailureMessage(
 }
 
 export function appPinFailureMessage(
-  reason: AppPinFailureReason | 'failed',
+  reason: PinOrUnlockFailureReason,
   t: (key: string) => string,
 ): string {
   switch (reason) {
     case 'wrong_pin':
       return t('auth.appPinWrong');
     case 'invalid_format':
+    case 'mismatch':
       return t('auth.appPinInvalid');
     case 'locked_out':
       return t('auth.appPinLockedOut');
+    case 'no_pin_set':
+      return t('settings.appPinRequired');
+    case 'not_supported':
+      return t('settings.biometricNotSupported');
+    case 'not_enrolled':
+      return t('settings.biometricNotAvailable');
     default:
       return t('auth.biometricUnlockFailed');
   }

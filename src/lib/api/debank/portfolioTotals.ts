@@ -74,10 +74,17 @@ export function shouldCountTokenInSpotTotal(
   return linked.netUsdValue <= 0;
 }
 
+/** Minimal protocol shape for allocation dedupe (UI + API models). */
+type ProtocolForAllocation = {
+  id: string;
+  netUsdValue: number;
+  portfolioItems: { tokens: { usdValue: number }[]; usdValue: number }[];
+};
+
 /** Spot token rows that belong in allocation / token list (excludes protocol vault shares). */
 export function shouldIncludeSpotTokenInAllocation(
   token: Pick<DeBankToken, 'protocolId' | 'symbol'>,
-  protocols: Array<Pick<DeBankProtocol, 'id' | 'netUsdValue' | 'portfolioItems'>>,
+  protocols: ProtocolForAllocation[],
 ): boolean {
   if (isProtocolVaultShareToken(token)) return false;
   if (!token.protocolId) return true;
@@ -121,7 +128,7 @@ export function computeWalletPortfolioTotals(
 }
 
 export function sumProtocolPortfolioItemTokensUsd(protocol: {
-  portfolioItems: Array<{ tokens: Array<{ usdValue: number }> }>;
+  portfolioItems: { tokens: { usdValue: number }[] }[];
 }): number {
   return protocol.portfolioItems.reduce(
     (sum, item) => sum + item.tokens.reduce((itemSum, token) => itemSum + token.usdValue, 0),
@@ -132,7 +139,7 @@ export function sumProtocolPortfolioItemTokensUsd(protocol: {
 /** Protocol card header: use net when set, otherwise portfolio item token sums. */
 export function effectiveProtocolDisplayUsd(protocol: {
   netUsdValue: number;
-  portfolioItems: Array<{ tokens: Array<{ usdValue: number }>; usdValue: number }>;
+  portfolioItems: { tokens: { usdValue: number }[]; usdValue: number }[];
 }): number {
   if (protocol.netUsdValue !== 0) {
     return protocol.netUsdValue;

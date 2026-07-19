@@ -33,7 +33,7 @@ const YAHOO_PARAMS: Record<Timeframe, { range: string; interval: string }> = {
 
 function parseYahooCloses(json: unknown): number[] {
   const result = (json as any)?.chart?.result?.[0];
-  const closes: Array<number | null> = result?.indicators?.quote?.[0]?.close ?? [];
+  const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close ?? [];
   return closes.filter((n): n is number => n != null && Number.isFinite(n));
 }
 

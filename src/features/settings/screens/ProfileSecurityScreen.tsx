@@ -17,6 +17,10 @@ import { DeleteAccountConfirmModal } from '../../../shared/components/DeleteAcco
 import { clearAppPin } from '../../../lib/security/appPin';
 import { appPinSetupFailureMessage } from '../../../lib/security/authErrorMessages';
 
+interface ProfileSecurityScreenProps {
+  onClose: () => void;
+}
+
 function biometricUnlockDescription(
   method: BiometricAuthMethod,
   enabled: boolean,

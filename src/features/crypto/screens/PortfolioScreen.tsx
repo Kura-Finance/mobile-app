@@ -7,8 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
-} from 'react-native';
-import { View as SafeAreaView } from 'react-native';
+ View as SafeAreaView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 

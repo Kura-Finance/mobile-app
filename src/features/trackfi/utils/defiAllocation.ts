@@ -11,7 +11,7 @@ import {
   effectiveProtocolDisplayUsd,
   shouldIncludeSpotTokenInAllocation,
 } from '../../../lib/api/debank/portfolioTotals';
-import type { DefiProtocol, DefiToken, WalletData } from '../hooks/useDefiPortfolio';
+import type { DefiToken, WalletData } from '../hooks/useDefiPortfolio';
 
 const STABLE = new Set(['USDC', 'USDT', 'DAI', 'USDBC', 'FRAX', 'LUSD', 'USDE', 'USD+', 'EURC']);
 

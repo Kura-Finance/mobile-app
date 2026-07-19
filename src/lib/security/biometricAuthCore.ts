@@ -17,6 +17,8 @@ export const DeviceSecurityLevel = {
   BIOMETRIC_STRONG: 3,
 } as const;
 
+// Const object + matching value union (standard TS pattern).
+// eslint-disable-next-line @typescript-eslint/no-redeclare -- intentional dual export
 export type DeviceSecurityLevel =
   (typeof DeviceSecurityLevel)[keyof typeof DeviceSecurityLevel];
 

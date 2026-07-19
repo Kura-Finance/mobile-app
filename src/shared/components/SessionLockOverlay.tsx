@@ -84,7 +84,7 @@ export default function SessionLockOverlay() {
           setView('enterPin');
           setError(appPinFailureMessage(unlocked.reason ?? 'failed', t));
         }
-      } catch (err) {
+      } catch {
         setError(appPinFailureMessage('failed', t));
       } finally {
         setUnlocking(false);

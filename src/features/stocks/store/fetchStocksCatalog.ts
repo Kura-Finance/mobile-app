@@ -17,8 +17,8 @@ export async function fetchStocksCatalog(includePortfolio: boolean): Promise<{
   const [list, portfolio] = await Promise.all([
     dinari.listAllStocks(),
     includePortfolio
-      ? dinari.getPortfolio().catch(() => ({ positions: [] as Array<Record<string, unknown>> }))
-      : Promise.resolve({ positions: [] as Array<Record<string, unknown>> }),
+      ? dinari.getPortfolio().catch(() => ({ positions: [] as Record<string, unknown>[] }))
+      : Promise.resolve({ positions: [] as Record<string, unknown>[] }),
   ]);
 
   const positions = portfolio?.positions ?? [];
