@@ -369,7 +369,7 @@ export function FiatWithdrawPanel({
     resetForm();
     clearError();
     navigate('addBankCurrency');
-  }, [resetForm, navigate]);
+  }, [resetForm, navigate, clearError]);
 
   const refreshCustomer = useCallback(async () => {
     if (!getUsableAuthToken()) {
@@ -423,7 +423,7 @@ export function FiatWithdrawPanel({
       resetFlow();
     }
     refreshGasEstimate();
-  }, [active, startInAddBank, refreshGasEstimate, resetFlow, slideAnim]);
+  }, [active, startInAddBank, refreshGasEstimate, resetFlow, slideAnim, clearError]);
 
   useEffect(() => {
     if (!active || !sessionUsable || !customer?.canTransact) return;
@@ -457,7 +457,7 @@ export function FiatWithdrawPanel({
   useEffect(() => {
     if (!active || screen !== 'amount' || !payoutAddress) return;
     refreshGasEstimate();
-  }, [active, screen, payoutAddress?.depositAddress, refreshGasEstimate]);
+  }, [active, screen, payoutAddress, refreshGasEstimate]);
 
   useEffect(() => {
     if (currency !== 'usd' || !isAddBankScreen) return;
@@ -550,7 +550,7 @@ export function FiatWithdrawPanel({
     } finally {
       setCreatingKyc(false);
     }
-  }, [refreshCustomer, userProfile, t]);
+  }, [refreshCustomer, userProfile, t, clearError, reportError]);
 
   const ensurePayoutAddress = useCallback(async () => {
     if (!getUsableAuthToken()) return;
@@ -597,7 +597,7 @@ export function FiatWithdrawPanel({
     } finally {
       setLoadingPayoutAddress(false);
     }
-  }, [selectedAccountId, selectedRail, smartAddress, accounts, t]);
+  }, [selectedAccountId, selectedRail, smartAddress, accounts, t, clearError, reportError]);
 
   useEffect(() => {
     if (!active || !customer?.canTransact || isAddBankScreen) return;
@@ -748,7 +748,7 @@ export function FiatWithdrawPanel({
     } finally {
       setSavingBank(false);
     }
-  }, [currency, firstName, lastName, accountNumber, routingNumber, sortCode, pixKey, documentNumber, clabe, breBKey, bankName, iban, bic, street1, street2, city, region, postalCode, country, resetForm, slideAnim, t]);
+  }, [currency, firstName, lastName, accountNumber, routingNumber, sortCode, pixKey, documentNumber, clabe, breBKey, bankName, iban, bic, street1, street2, city, region, postalCode, country, resetForm, slideAnim, t, clearError, reportError]);
 
   const validateAmount = useCallback((): number | null => {
     const value = Number(amount);
@@ -769,13 +769,13 @@ export function FiatWithdrawPanel({
       return null;
     }
     return value;
-  }, [amount, usdcBalance, maxSendable, payoutAddress, t]);
+  }, [amount, usdcBalance, maxSendable, payoutAddress, t, reportError]);
 
   const continueToConfirm = useCallback(() => {
     clearError();
     if (validateAmount() == null) return;
     navigate('confirm');
-  }, [validateAmount, navigate]);
+  }, [validateAmount, navigate, clearError]);
 
   const sendUsdc = useCallback(async () => {
     clearError();

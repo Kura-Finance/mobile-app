@@ -225,7 +225,7 @@ export default function FiatReceivePanel({
         setLoadingAccount(false);
       }
     },
-    [endorsementByCurrency, customer, smartAddress],
+    [endorsementByCurrency, customer, smartAddress, setCustomer],
   );
 
   useEffect(() => {

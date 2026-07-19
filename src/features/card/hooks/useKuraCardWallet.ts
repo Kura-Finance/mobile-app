@@ -151,7 +151,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       throw new Error('Embedded wallet not available.');
     }
     return resolveKuraSmartAccountClient(() => wallet.getProvider());
-  }, [embeddedWalletKey]);
+  }, []);
 
   useEffect(() => {
     const token = getUsableAuthToken();
@@ -286,7 +286,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       cancelRef.current = true;
       provisioningRef.current = false;
     };
-  }, [sessionUsable, user?.id, embeddedWalletKey, createEmbeddedWallet]);
+  }, [sessionUsable, user, user?.id, embeddedWalletKey, createEmbeddedWallet]);
 
   const requireReady = useCallback(() => {
     if (!smartAddress) throw new Error('Wallet not ready.');

@@ -1,3 +1,4 @@
+import { encodeFunctionData, erc20Abi, isAddress, parseUnits } from 'viem';
 import { USDC_BASE, WETH_BASE } from '../../config/cardWalletConfig';
 import { buildAllowanceAndTxCalls, withGasApprovalCalls } from '../../../../lib/wallet/smartAccountClient';
 import type { ResolveSmartAccountClient } from './types';
@@ -8,7 +9,6 @@ export async function sendUsdcTx(
   amountUsdc: number,
   usdcBalance: number,
 ): Promise<string> {
-  const { encodeFunctionData, erc20Abi, isAddress } = require('viem') as typeof import('viem');
   if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
   if (amountUsdc <= 0) throw new Error('Amount must be greater than 0.');
   if (amountUsdc > usdcBalance) throw new Error('Insufficient USDC balance.');
@@ -34,8 +34,6 @@ export async function sendTokenTx(
   toAddress: string,
   amount: number,
 ): Promise<string> {
-  const { encodeFunctionData, erc20Abi, isAddress, parseUnits } =
-    require('viem') as typeof import('viem');
   if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
   if (amount <= 0) throw new Error('Amount must be greater than 0.');
 
@@ -62,7 +60,6 @@ export async function sendNativeEthTx(
   toAddress: string,
   amountEth: number,
 ): Promise<string> {
-  const { isAddress, parseUnits } = require('viem') as typeof import('viem');
   if (!isAddress(toAddress)) throw new Error('Invalid Ethereum address.');
   if (amountEth <= 0) throw new Error('Amount must be greater than 0.');
 
@@ -83,7 +80,6 @@ export async function wrapEthToWethTx(
 ): Promise<string> {
   if (amountEth <= 0) throw new Error('Amount must be greater than 0.');
 
-  const { encodeFunctionData, parseUnits } = require('viem') as typeof import('viem');
   const wethAbi = [
     {
       type: 'function',

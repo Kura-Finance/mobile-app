@@ -47,7 +47,10 @@ export default function DefiPortfolioScreen() {
   if (!features.debank) {
     return null;
   }
+  return <DefiPortfolioScreenInner />;
+}
 
+function DefiPortfolioScreenInner() {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const st = useMemo(() => makeStyles(colors), [colors]);
