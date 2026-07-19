@@ -12,7 +12,7 @@ import {
   markTrackFiSynced,
   shouldAutoSyncTrackFi,
 } from '../utils/trackFiSyncPolicy';
-import { useAppStore } from '../../../shared/store/useAppStore';
+import { getUsableAuthToken } from '../../../lib/security/sessionAccess';
 import { useFinanceStore } from '../../../shared/store/finance';
 import { useExchangeStore } from '../../../shared/store/useExchangeStore';
 import { refreshTrackFiBrokerData } from '../utils/refreshTrackFiBrokerData';
@@ -34,7 +34,7 @@ export function useTrackFiBackgroundSync({ enabled, unlockSeq }: Options): void 
   const syncAll = useCallback(async (force: boolean) => {
     if (syncInFlightRef.current) return;
 
-    const authToken = useAppStore.getState().authToken;
+    const authToken = getUsableAuthToken();
     if (!authToken) return;
 
     const financeState = useFinanceStore.getState();

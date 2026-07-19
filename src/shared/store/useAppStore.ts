@@ -7,8 +7,10 @@
  *     from the Privy token) and the derived user profile.
  *   - `clearAuthSession` is called on logout (also from PrivyBridgeProvider).
  *
- * The auth token is kept in-memory only; Privy handles its own persistence
- * and issues fresh tokens on resume.
+ * The Kura JWT is kept in-memory during an active unlock window and mirrored to
+ * SecureStore (token only) so it can be restored after biometric verification.
+ * User profile is re-fetched from the API on unlock. Privy handles its own
+ * persistence and issues fresh tokens on resume.
  */
 
 import { create } from 'zustand';
@@ -49,10 +51,41 @@ import { type ThemeMode } from '../theme/theme';
 import Logger from '../utils/Logger';
 import { waitForWebhookCompletion } from '../utils/webhookWait';
 import { clearDataKey } from '../../lib/crypto/dataKeySession';
+import { clearCryptoSession } from '../../lib/crypto/session';
 import { applyScreenshotPolicy } from '../../lib/security/screenshotGuard';
+import {
+  clearSecureSession,
+  hasSecureSession,
+  loadSecureSession,
+  saveSecureSession,
+} from '../../lib/security/secureSessionStore';
+import {
+  authenticateWithBiometrics,
+  setBiometricPreferenceProvider,
+} from '../../lib/security/biometricAuth';
+import type { BiometricAuthFailureReason } from '../../lib/security/biometricAuthCore';
+import {
+  changeAppPin as changeStoredAppPin,
+  clearAppPin,
+  hasAppPin,
+  setAppPin,
+  verifyAppPin,
+  type AppPinFailureReason,
+} from '../../lib/security/appPin';
+import { cancelLocalAuthForSessionLock } from '../../lib/security/localAuthGate';
+import { resolveUsableAuthToken } from '../../lib/security/sessionAccessCore';
 
 export type BaseCurrency = Currency;
 export type Language = 'en' | 'zh-TW';
+
+export type SessionLockStatus = 'checking' | 'locked' | 'unlocked';
+
+export type UnlockFailureReason = BiometricAuthFailureReason | AppPinFailureReason | 'failed';
+
+interface UnlockResult {
+  ok: boolean;
+  reason?: UnlockFailureReason;
+}
 
 export interface UserProfile {
   id: string;
@@ -77,6 +110,8 @@ export interface UserPreferences {
   disableScreenshot: boolean;
   /** Mask monetary amounts across the app. */
   hideBalance: boolean;
+  /** Use on-device biometrics for unlock and sensitive actions when available. */
+  biometricUnlockEnabled: boolean;
 }
 
 /** AsyncStorage key for the persisted theme mode. */
@@ -88,6 +123,7 @@ const SECURITY_PREFS_STORAGE_KEY = '@kura/securityPrefs';
 interface PersistedSecurityPrefs {
   disableScreenshot?: boolean;
   hideBalance?: boolean;
+  biometricUnlockEnabled?: boolean;
 }
 
 function readSecurityPrefs(raw: string | null): Partial<PersistedSecurityPrefs> {
@@ -97,18 +133,25 @@ function readSecurityPrefs(raw: string | null): Partial<PersistedSecurityPrefs> 
     return {
       disableScreenshot: parsed.disableScreenshot === true,
       hideBalance: parsed.hideBalance === true,
+      biometricUnlockEnabled:
+        parsed.biometricUnlockEnabled === undefined
+          ? undefined
+          : parsed.biometricUnlockEnabled !== false,
     };
   } catch {
     return {};
   }
 }
 
-async function persistSecurityPrefs(prefs: Pick<UserPreferences, 'disableScreenshot' | 'hideBalance'>) {
+async function persistSecurityPrefs(
+  prefs: Pick<UserPreferences, 'disableScreenshot' | 'hideBalance' | 'biometricUnlockEnabled'>,
+) {
   await AsyncStorage.setItem(
     SECURITY_PREFS_STORAGE_KEY,
     JSON.stringify({
       disableScreenshot: prefs.disableScreenshot,
       hideBalance: prefs.hideBalance,
+      biometricUnlockEnabled: prefs.biometricUnlockEnabled,
     }),
   );
 }
@@ -129,6 +172,10 @@ interface AppState {
   plaidLinkTokenTimestamp: number | null;
   authToken: string | null;
   authError: string | null;
+  /** Whether the persisted session requires biometric unlock before use. */
+  sessionLockStatus: SessionLockStatus;
+  /** Whether an App PIN hash is stored on this device. */
+  appPinEnabled: boolean;
   exchangeRates: ExchangeRates | null;
   isLoadingExchangeRates: boolean;
 
@@ -137,6 +184,22 @@ interface AppState {
   setPrivySession: (token: string, profile: UserProfileV1) => void;
   /** Wipe auth state (called on Privy logout or bridge disconnect). */
   clearAuthSession: () => void;
+  /** Resolve whether a returning Privy session should start locked. */
+  initializeSessionLock: (hasPrivyUser: boolean) => Promise<void>;
+  /** Drop in-memory session; keep SecureStore copy for biometric restore. */
+  lockSession: () => Promise<void>;
+  /** Block app access until biometrics pass; clears in-memory JWT after persisting to SecureStore. */
+  requireBiometricUnlock: () => void;
+  /** Restore session from SecureStore after biometric verification succeeds. */
+  unlockSession: (prompt: string) => Promise<UnlockResult>;
+  /** Restore session after App PIN verification succeeds. */
+  unlockSessionWithAppPin: (pin: string) => Promise<UnlockResult>;
+  /** Refresh whether an App PIN is configured on this device. */
+  refreshAppPinStatus: () => Promise<void>;
+  /** Create or replace the App PIN. */
+  saveAppPin: (pin: string) => Promise<UnlockResult>;
+  /** Change the App PIN after verifying the current one. */
+  changeAppPin: (currentPin: string, newPin: string) => Promise<UnlockResult>;
   /** Logout: calls Privy logout externally; this cleans up local state. */
   logout: () => Promise<void>;
   /** Hard delete account via backend. */
@@ -162,6 +225,7 @@ interface AppState {
   setThemeMode: (mode: ThemeMode) => void;
   setDisableScreenshot: (enabled: boolean) => void;
   setHideBalance: (enabled: boolean) => void;
+  setBiometricUnlockEnabled: (enabled: boolean) => void;
 
   // ── Plaid ───────────────────────────────────────────────────────────────
   setPlaidLinkToken: (token: string | null) => void;
@@ -183,6 +247,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   themeMode: 'light',
   disableScreenshot: false,
   hideBalance: false,
+  biometricUnlockEnabled: true,
 };
 
 const EMPTY_USER_PROFILE: UserProfile = {
@@ -195,6 +260,14 @@ const EMPTY_USER_PROFILE: UserProfile = {
   avatarUrl: '',
   membershipLabel: '',
 };
+
+function warnPreferencePersist(scope: string, err: unknown): void {
+  Logger.warn('AppStore', scope, {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
+
+let unlockSessionInFlight: Promise<UnlockResult> | null = null;
 
 function toLocalProfile(remote: UserProfileV1): UserProfile {
   return {
@@ -213,8 +286,75 @@ function toLocalProfile(remote: UserProfileV1): UserProfile {
   };
 }
 
+async function finalizeSessionUnlock(
+  set: (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void,
+  get: () => AppState,
+): Promise<UnlockResult> {
+  const existingToken = get().authToken;
+  if (existingToken) {
+    const needsHydration = !get().userProfile.id;
+    Logger.info('AppStore', 'Session resumed after unlock', { needsHydration });
+    set({
+      sessionLockStatus: 'unlocked',
+      authStatus: needsHydration ? 'loading' : 'authenticated',
+      authError: null,
+    });
+
+    if (needsHydration) {
+      try {
+        await get().hydrateUserProfile();
+        if (!get().authToken || get().authStatus !== 'authenticated') {
+          return { ok: false, reason: 'failed' };
+        }
+      } catch (err) {
+        Logger.warn('AppStore', 'Profile hydration failed after unlock', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return { ok: false, reason: 'failed' };
+      }
+    }
+
+    void get().loadExchangeRates();
+    return { ok: true };
+  }
+
+  const token = await loadSecureSession({ afterLocalAuth: true });
+  if (!token) {
+    Logger.warn('AppStore', 'Unlock passed but no stored session found');
+    return { ok: false, reason: 'failed' };
+  }
+
+  Logger.info('AppStore', 'Session unlocked from SecureStore');
+  set({
+    authToken: token,
+    authStatus: 'loading',
+    sessionLockStatus: 'unlocked',
+    authError: null,
+  });
+
+  try {
+    await get().hydrateUserProfile();
+    if (!get().authToken || get().authStatus !== 'authenticated') {
+      return { ok: false, reason: 'failed' };
+    }
+    void get().loadExchangeRates();
+    return { ok: true };
+  } catch (err) {
+    Logger.warn('AppStore', 'Profile hydration failed after unlock', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, reason: 'failed' };
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => {
-  setAuthTokenProvider(() => get().authToken);
+  setBiometricPreferenceProvider(() => get().preferences.biometricUnlockEnabled);
+
+  setAuthTokenProvider(() => {
+    const { authToken, sessionLockStatus } = get();
+    if (sessionLockStatus !== 'unlocked') return null;
+    return authToken;
+  });
 
   // Hydrate persisted preferences (fire-and-forget).
   void AsyncStorage.getItem(THEME_MODE_STORAGE_KEY)
@@ -223,7 +363,7 @@ export const useAppStore = create<AppState>((set, get) => {
         set((state) => ({ preferences: { ...state.preferences, themeMode: stored } }));
       }
     })
-    .catch(() => {});
+    .catch((err) => warnPreferencePersist('Theme preference hydration failed', err));
 
   void AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
     .then((stored) => {
@@ -231,7 +371,7 @@ export const useAppStore = create<AppState>((set, get) => {
         set((state) => ({ preferences: { ...state.preferences, language: stored } }));
       }
     })
-    .catch(() => {});
+    .catch((err) => warnPreferencePersist('Language preference hydration failed', err));
 
   void AsyncStorage.getItem(BASE_CURRENCY_STORAGE_KEY)
     .then((stored) => {
@@ -239,17 +379,23 @@ export const useAppStore = create<AppState>((set, get) => {
         set((state) => ({ preferences: { ...state.preferences, baseCurrency: stored } }));
       }
     })
-    .catch(() => {});
+    .catch((err) => warnPreferencePersist('Base currency hydration failed', err));
 
   void AsyncStorage.getItem(SECURITY_PREFS_STORAGE_KEY)
     .then((stored) => {
       const security = readSecurityPrefs(stored);
-      if (security.disableScreenshot !== undefined || security.hideBalance !== undefined) {
+      if (
+        security.disableScreenshot !== undefined ||
+        security.hideBalance !== undefined ||
+        security.biometricUnlockEnabled !== undefined
+      ) {
         set((state) => ({
           preferences: {
             ...state.preferences,
             disableScreenshot: security.disableScreenshot ?? state.preferences.disableScreenshot,
             hideBalance: security.hideBalance ?? state.preferences.hideBalance,
+            biometricUnlockEnabled:
+              security.biometricUnlockEnabled ?? state.preferences.biometricUnlockEnabled,
           },
         }));
       }
@@ -257,7 +403,7 @@ export const useAppStore = create<AppState>((set, get) => {
         void applyScreenshotPolicy(true);
       }
     })
-    .catch(() => {});
+    .catch((err) => warnPreferencePersist('Security preference hydration failed', err));
 
   return {
     authStatus: 'loading',
@@ -267,6 +413,8 @@ export const useAppStore = create<AppState>((set, get) => {
     plaidLinkTokenTimestamp: null,
     authToken: null,
     authError: null,
+    sessionLockStatus: 'checking',
+    appPinEnabled: false,
     exchangeRates: null,
     isLoadingExchangeRates: false,
 
@@ -277,11 +425,13 @@ export const useAppStore = create<AppState>((set, get) => {
         userId: profile.id,
         emailIsPlaceholder: profile.emailIsPlaceholder,
       });
+      const localProfile = toLocalProfile(profile);
       set({
         authToken: token,
         authStatus: 'authenticated',
-        userProfile: toLocalProfile(profile),
+        userProfile: localProfile,
         authError: null,
+        sessionLockStatus: 'unlocked',
         // Preserve the user's theme choice across login (it isn't account-scoped).
         preferences: {
           ...DEFAULT_PREFERENCES,
@@ -290,8 +440,11 @@ export const useAppStore = create<AppState>((set, get) => {
           baseCurrency: get().preferences.baseCurrency,
           disableScreenshot: get().preferences.disableScreenshot,
           hideBalance: get().preferences.hideBalance,
+          biometricUnlockEnabled: get().preferences.biometricUnlockEnabled,
         },
       });
+      void saveSecureSession(token);
+      void get().refreshAppPinStatus();
       void get().loadExchangeRates();
     },
 
@@ -316,6 +469,10 @@ export const useAppStore = create<AppState>((set, get) => {
         .catch((err) =>
           Logger.warn('AppStore', 'Failed to clear exchange store', { err: String(err) }),
         );
+      void clearSecureSession();
+      void clearAppPin();
+      clearDataKey();
+      clearCryptoSession();
       set({
         authToken: null,
         authStatus: 'unauthenticated',
@@ -323,7 +480,128 @@ export const useAppStore = create<AppState>((set, get) => {
         plaidLinkToken: null,
         plaidLinkTokenTimestamp: null,
         authError: null,
+        sessionLockStatus: 'unlocked',
+        appPinEnabled: false,
       });
+    },
+
+    initializeSessionLock: async (hasPrivyUser) => {
+      await get().refreshAppPinStatus();
+      if (!hasPrivyUser) {
+        set({ sessionLockStatus: 'unlocked' });
+        return;
+      }
+      const hasStored = await hasSecureSession();
+      if (hasStored) {
+        Logger.info('AppStore', 'Stored session found — requiring biometric unlock');
+        set({
+          sessionLockStatus: 'locked',
+          authStatus: 'loading',
+        });
+        return;
+      }
+      set({ sessionLockStatus: 'unlocked' });
+    },
+
+    lockSession: async () => {
+      const { authToken, sessionLockStatus } = get();
+      if (sessionLockStatus === 'locked') return;
+
+      if (authToken) {
+        await saveSecureSession(authToken);
+      }
+
+      Logger.info('AppStore', 'Session locked — in-memory auth cleared');
+      clearDataKey();
+      clearCryptoSession();
+      set({
+        authToken: null,
+        authStatus: 'loading',
+        sessionLockStatus: 'locked',
+      });
+    },
+
+    requireBiometricUnlock: () => {
+      const { authToken, sessionLockStatus } = get();
+      if (sessionLockStatus === 'locked') return;
+
+      const lockInMemorySession = () => {
+        Logger.info('AppStore', 'Biometric unlock required — in-memory auth cleared');
+        cancelLocalAuthForSessionLock();
+        clearDataKey();
+        clearCryptoSession();
+        set({
+          authToken: null,
+          authStatus: 'loading',
+          sessionLockStatus: 'locked',
+        });
+      };
+
+      if (authToken) {
+        void saveSecureSession(authToken).finally(lockInMemorySession);
+        return;
+      }
+
+      void hasSecureSession().then((hasStored) => {
+        if (hasStored) lockInMemorySession();
+      });
+    },
+
+    unlockSession: async (prompt) => {
+      if (unlockSessionInFlight) {
+        return unlockSessionInFlight;
+      }
+
+      unlockSessionInFlight = (async () => {
+        const auth = await authenticateWithBiometrics(prompt);
+        if (!auth.ok) {
+          Logger.debug('AppStore', 'Biometric unlock rejected', { reason: auth.reason });
+          return { ok: false, reason: auth.reason };
+        }
+        return finalizeSessionUnlock(set, get);
+      })();
+
+      try {
+        return await unlockSessionInFlight;
+      } finally {
+        unlockSessionInFlight = null;
+      }
+    },
+
+    unlockSessionWithAppPin: async (pin) => {
+      const verified = await verifyAppPin(pin);
+      if (!verified.ok) {
+        Logger.debug('AppStore', 'App PIN unlock rejected', { reason: verified.reason });
+        return { ok: false, reason: verified.reason };
+      }
+      return finalizeSessionUnlock(set, get);
+    },
+
+    refreshAppPinStatus: async () => {
+      const enabled = await hasAppPin();
+      set({ appPinEnabled: enabled });
+    },
+
+    saveAppPin: async (pin) => {
+      try {
+        await setAppPin(pin);
+        set({ appPinEnabled: true });
+        return { ok: true };
+      } catch (err) {
+        Logger.warn('AppStore', 'Failed to save App PIN', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return { ok: false, reason: 'failed' };
+      }
+    },
+
+    changeAppPin: async (currentPin, newPin) => {
+      const result = await changeStoredAppPin(currentPin, newPin);
+      if (!result.ok) {
+        return { ok: false, reason: result.reason };
+      }
+      set({ appPinEnabled: true });
+      return { ok: true };
     },
 
     logout: async () => {
@@ -338,7 +616,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     deleteAccount: async () => {
-      if (!get().authToken) throw new Error('Not authenticated');
+      if (!resolveUsableAuthToken(get())) throw new Error('Not authenticated');
       Logger.info('AppStore', 'Deleting account');
       await deleteCurrentAccount();
       clearDataKey();
@@ -348,8 +626,11 @@ export const useAppStore = create<AppState>((set, get) => {
     // ── Bootstrap / profile ───────────────────────────────────────────────
 
     hydrateUserProfile: async () => {
-      if (!get().authToken) {
-        set({ authStatus: 'unauthenticated' });
+      const { authToken, sessionLockStatus } = get();
+      if (sessionLockStatus !== 'unlocked' || !authToken) {
+        if (!authToken) {
+          set({ authStatus: 'unauthenticated' });
+        }
         return;
       }
       try {
@@ -360,10 +641,7 @@ export const useAppStore = create<AppState>((set, get) => {
         });
         void get().loadExchangeRates();
         try {
-          const token = get().authToken;
-          if (token) {
-            await useFinanceStore.getState().hydrateExchangeAccounts(token);
-          }
+          await useFinanceStore.getState().hydrateExchangeAccounts(authToken);
         } catch (error) {
           Logger.warn('AppStore', 'Exchange accounts hydration failed', { error: String(error) });
         }
@@ -371,7 +649,9 @@ export const useAppStore = create<AppState>((set, get) => {
         Logger.warn('AppStore', 'hydrateUserProfile failed', {
           error: error instanceof Error ? error.message : String(error),
         });
-        set({ authStatus: 'unauthenticated' });
+        if (get().sessionLockStatus === 'unlocked') {
+          set({ authStatus: 'unauthenticated' });
+        }
       }
     },
 
@@ -419,17 +699,20 @@ export const useAppStore = create<AppState>((set, get) => {
 
     setBaseCurrency: (baseCurrency) => {
       set((state) => ({ preferences: { ...state.preferences, baseCurrency } }));
-      void AsyncStorage.setItem(BASE_CURRENCY_STORAGE_KEY, baseCurrency).catch(() => {});
+      void AsyncStorage.setItem(BASE_CURRENCY_STORAGE_KEY, baseCurrency)
+        .catch((err) => warnPreferencePersist('Base currency persist failed', err));
     },
 
     setLanguage: (language) => {
       set((state) => ({ preferences: { ...state.preferences, language } }));
-      void AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language).catch(() => {});
+      void AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+        .catch((err) => warnPreferencePersist('Language persist failed', err));
     },
 
     setThemeMode: (themeMode) => {
       set((state) => ({ preferences: { ...state.preferences, themeMode } }));
-      void AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode).catch(() => {});
+      void AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, themeMode)
+        .catch((err) => warnPreferencePersist('Theme preference persist failed', err));
     },
 
     setDisableScreenshot: (enabled) => {
@@ -444,12 +727,14 @@ export const useAppStore = create<AppState>((set, get) => {
           void persistSecurityPrefs({
             disableScreenshot: false,
             hideBalance: get().preferences.hideBalance,
-          }).catch(() => {});
+            biometricUnlockEnabled: get().preferences.biometricUnlockEnabled,
+          }).catch((err) => warnPreferencePersist('Security preference persist failed', err));
         } else {
           void persistSecurityPrefs({
             disableScreenshot: enabled,
             hideBalance: get().preferences.hideBalance,
-          }).catch(() => {});
+            biometricUnlockEnabled: get().preferences.biometricUnlockEnabled,
+          }).catch((err) => warnPreferencePersist('Security preference persist failed', err));
         }
       });
     },
@@ -461,7 +746,19 @@ export const useAppStore = create<AppState>((set, get) => {
       void persistSecurityPrefs({
         disableScreenshot: get().preferences.disableScreenshot,
         hideBalance: enabled,
-      }).catch(() => {});
+        biometricUnlockEnabled: get().preferences.biometricUnlockEnabled,
+      }).catch((err) => warnPreferencePersist('Security preference persist failed', err));
+    },
+
+    setBiometricUnlockEnabled: (enabled) => {
+      set((state) => ({
+        preferences: { ...state.preferences, biometricUnlockEnabled: enabled },
+      }));
+      void persistSecurityPrefs({
+        disableScreenshot: get().preferences.disableScreenshot,
+        hideBalance: get().preferences.hideBalance,
+        biometricUnlockEnabled: enabled,
+      }).catch((err) => warnPreferencePersist('Security preference persist failed', err));
     },
 
     // ── Plaid ─────────────────────────────────────────────────────────────
@@ -469,7 +766,7 @@ export const useAppStore = create<AppState>((set, get) => {
     setPlaidLinkToken: (plaidLinkToken) => set({ plaidLinkToken }),
 
     requestPlaidLinkToken: async () => {
-      if (!get().authToken) return null;
+      if (!resolveUsableAuthToken(get())) return null;
       const result = await createPlaidLinkToken();
       const linkToken = result.link_token;
       if (!linkToken) throw new Error('No link token returned from backend');
@@ -479,7 +776,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     confirmPlaidExchange: async (publicToken, institutionName) => {
-      const token = get().authToken;
+      const token = resolveUsableAuthToken(get());
       if (!token) throw new Error('Not authenticated');
       await exchangePlaidPublicToken({ public_token: publicToken, institution_name: institutionName });
 
@@ -496,7 +793,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     disconnectPlaidAccount: async (accountId) => {
-      const token = get().authToken;
+      const token = resolveUsableAuthToken(get());
       if (!token) throw new Error('Not authenticated');
       await disconnectPlaidItem(accountId);
       await useFinanceStore.getState().disconnectBankingAccount(accountId);
@@ -507,7 +804,7 @@ export const useAppStore = create<AppState>((set, get) => {
     // ── Exchange ──────────────────────────────────────────────────────────
 
     disconnectExchangeAccount: async (exchangeAccountId) => {
-      if (!get().authToken) throw new Error('Not authenticated');
+      if (!resolveUsableAuthToken(get())) throw new Error('Not authenticated');
       await disconnectExchangeAccountApi(exchangeAccountId);
 
       const { useExchangeStore } = await import('./useExchangeStore');

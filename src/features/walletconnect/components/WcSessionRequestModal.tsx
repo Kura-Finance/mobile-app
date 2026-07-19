@@ -23,7 +23,7 @@ function summarizeRequest(request: WalletKitTypes.SessionRequest | null): string
     const value = typeof tx.value === 'string' ? tx.value : '0x0';
     return `eth_sendTransaction → ${to}\nvalue: ${value}`;
   }
-  if (method === 'personal_sign' || method === 'eth_sign') {
+  if (method === 'personal_sign') {
     return `${method}\n${JSON.stringify(params, null, 2)}`;
   }
   if (method.startsWith('eth_signTypedData')) {

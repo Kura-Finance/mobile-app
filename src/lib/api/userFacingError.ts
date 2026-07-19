@@ -8,12 +8,43 @@ import { KuraApiError, KuraNetworkError } from './errors';
 const CLIENT_PASSKEY_HINTS = [
   'PRF extension',
   'Passkeys are not supported',
+  'Passkeys with PRF require',
+  'passkey may already exist',
+  'Changed device or lost passkey',
   'Failed to decrypt your account key',
   'Unexpected encryptedDek length',
+  'XOR length mismatch',
+  'Biometrics must be enabled',
+  'Passkey request',
+  'passkey authorization failed',
+  'not properly configured',
+  'not supported on this',
+  'InvalidChallenge',
+  'InvalidUserId',
+  'InvalidPRF',
+  'UnknownException',
+  'NotSupportedException',
+  'BiometricException',
+  'PasskeyRequestFailed',
+  'PasskeyAuthorizationFailed',
+  'NotConfiguredException',
 ];
 
 function isClientPasskeyMessage(message: string): boolean {
-  return CLIENT_PASSKEY_HINTS.some((hint) => message.includes(hint));
+  const lower = message.toLowerCase();
+  return CLIENT_PASSKEY_HINTS.some((hint) => lower.includes(hint.toLowerCase()));
+}
+
+function extractErrorDetail(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  if (typeof error === 'string' && error.trim()) return error.trim();
+  if (error && typeof error === 'object') {
+    const o = error as { message?: unknown; name?: unknown; code?: unknown };
+    if (typeof o.message === 'string' && o.message.trim()) return o.message.trim();
+    if (typeof o.name === 'string' && o.name.trim()) return o.name.trim();
+    if (typeof o.code === 'string' && o.code.trim()) return o.code.trim();
+  }
+  return '';
 }
 
 /**
@@ -37,12 +68,16 @@ export function userFacingApiError(error: unknown, fallbackKey: string): string 
     return i18n.t('errors.networkError');
   }
 
-  if (error instanceof Error) {
-    if (isClientPasskeyMessage(error.message)) {
-      return error.message;
-    }
-    return i18n.t(fallbackKey);
+  const detail = extractErrorDetail(error);
+  if (detail && isClientPasskeyMessage(detail)) {
+    return detail;
   }
 
-  return i18n.t(fallbackKey);
+  // Expo native exceptions often carry a useful message even when not in the allowlist.
+  // Prefer a localized fallback, but never return an empty string.
+  const fallback = i18n.t(fallbackKey);
+  if (detail && fallbackKey.startsWith('trackfi.')) {
+    return `${fallback}${fallback.endsWith('.') ? '' : '.'} ${detail}`.trim();
+  }
+  return fallback || detail || i18n.t('trackfi.registerError');
 }

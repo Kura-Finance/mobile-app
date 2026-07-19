@@ -181,6 +181,13 @@ function PasskeyGate({
         </View>
 
         <Text style={gate.heading}>{t('trackfi.setupTitle')}</Text>
+
+        {errorMessage ? (
+          <View style={gate.errorBox}>
+            <Text style={gate.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
+
         <Text style={gate.body}>{t('trackfi.setupBody')}</Text>
 
         {!isPasskeySupported && (
@@ -190,16 +197,31 @@ function PasskeyGate({
           </View>
         )}
 
+        {isPasskeySupported ? (
+          <View style={gate.infoBox}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.primary} style={{ marginRight: 8, marginTop: 1 }} />
+            <Text style={gate.infoText}>{t('trackfi.prfRequirementNote')}</Text>
+          </View>
+        ) : null}
+
         <TouchableOpacity
           onPress={onRegister}
           disabled={!isPasskeySupported}
           style={[gate.primaryBtn, !isPasskeySupported && { opacity: 0.4 }]}
         >
           <Ionicons name="finger-print" size={20} color={colors.textInverse} style={{ marginRight: 8 }} />
-          <Text style={gate.primaryBtnText}>{t('trackfi.createPasskey')}</Text>
+          <Text style={gate.primaryBtnText}>
+            {errorMessage ? t('trackfi.tryAgain') : t('trackfi.createPasskey')}
+          </Text>
         </TouchableOpacity>
 
         <Text style={gate.hint}>{t('trackfi.setupHint')}</Text>
+
+        {errorMessage ? (
+          <TouchableOpacity onPress={onReportLostPasskey} style={{ marginTop: 24 }}>
+            <Text style={gate.lostPasskeyLink}>{t('trackfi.lostPasskeyLink')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </PasskeyGateLayout>
     );
   }
@@ -511,11 +533,11 @@ export default function TrackFiScreen() {
   }, [activeView, state, isTrackFiTabActive, setHeaderContent, t]);
 
   useTrackFiBackgroundSync({
-    enabled: state === 'unlocked',
+    enabled: state === 'unlocked' && isTrackFiTabActive,
     unlockSeq,
   });
 
-  useInitializePlaidData(state === 'unlocked', unlockSeq);
+  useInitializePlaidData(state === 'unlocked' && isTrackFiTabActive, unlockSeq);
 
   const handleBack = useCallback(() => {
     setActiveView(null);

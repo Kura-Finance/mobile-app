@@ -20,9 +20,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import {
   authenticatePasskeyForDek,
   getPasskeyStatus,
+  isPasskeyUserCancelled,
   passkeyIsSupported,
   registerPasskey,
   resetE2EE,
@@ -38,7 +40,9 @@ import { establishCryptoSession } from '../../../lib/crypto/keypairManager';
 import { clearCryptoSession, getCryptoSession } from '../../../lib/crypto/session';
 import { userFacingApiError } from '../../../lib/api/userFacingError';
 import { useAppStore } from '../../../shared/store/useAppStore';
-
+import { useSessionUsable } from '../../../lib/security/sessionAccess';
+import Logger from '../../../shared/utils/Logger';
+import i18n from '../../../shared/locales/i18n';
 export type DataKeyState =
   | 'idle'
   | 'checking'
@@ -91,7 +95,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
   const [unlockSeq, setUnlockSeq] = useState(0);
 
   const userProfile = useAppStore((s) => s.userProfile);
-  const authToken = useAppStore((s) => s.authToken);
+  const sessionUsable = useSessionUsable();
   const isPasskeySupported = passkeyIsSupported();
 
   const ttlIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -121,7 +125,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
   // ── Initial check ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!authToken) return;
+    if (!sessionUsable) return;
     let cancelled = false;
 
     // If DEK is already in memory from a previous session within this app launch
@@ -177,7 +181,7 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       stopTtlTicker();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken]);
+  }, [sessionUsable]);
 
   // ── unlock ────────────────────────────────────────────────────────────────
 
@@ -202,6 +206,10 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
+      if (isPasskeyUserCancelled(err)) {
+        setState('locked');
+        return;
+      }
       setErrorMessage(userFacingApiError(err, 'trackfi.authError'));
       setState('error');
     }
@@ -232,8 +240,16 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
-      setErrorMessage(userFacingApiError(err, 'trackfi.registerError'));
-      setState('error');
+      if (isPasskeyUserCancelled(err)) {
+        setState('unregistered');
+        return;
+      }
+      // Stay on setup so the user can retry Create Passkey (not Unlock).
+      const message = userFacingApiError(err, 'trackfi.registerError');
+      Logger.warn('TrackFi', 'Passkey registration failed', err);
+      setErrorMessage(message);
+      setState('unregistered');
+      Alert.alert(i18n.t('trackfi.setupTitle'), message);
     }
   }, [userProfile.displayName, userProfile.email, startTtlTicker]);
 
@@ -263,9 +279,11 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
     const displayName =
       userProfile.displayName || userProfile.email || 'Kura User';
 
+    let resetDone = false;
     try {
       // Step 1: wipe the E2EE layer on the server
       await resetE2EE();
+      resetDone = true;
 
       // Step 2: register a brand-new passkey on this device
       // (this also generates a fresh DEK via the PRF extension)
@@ -286,10 +304,13 @@ export function useTrackFiDataKey(): UseTrackFiDataKeyReturn {
       setTtlMs(dataKeyTtlMs());
       startTtlTicker();
     } catch (err) {
+      if (isPasskeyUserCancelled(err)) {
+        setState(resetDone ? 'unregistered' : 'lost_passkey');
+        return;
+      }
       setErrorMessage(userFacingApiError(err, 'trackfi.resetFailed'));
-      // If reset ran but register failed, server has no passkey → unregistered
-      // If reset itself failed, leave in error so user can retry
-      setState('error');
+      // If reset ran but register failed, server has no passkey → Create Passkey.
+      setState(resetDone ? 'unregistered' : 'error');
     }
   }, [userProfile.displayName, userProfile.email, startTtlTicker]);
 

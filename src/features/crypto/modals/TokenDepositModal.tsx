@@ -23,7 +23,6 @@ import TokenLogo from '../components/TokenLogo';
 import type { BluechipToken } from '../config/blueChips';
 import { getTokenLocalizedName } from '../utils/tokenDisplay';
 import { makeModalStyles } from '../../card/modals/modalStyles';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
@@ -70,7 +69,6 @@ export default function TokenDepositModal({ visible, token, scaAddress, onClose 
               <Text style={st.title} numberOfLines={1}>
                 {t('crypto.depositToken', { symbol: token.displayName })}
               </Text>
-              <LegalDisclaimerInfoButton variant="deposit" size={18} />
             </View>
             <TouchableOpacity onPress={handleClose} style={st.navBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textMuted} />

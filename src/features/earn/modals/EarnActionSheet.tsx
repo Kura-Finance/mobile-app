@@ -39,7 +39,6 @@ import { HIDDEN_BALANCE_TEXT } from '../../../shared/utils/privacyDisplay';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
 import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -336,7 +335,6 @@ export default function EarnActionSheet({
             ) : null}
             <View style={st.titleGroup}>
               <Text style={st.title} numberOfLines={1}>{headerTitle}</Text>
-              <LegalDisclaimerInfoButton variant="earn" />
             </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7} disabled={isExecutingEarn}>
               <Ionicons name="close" size={18} color={colors.textMuted} />

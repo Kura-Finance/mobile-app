@@ -16,6 +16,7 @@ import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
 import { useHideBalance } from '../../../shared/hooks/useHideBalance';
 import { useFavoritesStore } from '../store/useFavoritesStore';
 import { useHeaderHeight } from '../../../shared/navigation/Header';
+import { useTabNavigator } from '../../../shared/navigation/TabNavigatorContext';
 import { useHeaderStore } from '../../../shared/store/useHeaderStore';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -50,6 +51,8 @@ function useStyles() {
 
 export default function PortfolioScreen() {
   const { t } = useTranslation();
+  const { activeTab } = useTabNavigator();
+  const isActive = activeTab === 'Portfolio';
   const { colors } = useTheme();
   const st = useStyles();
   const money = useMoneyFormat();
@@ -88,10 +91,10 @@ export default function PortfolioScreen() {
     isRefreshing,
     error,
     refresh,
-  } = usePortfolio(balances);
+  } = usePortfolio(balances, { enabled: isActive });
 
-  const earnEnabled = features.morphoEarn;
-  const borrowEnabled = features.morphoEarn;
+  const earnEnabled = features.morphoEarn && isActive;
+  const borrowEnabled = features.morphoEarn && isActive;
   const {
     vaults: earnVaults,
     positionsByVault,
@@ -110,7 +113,7 @@ export default function PortfolioScreen() {
     refresh: refreshBorrow,
   } = useMorphoBorrow(smartAddress || null, borrowEnabled);
 
-  const stocksEnabled = features.dinariStocks;
+  const stocksEnabled = features.dinariStocks && isActive;
   const gate = useDinariGate(smartAddress, signMessage, {
     deferInitialCheck: true,
     active: stocksEnabled,
@@ -400,7 +403,6 @@ export default function PortfolioScreen() {
         )}
 
         <SourceAndLegalFooter
-          legalVariant="portfolio"
           stocksEnabled={stocksEnabled}
           earnEnabled={earnEnabled}
           borrowEnabled={borrowEnabled}

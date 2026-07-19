@@ -14,6 +14,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { makeModalStyles } from './modalStyles';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import { useAppStore } from '../../../shared/store/useAppStore';
+import { useSessionUsable } from '../../../lib/security/sessionAccess';
 import { hasVerifiedEmail, needsEmailLink } from '../../../lib/api/auth/userProfileHelpers';
 import { KuraApiError } from '../../../lib/api/errors';
 import {
@@ -48,13 +49,13 @@ export default function UsdtReceivePanel({ smartAddress }: UsdtReceivePanelProps
   const { colors } = useTheme();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const userProfile = useAppStore((st) => st.userProfile);
-  const authToken = useAppStore((st) => st.authToken);
+  const sessionUsable = useSessionUsable();
 
   const {
     customer,
     loadingCustomer,
     refreshCustomer: fetchBridgeCustomer,
-  } = useBridgeCustomer({ enabled: !!authToken });
+  } = useBridgeCustomer({ enabled: sessionUsable });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [depositAddress, setDepositAddress] = useState<LiquidationAddressResult | null>(null);

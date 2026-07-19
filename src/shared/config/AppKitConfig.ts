@@ -10,16 +10,7 @@ import { storageAdapter } from './StorageAdapter'
 import Logger from '../utils/Logger'
 import { KURA_CUSTOM_WALLET, KURA_WALLET_ID, KURA_WALLET_ICON } from '../../lib/walletconnect/kuraWalletListing'
 import { brand } from '../../config/branding'
-import { env } from '../../config/env'
-
-const projectId = env.walletConnectProjectId
-
-if (!projectId) {
-  throw new Error(
-    'WALLETCONNECT_PROJECT_ID environment variable is not defined. ' +
-    'Please obtain it from https://dashboard.reown.com/ and set it in your environment variables.'
-  )
-}
+import { assertValidWalletConnectProjectId } from '../../config/env'
 
 const ethersAdapter = new EthersAdapter()
 
@@ -42,6 +33,7 @@ export async function initAppKit(): Promise<ReturnType<typeof createAppKit>> {
   if (appKitInstance) return appKitInstance;
   if (!appKitInitPromise) {
     appKitInitPromise = (async () => {
+      const projectId = assertValidWalletConnectProjectId();
       // WalletKit must own the shared SignClient before AppKit (dApp mode) inits.
       await warmWalletConnectWalletMode();
       appKitInstance = createAppKit({

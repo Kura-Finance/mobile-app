@@ -23,9 +23,9 @@ import { PAY_GAS_IN_USDC } from '../../config/cardWalletConfig';
 import { makeModalStyles } from '../modalStyles';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
-import LegalDisclaimer from '../../../../shared/components/LegalDisclaimer';
 import InlineErrorBanner from '../../../../shared/components/InlineErrorBanner';
 import { useMoneyFormat } from '../../../../shared/hooks/useMoneyFormat';
+import { useLocalAuthGate } from '../../../../shared/hooks/useLocalAuthGate';
 
 function useStyles() {
   const { colors } = useTheme();
@@ -71,6 +71,7 @@ export default function ConfirmView({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const money = useMoneyFormat();
+  const { requireLocalAuth } = useLocalAuthGate();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const st = useStyles();
   const isBridge = chain.key !== 'BASE';
@@ -177,6 +178,11 @@ export default function ConfirmView({
   // ── Execute ───────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(async () => {
     setError('');
+    const gate = await requireLocalAuth('card.biometricSendPrompt');
+    if (!gate.allowed) {
+      if (gate.message) setError(gate.message);
+      return;
+    }
     try {
       if (isBridge) {
         if (!quote) return;
@@ -190,7 +196,7 @@ export default function ConfirmView({
     } catch (err) {
       setError(err instanceof Error ? err.message : t('card.transactionFailed'));
     }
-  }, [isBridge, quote, onBridge, onSend, contact.address, amount, chain, t]);
+  }, [isBridge, quote, onBridge, onSend, contact.address, amount, chain, requireLocalAuth, t]);
 
   const contactChain = ALL_CHAINS.find((c) => c.key === contact.chainKey) ?? BASE_CHAIN;
 
@@ -344,7 +350,6 @@ export default function ConfirmView({
           ? t('card.bridgeRateNote')
           : PAY_GAS_IN_USDC ? t('card.gasUsdcNote') : t('card.gasSponsoredNote')}
       </Text>
-      {isBridge ? <LegalDisclaimer variant="bridge" style={st.bridgeDisclaimer} /> : null}
     </ScrollView>
   );
 }
@@ -498,10 +503,6 @@ function makeStyles(c: ThemeColors) {
       color: '#FFF',
       fontSize: 16,
       fontWeight: '700',
-    },
-    bridgeDisclaimer: {
-      marginBottom: 8,
-      paddingHorizontal: 4,
     },
   });
 }

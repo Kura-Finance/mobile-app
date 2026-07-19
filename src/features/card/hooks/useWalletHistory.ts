@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { useAppStore } from '../../../shared/store/useAppStore';
+import { useSessionUsable } from '../../../lib/security/sessionAccess';
 import {
   getWalletHistorySnapshot,
   notifyWalletHistoryAuthChanged,
@@ -86,7 +86,7 @@ export function useWalletHistory(
   options?: UseWalletHistoryOptions,
 ): UseWalletHistoryReturn {
   const initialWindowDays = options?.initialWindowDays ?? 0;
-  const authToken = useAppStore((state) => state.authToken);
+  const sessionUsable = useSessionUsable();
 
   const subscribe = useCallback(
     (onStoreChange: () => void) =>
@@ -103,7 +103,7 @@ export function useWalletHistory(
 
   useEffect(() => {
     notifyWalletHistoryAuthChanged();
-  }, [authToken]);
+  }, [sessionUsable]);
 
   return snapshot;
 }

@@ -18,7 +18,6 @@ import QRCode from 'react-native-qrcode-svg';
 import { makeModalStyles } from './modalStyles';
 import FiatReceivePanel, { FIAT_OPTIONS } from './FiatReceivePanel';
 import UsdtReceivePanel from './UsdtReceivePanel';
-import MoonPayModal from './MoonPayModal';
 import type { FiatCurrency } from '../../../lib/api/ramp/client';
 import TokenLogo from '../../crypto/components/TokenLogo';
 import { BLUE_CHIPS, USDT_DISPLAY } from '../../crypto/config/blueChips';
@@ -46,7 +45,6 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
   const [screen, setScreen] = useState<Screen>('method');
   const [selectedFiat, setSelectedFiat] = useState<FiatCurrency>('usd');
   const [copied, setCopied] = useState(false);
-  const [moonpayOpen, setMoonpayOpen] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const historyRef = useRef<Screen[]>([]);
@@ -102,10 +100,6 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
     [navigate],
   );
 
-  const openMoonPay = useCallback(() => {
-    setMoonpayOpen(true);
-  }, []);
-
   // ── Nav bar title per screen ───────────────────────────────────────────────
   const selectedOption = FIAT_OPTIONS.find((o) => o.code === selectedFiat)!;
   const navTitle =
@@ -149,21 +143,6 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
         <View style={rs.methodBody}>
           <Text style={rs.listTitle}>{t('card.addMoneyCrypto')}</Text>
           <Text style={rs.methodSub}>{t('card.addMoneyCryptoSub')}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[rs.methodRow, { marginTop: 10 }]}
-        activeOpacity={0.7}
-        onPress={openMoonPay}
-      >
-        <View style={rs.methodIconWrap}>
-          <Ionicons name="card-outline" size={22} color={colors.primary} />
-        </View>
-        <View style={rs.methodBody}>
-          <Text style={rs.listTitle}>{t('card.addMoneyDebitCard')}</Text>
-          <Text style={rs.methodSub}>{t('card.addMoneyDebitCardSub')}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
       </TouchableOpacity>
@@ -317,13 +296,6 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
           )}
         </Animated.View>
       </SafeAreaView>
-
-      <MoonPayModal
-        visible={moonpayOpen}
-        onClose={() => setMoonpayOpen(false)}
-        walletAddress={smartAddress}
-        baseCurrencyCode={selectedFiat}
-      />
     </Modal>
   );
 }

@@ -91,6 +91,10 @@ export default function WalletTransactionsScreen() {
     navigation.navigate('TransactionDetail', { tx, smartAddress });
   }, [navigation, smartAddress]);
 
+  const renderTxRow = useCallback(({ item }: { item: WalletTx }) => (
+    <WalletTxRow tx={item} contacts={contacts} onPress={openTxDetail} />
+  ), [contacts, openTxDetail]);
+
   const renderFooter = () => {
     if (loading && txs.length > 0) {
       return (
@@ -124,9 +128,7 @@ export default function WalletTransactionsScreen() {
       <FlatList
         data={txs}
         keyExtractor={(tx) => tx.id}
-        renderItem={({ item }) => (
-          <WalletTxRow tx={item} contacts={contacts} onPress={openTxDetail} />
-        )}
+        renderItem={renderTxRow}
         contentContainerStyle={[
           s.listContent,
           { paddingBottom: insets.bottom + 24 },

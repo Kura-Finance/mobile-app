@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { getBridgeCustomer, type BridgeCustomer } from '../../../lib/api/ramp/client';
-import { useAppStore } from '../../../shared/store/useAppStore';
+import { useSessionUsable, getUsableAuthToken } from '../../../lib/security/sessionAccess';
 
 export interface UseBridgeCustomerOptions {
   /** When false, skips fetch and clears customer. Default true. */
@@ -25,12 +25,12 @@ export function useBridgeCustomer(
   options: UseBridgeCustomerOptions = {},
 ): UseBridgeCustomerResult {
   const enabled = options.enabled ?? true;
-  const authToken = useAppStore((state) => state.authToken);
+  const sessionUsable = useSessionUsable();
   const [customer, setCustomer] = useState<BridgeCustomer | null>(null);
   const [loadingCustomer, setLoadingCustomer] = useState(true);
 
   const refreshCustomer = useCallback(async (): Promise<BridgeCustomer | null> => {
-    if (!useAppStore.getState().authToken) {
+    if (!getUsableAuthToken()) {
       setCustomer(null);
       setLoadingCustomer(false);
       return null;
@@ -50,12 +50,12 @@ export function useBridgeCustomer(
       setLoadingCustomer(false);
       return;
     }
-    if (authToken) void refreshCustomer();
+    if (sessionUsable) void refreshCustomer();
     else {
       setCustomer(null);
       setLoadingCustomer(false);
     }
-  }, [enabled, authToken, refreshCustomer]);
+  }, [enabled, sessionUsable, refreshCustomer]);
 
   return {
     customer,

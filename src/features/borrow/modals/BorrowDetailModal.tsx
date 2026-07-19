@@ -32,7 +32,6 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import { borrowFavoriteKey } from '../utils/borrowFavorites';
 import {
   readMorphoUserPositionDisplay,
@@ -288,7 +287,6 @@ export default function BorrowDetailModal({
           </TouchableOpacity>
           <View style={st.topTitleGroup}>
             <Text style={st.topTitle} numberOfLines={1}>{m.loanAsset.symbol}</Text>
-            <LegalDisclaimerInfoButton variant="borrow" size={18} />
           </View>
           <View style={st.topRight}>
             <TouchableOpacity

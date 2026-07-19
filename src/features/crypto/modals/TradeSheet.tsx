@@ -39,7 +39,6 @@ import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
 import TokenLogo from '../components/TokenLogo';
 
@@ -297,7 +296,6 @@ export default function TradeSheet({
           <View style={st.titleRow}>
             <View style={st.titleGroup}>
               <Text style={st.title}>{t('crypto.swap')}</Text>
-              <LegalDisclaimerInfoButton variant="swap" />
             </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={colors.textMuted} />

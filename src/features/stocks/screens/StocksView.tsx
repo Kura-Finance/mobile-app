@@ -1,7 +1,7 @@
 /**
  * Invest → Stocks tab — Dinari stock listings.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -27,7 +27,6 @@ import {
   type InvestSortKey,
 } from '../../crypto/utils/investSort';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -123,6 +122,22 @@ function StockRow({ item, onPress }: { item: StockItem; onPress: (s: StockItem) 
     </TouchableOpacity>
   );
 }
+
+function areStockRowPropsEqual(
+  prev: { item: StockItem; onPress: (s: StockItem) => void },
+  next: { item: StockItem; onPress: (s: StockItem) => void },
+): boolean {
+  return (
+    prev.onPress === next.onPress
+    && prev.item.id === next.item.id
+    && prev.item.price === next.item.price
+    && prev.item.holdings === next.item.holdings
+    && prev.item.value === next.item.value
+    && prev.item.change24h === next.item.change24h
+  );
+}
+
+const StockRowMemo = memo(StockRow, areStockRowPropsEqual);
 
 export default function StocksView({
   embedded = false,
@@ -245,6 +260,13 @@ export default function StocksView({
     ? t('crypto.dinariUnavailableBody', { error: gate.error })
     : t('crypto.dinariComingSoonBody');
 
+  const renderStockRow = useCallback(
+    ({ item }: { item: StockItem }) => (
+      <StockRowMemo item={item} onPress={setSelected} />
+    ),
+    [],
+  );
+
   const listBody = stocksLoading && stocks.length === 0 ? (
     <View style={st.loadingRow}>
       <LoadingDots color={colors.textMuted} size={8} />
@@ -268,9 +290,7 @@ export default function StocksView({
       data={visibleStocks}
       keyExtractor={(item) => item.id}
       initialNumToRender={STOCK_LIST_PAGE_SIZE}
-      renderItem={({ item }) => (
-        <StockRow item={item} onPress={setSelected} />
-      )}
+      renderItem={renderStockRow}
       ListFooterComponent={
         hasMoreStocks ? (
           <TouchableOpacity
@@ -332,7 +352,6 @@ export default function StocksView({
       {!embedded && (
         <View style={st.footer}>
           <Text style={st.sourceNote}>{t('crypto.stocksSourceNote')}</Text>
-          <LegalDisclaimer variant="securities" style={st.legalFooter} />
         </View>
       )}
 
@@ -463,6 +482,5 @@ function makeStyles(c: ThemeColors) {
 
     sourceNote: { color: c.textFaint, fontSize: 11, textAlign: 'center', marginTop: 16 },
     footer: { paddingBottom: 120 },
-    legalFooter: { marginTop: 8, paddingHorizontal: 16 },
   });
 }

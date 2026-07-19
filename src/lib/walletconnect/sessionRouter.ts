@@ -91,12 +91,6 @@ export async function executeWalletConnectRequest(
       return signScaMessage(getEmbeddedProvider, message);
     }
 
-    case 'eth_sign': {
-      const messageParam = paramList[1] ?? paramList[0];
-      const message = parsePersonalSignMessage(messageParam);
-      return signScaMessage(getEmbeddedProvider, message);
-    }
-
     case 'eth_signTypedData':
     case 'eth_signTypedData_v3':
     case 'eth_signTypedData_v4':
@@ -149,7 +143,6 @@ export function buildSupportedNamespaces(scaAddress: string) {
         'eth_requestAccounts',
         'eth_chainId',
         'personal_sign',
-        'eth_sign',
         'eth_signTypedData',
         'eth_signTypedData_v3',
         'eth_signTypedData_v4',

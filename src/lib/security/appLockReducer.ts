@@ -7,17 +7,14 @@
 
 export type AppLockStatus = 'active' | 'inactive' | 'background' | 'unknown' | 'extension';
 
-export const DEFAULT_BACKGROUND_LOCK_MS = 5 * 60 * 1000;
-
 export interface AppLockReducerCtx {
-  thresholdMs: number;
   backgroundedAt: number | null;
   now: () => number;
 }
 
 export interface AppLockReducerResult {
   nextBackgroundedAt: number | null;
-  shouldLock: boolean;
+  shouldRequireBiometric: boolean;
 }
 
 export function handleAppStateChange(
@@ -29,19 +26,18 @@ export function handleAppStateChange(
   const cameToForeground = from !== 'active' && to === 'active';
 
   if (wentToBackground) {
-    return { nextBackgroundedAt: ctx.now(), shouldLock: false };
+    return { nextBackgroundedAt: ctx.now(), shouldRequireBiometric: false };
   }
 
   if (cameToForeground) {
     if (ctx.backgroundedAt === null) {
-      return { nextBackgroundedAt: null, shouldLock: false };
+      return { nextBackgroundedAt: null, shouldRequireBiometric: false };
     }
-    const elapsed = ctx.now() - ctx.backgroundedAt;
     return {
       nextBackgroundedAt: null,
-      shouldLock: elapsed >= ctx.thresholdMs,
+      shouldRequireBiometric: true,
     };
   }
 
-  return { nextBackgroundedAt: ctx.backgroundedAt, shouldLock: false };
+  return { nextBackgroundedAt: ctx.backgroundedAt, shouldRequireBiometric: false };
 }

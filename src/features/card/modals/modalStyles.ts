@@ -106,17 +106,6 @@ export function makeModalStyles(c: ThemeColors) {
     },
     menuItemLabel: { color: c.text, fontSize: 15, fontWeight: '600' as const, lineHeight: 20, marginBottom: 2 },
     menuItemSub: { color: c.textFaint, fontSize: 12, lineHeight: 16 },
-    menuFooter: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingHorizontal: 18, paddingVertical: 16,
-      borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.primarySoft,
-      backgroundColor: c.primarySoft,
-    },
-    menuFooterIcon: {
-      width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: c.primarySoft,
-    },
-    menuFooterText: { flex: 1, color: c.primaryOnSoft, fontSize: 13, fontWeight: '600' as const, lineHeight: 18 },
 
     // Fiat info / KYC card
     fiatCard: {

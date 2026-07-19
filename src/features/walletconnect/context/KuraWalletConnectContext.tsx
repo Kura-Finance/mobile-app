@@ -29,6 +29,7 @@ import {
 } from '../lib/dappSessionHistory';
 import { selectCanonicalEmbeddedWallet } from '../../../shared/utils/embeddedWallet';
 import Logger from '../../../shared/utils/Logger';
+import { requireLocalAuth } from '../../../lib/security/localAuthGate';
 import WcPairScannerModal from '../components/WcPairScannerModal';
 import WcSessionProposalModal from '../components/WcSessionProposalModal';
 import WcSessionRequestModal from '../components/WcSessionRequestModal';
@@ -252,6 +253,12 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
     if (approvingRequestIdRef.current === pendingRequest.id) return;
     const sca = smartAddressRef.current;
     if (!sca) return;
+
+    const auth = await requireLocalAuth(
+      t('walletConnect.biometricSignPrompt'),
+      'walletConnect.biometricSignPrompt',
+    );
+    if (!auth.allowed) return;
 
     const request = pendingRequest;
     const { topic, id, params } = request;

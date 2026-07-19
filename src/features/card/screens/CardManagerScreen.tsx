@@ -15,7 +15,6 @@ import CardPreviewCarousel, { type CardPreviewPage } from '../components/CardPre
 import CardProductDmPage from '../components/CardProductDmPage';
 import MetalCardDmPage from '../components/MetalCardDmPage';
 import { useTheme } from '../../../shared/theme/ThemeContext';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { WAITLIST_PRODUCTS } from '../../../lib/api/waitlist';
 import { KuraApiError } from '../../../lib/api/errors';
@@ -127,8 +126,6 @@ export default function CardManagerScreen() {
             notifyDisabled={!virtualWaitlist.backendAvailable}
           />
         )}
-
-        <LegalDisclaimer variant="cardWaitlist" style={s.cardDisclaimer} />
       </ScrollView>
     </View>
   );
@@ -148,6 +145,5 @@ function makeStyles(c: ThemeColors) {
     screenTitle: { color: c.text, fontSize: 17, fontWeight: '700' },
     content: { paddingHorizontal: 20, gap: 8 },
     cardPreview: { marginBottom: 8 },
-    cardDisclaimer: { marginTop: 8 },
   });
 }

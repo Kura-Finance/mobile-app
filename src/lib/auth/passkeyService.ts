@@ -27,8 +27,12 @@
  *   The server NEVER sees the plaintext DEK.
  *   encryptedDek = DEK XOR PRF_output where PRF_output is only derivable by the
  *   physical authenticator bound to the passkey.
+ *
+ * PRF support: iOS 18+ (react-native-passkeys). Android depends on the password
+ * manager (Google Password Manager recommended).
  */
 
+import { Platform } from 'react-native';
 import { create, get, isSupported } from 'react-native-passkeys';
 import type {
   PublicKeyCredentialCreationOptionsJSON,
@@ -45,7 +49,6 @@ import {
   base64UrlToBytes,
   utf8ToBytes,
 } from '../crypto/encoding';
-import { aesGcmDecrypt } from '../crypto/aesgcm';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -64,6 +67,15 @@ export const PASSKEY_RP_NAME = brand.passkeyRpName;
  * a raw Uint8Array. Passing raw bytes triggers a native cast error.
  */
 const PRF_SALT_B64URL = bytesToBase64Url(utf8ToBytes('kura-dek-v1'));
+
+const PRF_UNSUPPORTED_MESSAGE =
+  'This device or passkey provider does not support the Passkey PRF extension ' +
+  '(required for TrackFi encryption). Use iOS 18+ with iCloud Keychain, or ' +
+  'Android with Google Password Manager, then try again.';
+
+const PASSKEY_ORPHAN_MESSAGE =
+  'A passkey may already exist on this device but is not linked to your account. ' +
+  'Use “Changed device or lost passkey?” to reset, then create a new passkey.';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Backend API response types
@@ -100,6 +112,65 @@ let statusInFlight: Promise<PasskeyStatusResponse> | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function errorField(error: unknown, key: 'name' | 'message' | 'code'): string {
+  if (!error) return '';
+  if (typeof error === 'string') return key === 'message' ? error : '';
+  if (typeof error === 'object') {
+    const value = (error as Record<string, unknown>)[key];
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+  }
+  return '';
+}
+
+/**
+ * True only for an explicit user dismiss of the system passkey sheet.
+ * Expo bridges Apple ASAuthorizationError 1001 as `ERR_USER_CANCELLED`.
+ */
+export function isPasskeyUserCancelled(error: unknown): boolean {
+  const name = errorField(error, 'name').toLowerCase();
+  const code = errorField(error, 'code').toLowerCase();
+  const message = errorField(error, 'message').toLowerCase();
+
+  if (
+    code === 'err_user_cancelled'
+    || code === 'usercancelled'
+    || code === 'usercancelledexception'
+    || name === 'usercancelledexception'
+  ) {
+    return true;
+  }
+
+  // Exact / near-exact cancel copy from react-native-passkeys (not broad “canceled”).
+  return (
+    message === 'user cancelled the passkey interaction'
+    || message === 'user canceled the passkey interaction'
+    || message === 'usercancelled'
+    || message === 'err_user_cancelled'
+  );
+}
+
+/** Credential already on device / InvalidState-style create failure (orphan retry). */
+function isPasskeyAlreadyExistsError(error: unknown): boolean {
+  const name = errorField(error, 'name').toLowerCase();
+  const code = errorField(error, 'code').toLowerCase();
+  const message = errorField(error, 'message').toLowerCase();
+  const blob = `${name} ${code} ${message}`;
+  return (
+    blob.includes('invalidstate')
+    || blob.includes('already exists')
+    || blob.includes('credential_exists')
+    || blob.includes('at_error_exist')
+    || (blob.includes('domerror') && blob.includes('exist'))
+  );
+}
+
+function iosMajorVersion(): number | null {
+  if (Platform.OS !== 'ios') return null;
+  const major = parseInt(String(Platform.Version).split('.')[0] ?? '', 10);
+  return Number.isFinite(major) ? major : null;
 }
 
 async function fetchPasskeyStatusWithRetry(): Promise<PasskeyStatusResponse> {
@@ -164,10 +235,7 @@ export async function getPasskeyStatus(options?: { force?: boolean }): Promise<P
 function extractPrfOutput(clientExtensionResults: any): Uint8Array {
   const first = clientExtensionResults?.prf?.results?.first;
   if (!first) {
-    throw new Error(
-      'This device does not support the Passkey PRF extension (iOS 16+ / Android FIDO2 required). ' +
-      'Cannot derive encryption key.',
-    );
+    throw new Error(PRF_UNSUPPORTED_MESSAGE);
   }
   // Native returns base64url string; web may return ArrayBuffer — handle both.
   if (typeof first === 'string') {
@@ -190,9 +258,18 @@ function xorBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Whether this device can run TrackFi passkeys (WebAuthn + PRF).
+ * iOS requires 18+ for PRF; Android relies on isSupported() + a PRF-capable provider.
+ */
 export function passkeyIsSupported(): boolean {
   try {
-    return isSupported();
+    if (!isSupported()) return false;
+    if (Platform.OS === 'ios') {
+      const major = iosMajorVersion();
+      return major != null && major >= 18;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -240,7 +317,9 @@ export async function resetE2EE(): Promise<E2EEResetResult> {
  */
 export async function registerPasskey(displayName: string): Promise<Uint8Array | null> {
   if (!passkeyIsSupported()) {
-    throw new Error('Passkeys are not supported on this device (iOS 16+ / Android 9+ required).');
+    throw new Error(
+      'Passkeys with PRF require iOS 18+ (iCloud Keychain) or Android 9+ with Google Password Manager.',
+    );
   }
 
   // ── Step 1: Get registration challenge ─────────────────────────────────────
@@ -274,31 +353,47 @@ export async function registerPasskey(displayName: string): Promise<Uint8Array |
   } as unknown as PublicKeyCredentialCreationOptionsJSON;
 
   // ── Step 3: Trigger platform passkey dialog ────────────────────────────────
-  const credential = await create(creationOptions);
+  let credential: Awaited<ReturnType<typeof create>>;
+  try {
+    credential = await create(creationOptions);
+  } catch (err) {
+    if (isPasskeyUserCancelled(err)) return null;
+    if (isPasskeyAlreadyExistsError(err)) {
+      throw new Error(PASSKEY_ORPHAN_MESSAGE);
+    }
+    throw err;
+  }
   if (!credential) return null; // User cancelled
 
   // ── Step 4: Extract PRF output from authenticator ──────────────────────────
-  const prfOutput = extractPrfOutput((credential as any).clientExtensionResults);
+  // If create succeeded but PRF is missing, a local orphan credential may remain.
+  try {
+    const prfOutput = extractPrfOutput((credential as any).clientExtensionResults);
 
-  // ── Step 5: Generate random DEK, XOR-encrypt with PRF output ───────────────
-  const dek = getRandomBytes(32);                     // Uint8Array, 32 bytes
-  const encryptedDekBytes = xorBytes(dek, prfOutput); // XOR
-  const encryptedDek = bytesToHex(encryptedDekBytes); // 64 hex chars
+    // ── Step 5: Generate random DEK, XOR-encrypt with PRF output ───────────────
+    const dek = getRandomBytes(32);                     // Uint8Array, 32 bytes
+    const encryptedDekBytes = xorBytes(dek, prfOutput); // XOR
+    const encryptedDek = bytesToHex(encryptedDekBytes); // 64 hex chars
 
-  // ── Step 6: POST credential + encryptedDek to backend ─────────────────────
-  // WebAuthn response object wrapped in "response" key per API contract.
-  await requestJson('/api/auth/passkey/register', {
-    method: 'POST',
-    body: JSON.stringify({
-      response: credential,  // whole WebAuthn credential object
-      encryptedDek,
-    }),
-  });
+    // ── Step 6: POST credential + encryptedDek to backend ─────────────────────
+    await requestJson('/api/auth/passkey/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        response: credential,
+        encryptedDek,
+      }),
+    });
 
-  statusCache = { registered: true, fetchedAt: Date.now() };
-
-  // Return plaintext DEK to caller for immediate SecureStore persistence
-  return dek;
+    statusCache = { registered: true, fetchedAt: Date.now() };
+    return dek;
+  } catch (err) {
+    if (err instanceof Error && err.message === PRF_UNSUPPORTED_MESSAGE) {
+      throw new Error(
+        `${PRF_UNSUPPORTED_MESSAGE} If a passkey was saved on this device, use “Changed device or lost passkey?” to reset before retrying.`,
+      );
+    }
+    throw err;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,7 +409,9 @@ export async function registerPasskey(displayName: string): Promise<Uint8Array |
  */
 export async function authenticatePasskeyForDek(): Promise<Uint8Array | null> {
   if (!passkeyIsSupported()) {
-    throw new Error('Passkeys are not supported on this device.');
+    throw new Error(
+      'Passkeys with PRF require iOS 18+ (iCloud Keychain) or Android 9+ with Google Password Manager.',
+    );
   }
 
   // ── Step 1: Get assertion challenge ────────────────────────────────────────
@@ -342,7 +439,13 @@ export async function authenticatePasskeyForDek(): Promise<Uint8Array | null> {
   } as unknown as PublicKeyCredentialRequestOptionsJSON;
 
   // ── Step 3: Trigger platform passkey dialog ────────────────────────────────
-  const assertion = await get(requestOptions);
+  let assertion: Awaited<ReturnType<typeof get>>;
+  try {
+    assertion = await get(requestOptions);
+  } catch (err) {
+    if (isPasskeyUserCancelled(err)) return null;
+    throw err;
+  }
   if (!assertion) return null; // User cancelled
 
   // ── Step 4: Extract PRF output before it leaves the authenticator ──────────

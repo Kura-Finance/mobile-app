@@ -3,6 +3,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import { IMPORTED_KEY_SECURE_STORE } from '../security/secureStoreOptions';
 import {
   assertPimlicoConfigured,
   createBaseTransport,
@@ -164,7 +165,8 @@ export async function buildSmartAccountClientFromPrivKey(ethPrivKey: string): Pr
 export async function resolveKuraSmartAccountClient(
   getEmbeddedProvider: () => Promise<unknown>,
 ): Promise<SmartAccountBundle> {
-  const imported = await SecureStore.getItemAsync(WALLET_IMPORTED_KEY);
+  const imported = await SecureStore.getItemAsync(WALLET_IMPORTED_KEY, IMPORTED_KEY_SECURE_STORE)
+    ?? await SecureStore.getItemAsync(WALLET_IMPORTED_KEY);
   if (imported) {
     return buildSmartAccountClientFromPrivKey(imported);
   }

@@ -22,7 +22,6 @@ export const SUPPORTED_WC_METHODS = [
   'eth_requestAccounts',
   'eth_chainId',
   'personal_sign',
-  'eth_sign',
   'eth_signTypedData',
   'eth_signTypedData_v3',
   'eth_signTypedData_v4',

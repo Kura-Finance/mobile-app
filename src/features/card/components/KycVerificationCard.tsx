@@ -3,34 +3,33 @@ import LoadingDots from '../../../shared/components/LoadingDots';
  * KycVerificationCard
  *
  * Shared identity-verification gate for the Bridge on/off-ramp flows.
- * Supports both individual KYC and business KYB through the same
- * `POST /api/bridge/kyc-link` endpoint:
+ * Individual KYC only — uses the signed-in user's name / email and
+ * `POST /api/bridge/kyc-link`.
  *
- *   - Individual: uses the signed-in user's name / email.
- *   - Business:   collects the company legal name + email, then launches
- *                 Bridge's hosted KYB page (which gathers UBO + documents).
- *
- * The card is purely presentational + form state; the parent owns the
- * `createKycLink` call and the resulting browser hand-off.
+ * The card is purely presentational; the parent owns the `createKycLink`
+ * call and the resulting browser hand-off.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import type {
-  BridgeCustomer,
-  CustomerType,
-  KycLinkRequest,
-} from '../../../lib/api/ramp/client';
-import { getKycUiPhase, normalizeKycStatus } from '../../../lib/api/ramp/bridgeKyc';
+import type { BridgeCustomer, KycLinkRequest } from '../../../lib/api/ramp/client';
+import {
+  customerNeedsKycAdditionalInfo,
+  getCustomerFacingRejectionReasons,
+  getKycUiPhase,
+  isKycPaused,
+  normalizeKycStatus,
+} from '../../../lib/api/ramp/bridgeKyc';
+import { brand } from '../../../config/branding';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
@@ -68,19 +67,97 @@ export default function KycVerificationCard({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const c = useStyles();
-  const existingType = customer?.customerType ?? null;
-  const [mode, setMode] = useState<CustomerType>(existingType ?? 'individual');
-  const [businessName, setBusinessName] = useState('');
-  const [businessEmail, setBusinessEmail] = useState(defaultEmail ?? '');
 
-  const status = normalizeKycStatus(customer?.kycStatus);
   const phase = getKycUiPhase(customer?.kycStatus, customer?.bridgeCustomerId);
-  const inReview = phase === 'in_review' || phase === 'unknown';
-  const needsMoreInfo =
-    status === 'awaiting_questionnaire' || status === 'awaiting_ubo';
+  const status = normalizeKycStatus(customer?.kycStatus);
+  const needsMoreInfo = customerNeedsKycAdditionalInfo(customer);
+  const paused = isKycPaused(customer?.kycStatus) || phase === 'paused';
+  const inReview = !needsMoreInfo && !paused && (phase === 'in_review' || phase === 'unknown');
   const rejected = status === 'rejected';
+  const bridgeReasons = getCustomerFacingRejectionReasons(customer);
+  const isLegacyBusinessCustomer = customer?.customerType === 'business';
 
-  // ── In review: nothing to do but wait ──────────────────────────────────────
+  const individualEmail = defaultEmail?.trim() ?? '';
+  const individualEmailValid = /\S+@\S+\.\S+/.test(individualEmail);
+  const canStart = !needsEmailLink && individualEmailValid;
+
+  const handleStart = () => {
+    onStartKyc({
+      type: 'individual',
+      fullName: defaultName?.trim() || 'Kura User',
+      email: individualEmail,
+    });
+  };
+
+  if (isLegacyBusinessCustomer && !customer?.canTransact) {
+    return (
+      <View style={c.card}>
+        <View style={c.iconWrap}>
+          <Ionicons name="business-outline" size={24} color={colors.textMuted} />
+        </View>
+        <Text style={c.title}>{t('card.businessVerificationUnsupportedTitle')}</Text>
+        <Text style={c.text}>{t('card.businessVerificationUnsupportedBody')}</Text>
+        <SupportContactLink />
+        <RefreshLink onRefresh={onRefresh} />
+      </View>
+    );
+  }
+
+  if (paused) {
+    return (
+      <View style={c.card}>
+        <View style={[c.iconWrap, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+          <Ionicons name="pause-circle-outline" size={24} color="#EF4444" />
+        </View>
+        <Text style={c.title}>{t('card.verificationPausedTitle')}</Text>
+        {bridgeReasons.length > 0 ? (
+          <View style={c.reasonList}>
+            {bridgeReasons.map((reason) => (
+              <Text key={reason} style={c.reasonText}>
+                {reason}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Text style={c.text}>{t('card.verificationPausedBody')}</Text>
+        )}
+        <SupportContactLink />
+        <RefreshLink onRefresh={onRefresh} />
+      </View>
+    );
+  }
+
+  // Bridge won't push a new link — reopen hosted KYC via POST /kyc-link.
+  if (needsMoreInfo) {
+    return (
+      <View style={c.card}>
+        <View style={[c.iconWrap, { backgroundColor: 'rgba(251,191,36,0.15)' }]}>
+          <Ionicons name="document-text-outline" size={24} color="#FBBF24" />
+        </View>
+        <Text style={c.title}>{t('card.finishVerification')}</Text>
+        <Text style={c.text}>
+          {t('card.additionalInfoNeeded')}
+          {'\n\n'}
+          {t('card.continueOnBridge')}
+        </Text>
+        {needsEmailLink ? (
+          <View style={c.emailRequiredBox}>
+            <Ionicons name="mail-outline" size={18} color="#FBBF24" />
+            <Text style={c.emailRequiredText}>{t('card.linkEmailBeforeKyc')}</Text>
+          </View>
+        ) : null}
+        <PrimaryButton
+          label={t('card.continueVerification')}
+          icon="open-outline"
+          loading={creating}
+          disabled={!canStart}
+          onPress={handleStart}
+        />
+        <RefreshLink onRefresh={onRefresh} />
+      </View>
+    );
+  }
+
   if (inReview) {
     return (
       <View style={c.card}>
@@ -96,70 +173,6 @@ export default function KycVerificationCard({
     );
   }
 
-  // ── KYB needs more info: re-open the hosted page to continue ────────────────
-  if (needsMoreInfo) {
-    const isUbo = status === 'awaiting_ubo';
-    return (
-      <View style={c.card}>
-        <View style={c.iconWrap}>
-          <Ionicons name="document-text-outline" size={24} color="#FBBF24" />
-        </View>
-        <Text style={c.title}>{t('card.finishVerification')}</Text>
-        <Text style={c.text}>
-          {isUbo
-            ? t('card.uboNeeded')
-            : t('card.questionnaireNeeded')}
-          {'\n\n'}
-          {t('card.continueOnBridge')}
-        </Text>
-        <PrimaryButton
-          label={t('card.continueVerification')}
-          icon="open-outline"
-          loading={creating}
-          disabled={needsEmailLink && (existingType ?? 'business') === 'individual'}
-          onPress={() => {
-            const email = defaultEmail?.trim();
-            if ((existingType ?? 'business') === 'individual' && (!email || needsEmailLink)) {
-              return;
-            }
-            onStartKyc({
-              type: existingType ?? 'business',
-              fullName: defaultName?.trim() || 'Kura',
-              email: email || undefined,
-            });
-          }}
-        />
-        <RefreshLink onRefresh={onRefresh} />
-      </View>
-    );
-  }
-
-  // ── Not started / incomplete / rejected: pick type + start ──────────────────
-  const individualEmail = defaultEmail?.trim() ?? '';
-  const individualEmailValid = /\S+@\S+\.\S+/.test(individualEmail);
-  const businessValid =
-    businessName.trim().length >= 2 && /\S+@\S+\.\S+/.test(businessEmail.trim());
-  const canStart =
-    mode === 'individual'
-      ? !needsEmailLink && individualEmailValid
-      : businessValid;
-
-  const handleStart = () => {
-    if (mode === 'business') {
-      onStartKyc({
-        type: 'business',
-        fullName: businessName.trim(),
-        email: businessEmail.trim(),
-      });
-    } else {
-      onStartKyc({
-        type: 'individual',
-        fullName: defaultName?.trim() || 'Kura User',
-        email: individualEmail,
-      });
-    }
-  };
-
   return (
     <View style={c.card}>
       <View style={c.iconWrap}>
@@ -168,68 +181,25 @@ export default function KycVerificationCard({
       <Text style={c.title}>
         {rejected ? t('card.verificationRejected') : t('card.verifyYourIdentity')}
       </Text>
-      <Text style={c.text}>
-        {rejected
-          ? t('card.verificationRejectedBody')
-          : t('card.verifyPurpose', { purpose })}
-      </Text>
-
-      {/* Individual / Business toggle — locked once a customer type exists */}
-      {!existingType ? (
-        <View style={c.segment}>
-          {(['individual', 'business'] as CustomerType[]).map((type) => {
-            const active = mode === type;
-            return (
-              <TouchableOpacity
-                key={type}
-                style={[c.segmentItem, active && c.segmentItemActive]}
-                onPress={() => setMode(type)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={type === 'individual' ? 'person-outline' : 'business-outline'}
-                  size={15}
-                  color={active ? colors.primary : colors.textMuted}
-                />
-                <Text style={[c.segmentText, active && c.segmentTextActive]}>
-                  {type === 'individual' ? t('card.personal') : t('card.business')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      {rejected && bridgeReasons.length > 0 ? (
+        <View style={c.reasonList}>
+          {bridgeReasons.map((reason) => (
+            <Text key={reason} style={c.reasonText}>
+              {reason}
+            </Text>
+          ))}
         </View>
-      ) : null}
+      ) : (
+        <Text style={c.text}>
+          {rejected
+            ? t('card.verificationRejectedBody')
+            : t('card.verifyPurpose', { purpose })}
+        </Text>
+      )}
 
-      {/* Business details */}
-      {mode === 'business' ? (
-        <View style={c.form}>
-          <Text style={c.fieldLabel}>{t('card.companyLegalName')}</Text>
-          <TextInput
-            value={businessName}
-            onChangeText={setBusinessName}
-            placeholder={t('card.companyNamePlaceholder')}
-            placeholderTextColor={colors.textFaint}
-            style={c.input}
-            autoCapitalize="words"
-          />
-          <Text style={c.fieldLabel}>{t('card.businessEmail')}</Text>
-          <TextInput
-            value={businessEmail}
-            onChangeText={setBusinessEmail}
-            placeholder={t('card.businessEmailPlaceholder')}
-            placeholderTextColor={colors.textFaint}
-            style={c.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-          />
-          <Text style={c.hint}>
-            {t('card.uboHint')}
-          </Text>
-        </View>
-      ) : null}
+      {rejected ? <SupportContactLink /> : null}
 
-      {needsEmailLink && mode === 'individual' ? (
+      {needsEmailLink ? (
         <View style={c.emailRequiredBox}>
           <Ionicons name="mail-outline" size={18} color="#FBBF24" />
           <Text style={c.emailRequiredText}>{t('card.linkEmailBeforeKyc')}</Text>
@@ -304,6 +274,26 @@ function RefreshLink({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
+function SupportContactLink() {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const c = useStyles();
+
+  const openSupportEmail = () => {
+    void Linking.openURL(`mailto:${brand.supportEmail}`).catch(() => undefined);
+  };
+
+  return (
+    <TouchableOpacity style={c.supportLink} onPress={openSupportEmail} activeOpacity={0.7}>
+      <Ionicons name="mail-outline" size={16} color={colors.primary} />
+      <Text style={c.supportLinkText}>
+        {t('card.contactSupport')}{' '}
+        <Text style={c.supportEmailText}>{brand.supportEmail}</Text>
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 function makeStyles(col: ThemeColors) {
   return StyleSheet.create({
     card: {
@@ -338,56 +328,16 @@ function makeStyles(col: ThemeColors) {
       textAlign: 'center',
       marginBottom: 18,
     },
-
-    segment: {
-      flexDirection: 'row',
+    reasonList: {
+      width: '100%',
+      marginBottom: 18,
       gap: 8,
-      marginBottom: 16,
     },
-    segmentItem: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: col.surfaceAlt,
-      borderWidth: 1,
-      borderColor: col.border,
-    },
-    segmentItemActive: {
-      backgroundColor: 'rgba(139,92,246,0.18)',
-      borderColor: col.primary,
-    },
-    segmentText: { color: col.textMuted, fontSize: 14, fontWeight: '700' },
-    segmentTextActive: { color: col.primary },
-
-    form: { marginBottom: 4 },
-    fieldLabel: {
+    reasonText: {
       color: col.textMuted,
-      fontSize: 12,
-      fontWeight: '600',
-      marginBottom: 8,
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
-    },
-    input: {
-      backgroundColor: col.surfaceAlt,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: col.borderStrong,
-      color: col.text,
-      fontSize: 15,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      marginBottom: 16,
-    },
-    hint: {
-      color: col.textMuted,
-      fontSize: 12,
-      lineHeight: 17,
-      marginBottom: 16,
+      fontSize: 13,
+      lineHeight: 20,
+      textAlign: 'center',
     },
     emailRequiredBox: {
       flexDirection: 'row',
@@ -425,5 +375,23 @@ function makeStyles(col: ThemeColors) {
       paddingVertical: 12,
     },
     linkText: { color: col.primary, fontSize: 14, fontWeight: '600' },
+    supportLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginBottom: 18,
+      paddingVertical: 4,
+    },
+    supportLinkText: {
+      color: col.textMuted,
+      fontSize: 13,
+      lineHeight: 20,
+      textAlign: 'center',
+    },
+    supportEmailText: {
+      color: col.primary,
+      fontWeight: '600',
+    },
   });
 }

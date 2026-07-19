@@ -21,7 +21,6 @@ import { formatUnits, parseUnits } from 'viem';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import InlineErrorBanner from '../../../shared/components/InlineErrorBanner';
 import { userFacingTransactionError } from '../../../lib/wallet/userFacingTransactionError';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import MarketPairLogo from '../components/MarketPairLogo';
 import SymbolLogo from '../components/SymbolLogo';
 import type { MorphoMarket } from '../../../lib/api/morpho/markets';
@@ -622,7 +621,6 @@ export default function BorrowActionSheet({
           <View style={st.titleRow}>
             <View style={st.titleGroup}>
               <Text style={st.title}>{headerTitle}</Text>
-              <LegalDisclaimerInfoButton variant="borrow" />
             </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={18} color={colors.textMuted} />

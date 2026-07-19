@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,7 +28,7 @@ interface Props {
   showNetworkBadge?: boolean;
 }
 
-export default function PortfolioTokenRow({
+function PortfolioTokenRow({
   item,
   onPress,
   showFavorite = true,
@@ -130,6 +130,30 @@ export default function PortfolioTokenRow({
     </TouchableOpacity>
   );
 }
+
+function arePortfolioTokenRowPropsEqual(prev: Props, next: Props): boolean {
+  if (
+    prev.onPress !== next.onPress
+    || prev.showFavorite !== next.showFavorite
+    || prev.dimUnheld !== next.dimUnheld
+    || prev.layout !== next.layout
+    || prev.showNetworkBadge !== next.showNetworkBadge
+  ) {
+    return false;
+  }
+
+  const p = prev.item;
+  const n = next.item;
+  return (
+    p.token.symbol === n.token.symbol
+    && p.price === n.price
+    && p.change24h === n.change24h
+    && p.holdings === n.holdings
+    && p.value === n.value
+  );
+}
+
+export default memo(PortfolioTokenRow, arePortfolioTokenRowPropsEqual);
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({

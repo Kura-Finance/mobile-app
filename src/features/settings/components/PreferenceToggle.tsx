@@ -8,6 +8,7 @@ interface PreferenceToggleProps {
   description: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  disabled?: boolean;
   /** Inside a grouped card — no outer border/background/margin. */
   embedded?: boolean;
   /** Last row in a group — no bottom padding adjustment needed if embedded. */
@@ -19,6 +20,7 @@ export default function PreferenceToggle({
   description,
   value,
   onValueChange,
+  disabled = false,
   embedded = false,
   isLast = false,
 }: PreferenceToggleProps) {
@@ -36,6 +38,7 @@ export default function PreferenceToggle({
           <Switch
             value={value}
             onValueChange={onValueChange}
+            disabled={disabled}
             trackColor={{ false: colors.surfaceInput, true: colors.primary }}
             thumbColor={colors.white}
             ios_backgroundColor={colors.surfaceInput}

@@ -29,7 +29,6 @@ import type { UseKuraCardWalletReturn } from '../../card/hooks/useKuraCardWallet
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 
 export type TradeSide = 'buy' | 'sell';
 
@@ -144,7 +143,6 @@ export default function StockTradeSheet({
                   ? t('crypto.stockTradeTitleSell', { symbol })
                   : t('crypto.stockTradeTitleBuy', { symbol })}
               </Text>
-              <LegalDisclaimerInfoButton variant="securities" />
             </View>
             <TouchableOpacity onPress={onClose} style={st.closeBtn} activeOpacity={0.7} disabled={busy}>
               <Ionicons name="close" size={18} color={colors.textMuted} />

@@ -6,6 +6,10 @@
  */
 
 import Constants from 'expo-constants';
+import {
+  assertValidWalletConnectProjectId as assertWalletConnectProjectId,
+  normalizeWalletConnectProjectId,
+} from './walletConnectProjectId';
 
 function readEnv(key: string): string {
   const value = process.env[key];
@@ -64,15 +68,32 @@ export function hasPimlicoApiKey(): boolean {
   return env.pimlicoApiKey.length > 0;
 }
 
+/** Placeholder values that must never ship in production builds. */
+export { INVALID_WALLET_CONNECT_PROJECT_IDS, normalizeWalletConnectProjectId } from './walletConnectProjectId';
+
+/** Resolved WalletConnect / Reown project ID, or empty when unset or invalid. */
+export function resolveWalletConnectProjectId(): string {
+  const raw =
+    readEnv('EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID') ||
+    readEnv('WALLETCONNECT_PROJECT_ID') ||
+    readExtra('walletConnectProjectId');
+  return normalizeWalletConnectProjectId(raw);
+}
+
+export function hasValidWalletConnectProjectId(): boolean {
+  return resolveWalletConnectProjectId().length > 0;
+}
+
+export function assertValidWalletConnectProjectId(): string {
+  return assertWalletConnectProjectId(resolveWalletConnectProjectId());
+}
+
 export const env = {
   appEnv: readEnv('APP_ENV') || readEnv('NODE_ENV') || 'development',
 
   apiBaseUrl: getResolvedApiBaseUrl(),
 
-  walletConnectProjectId:
-    readEnv('EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID') ||
-    readEnv('WALLETCONNECT_PROJECT_ID') ||
-    readExtra('walletConnectProjectId'),
+  walletConnectProjectId: resolveWalletConnectProjectId(),
 
   kuraWalletIconUrl: readEnv('EXPO_PUBLIC_KURA_WALLET_ICON_URL'),
 
@@ -85,10 +106,6 @@ export const env = {
     readEnv('EXPO_PUBLIC_ALCHEMY_API_KEY') || readExtra('alchemyApiKey'),
   baseRpcUrl: readEnv('EXPO_PUBLIC_BASE_RPC_URL'),
   payGasInUsdc: envBool(readEnv('EXPO_PUBLIC_PAY_GAS_IN_USDC'), true),
-
-  moonpayApiKey: readEnv('EXPO_PUBLIC_MOONPAY_API_KEY'),
-  moonpayEnv: (readEnv('EXPO_PUBLIC_MOONPAY_ENV') || 'sandbox') as 'sandbox' | 'live',
-  moonpayCurrencyCode: readEnv('EXPO_PUBLIC_MOONPAY_CURRENCY_CODE') || 'usdc_base',
 
   logodevToken:
     readEnv('EXPO_PUBLIC_LOGODEV_TOKEN') || readExtra('logodevToken'),

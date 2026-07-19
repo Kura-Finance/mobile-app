@@ -27,8 +27,8 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** Lazy read avoids a static require cycle with useAppStore (logout reset). */
 function readAuthTokenSync(): string | null {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useAppStore } = require('../../../shared/store/useAppStore') as typeof import('../../../shared/store/useAppStore');
-  return useAppStore.getState().authToken;
+  const { getUsableAuthToken } = require('../../../lib/security/sessionAccess') as typeof import('../../../lib/security/sessionAccess');
+  return getUsableAuthToken();
 }
 
 interface BlockscoutV1Transfer {

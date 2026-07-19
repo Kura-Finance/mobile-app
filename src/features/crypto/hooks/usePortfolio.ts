@@ -57,7 +57,8 @@ async function fetchPrices(force = false): Promise<PriceMap> {
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function usePortfolio(tokenBalances: TokenBalances) {
+export function usePortfolio(tokenBalances: TokenBalances, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const [tokens, setTokens] = useState<PortfolioToken[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,12 +128,14 @@ export function usePortfolio(tokenBalances: TokenBalances) {
 
   // Fetch on mount; balance changes only recompute from cache (no extra API call).
   useEffect(() => {
+    if (!enabled) return;
     void load();
-  }, [load]);
+  }, [load, enabled]);
 
   useEffect(() => {
-    if (priceCache) applyPrices(priceCache);
-  }, [holdingsKey, applyPrices]);
+    if (!enabled || !priceCache) return;
+    applyPrices(priceCache);
+  }, [holdingsKey, applyPrices, enabled]);
 
   const refresh = useCallback(() => {
     void load({ refresh: true, force: true });

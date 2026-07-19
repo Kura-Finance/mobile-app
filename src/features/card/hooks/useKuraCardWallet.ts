@@ -21,8 +21,12 @@
  * balance state, and loading flags.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import {
+  IMPORTED_KEY_SECURE_STORE,
+  STANDARD_SECURE_STORE,
+} from '../../../lib/security/secureStoreOptions';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import {
   getGlobalProvisionedSca,
@@ -30,7 +34,7 @@ import {
   setGlobalProvisionedSca,
   setGlobalProvisionPromise,
 } from '../kuraCardWalletSession';
-import { useAppStore } from '../../../shared/store/useAppStore';
+import { getUsableAuthToken, useSessionUsable } from '../../../lib/security/sessionAccess';
 import {
   WALLET_ADDRESS_STORE_KEY,
   WALLET_IMPORTED_KEY,
@@ -104,7 +108,7 @@ export type {
 export { buildSmartAccountClientFromPrivKey, privateKeyFromMnemonic };
 
 export function useKuraCardWalletState(): UseKuraCardWalletReturn {
-  const authToken = useAppStore((s) => s.authToken);
+  const sessionUsable = useSessionUsable();
   const [status, setStatus] = useState<WalletStatus>('loading');
   const [smartAddress, setSmartAddress] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -150,7 +154,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   }, [embeddedWalletKey]);
 
   useEffect(() => {
-    const token = useAppStore.getState().authToken;
+    const token = getUsableAuthToken();
     if (!token || !user) return;
     if (provisioningRef.current) return;
 
@@ -196,7 +200,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
           if (record.scaAddress) {
             Logger.info('KuraCardWallet', 'Restored SCA from backend', { addr: record.scaAddress });
             scaAddress = record.scaAddress;
-            await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, scaAddress);
+            await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, scaAddress, STANDARD_SECURE_STORE);
           }
         }
 
@@ -217,7 +221,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
             saveEoaAddress(eoaAddress).catch((err) =>
               Logger.warn('KuraCardWallet', 'Failed to save EOA to backend', { err }),
             ),
-            SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr),
+            SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE),
           ]);
 
           scaAddress = addr;
@@ -282,7 +286,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       cancelRef.current = true;
       provisioningRef.current = false;
     };
-  }, [authToken, user?.id, embeddedWalletKey, createEmbeddedWallet]);
+  }, [sessionUsable, user?.id, embeddedWalletKey, createEmbeddedWallet]);
 
   const requireReady = useCallback(() => {
     if (!smartAddress) throw new Error('Wallet not ready.');
@@ -490,8 +494,8 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     try {
       const privKey = privateKeyFromMnemonic(phrase, type);
       const { smartAddress: addr } = await buildSmartAccountClientFromPrivKey(privKey);
-      await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey);
-      await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr);
+      await SecureStore.setItemAsync(WALLET_IMPORTED_KEY, privKey, IMPORTED_KEY_SECURE_STORE);
+      await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE);
       await saveScaAddress(addr).catch(() => undefined);
       setSmartAddress(addr);
       setStatus('ready');
@@ -505,7 +509,7 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     }
   }, [refreshBalances]);
 
-  return {
+  return useMemo(() => ({
     status,
     smartAddress,
     truncatedAddress: smartAddress ? truncateAddress(smartAddress) : '',
@@ -542,5 +546,41 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
     estimateMorphoWithdrawCollateralGasUsdc,
     signMessage,
     signTypedData,
-  };
+  }), [
+    status,
+    smartAddress,
+    balances,
+    balancesLoading,
+    balancesHasLoaded,
+    usdcBalance,
+    errorMessage,
+    isSending,
+    isBridging,
+    isExecutingSwap,
+    isExecutingEarn,
+    isExecutingBorrow,
+    importWallet,
+    refreshBalance,
+    sendUsdc,
+    sendToken,
+    sendNativeEth,
+    wrapEthToWeth,
+    estimateUsdcGasReserve,
+    executeBridge,
+    estimateBridgeGasUsdc,
+    executeSwap,
+    estimateSwapGasUsdc,
+    executeMorphoDeposit,
+    executeMorphoWithdraw,
+    estimateMorphoDepositGasUsdc,
+    estimateMorphoWithdrawGasUsdc,
+    executeMorphoBorrow,
+    executeMorphoRepay,
+    estimateMorphoBorrowGasUsdc,
+    estimateMorphoRepayGasUsdc,
+    executeMorphoWithdrawCollateral,
+    estimateMorphoWithdrawCollateralGasUsdc,
+    signMessage,
+    signTypedData,
+  ]);
 }

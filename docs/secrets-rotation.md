@@ -18,7 +18,6 @@ If credentials were ever committed to git, shared in chat, or built into a leake
 | Privy App ID + Client ID | [dashboard.privy.io](https://dashboard.privy.io) | Login, embedded wallet |
 | Pimlico API key | [dashboard.pimlico.io](https://dashboard.pimlico.io) | ERC-4337 bundler |
 | logo.dev publishable key | [logo.dev](https://logo.dev) | Stock/crypto logos |
-| MoonPay API key | [dashboard.moonpay.com](https://dashboard.moonpay.com) | Fiat on-ramp |
 | Li.Fi integrator / API key | [li.fi](https://li.fi) | Swap / bridge fees |
 | Morpho fee recipient / wrappers | Your deployment | Earn yield fees |
 | Base RPC provider key | Alchemy / Infura dashboard | On-chain reads |
@@ -69,7 +68,7 @@ Production release process: [local-release.md](local-release.md).
 
 - Reown / WalletConnect 项目
 - Privy App ID 与 Client ID
-- Pimlico、logo.dev、MoonPay、Li.Fi、Base RPC
+- Pimlico、logo.dev、Li.Fi、Base RPC
 - Android 签名 keystore（若私钥泄露）
 - Kura 后端 JWT（后端泄露时，不在本 repo）
 

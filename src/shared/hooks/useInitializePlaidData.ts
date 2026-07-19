@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useFinanceStore } from '../store/finance';
-import { useAppStore } from '../store/useAppStore';
+import { useSessionUsable, getUsableAuthToken } from '../../lib/security/sessionAccess';
 import Logger from '../utils/Logger';
 import {
   getPlaidBrokerAccounts,
@@ -23,11 +23,14 @@ export function useInitializePlaidData(enabled = true, unlockSeq = 0) {
   const investments = useFinanceStore((state) => state.investments);
   const investmentAccounts = useFinanceStore((state) => state.investmentAccounts);
   const assetHistory = useFinanceStore((state) => state.assetHistory);
-  const authToken = useAppStore((state) => state.authToken);
+  const sessionUsable = useSessionUsable();
   const prevUnlockSeqRef = useRef(0);
 
   useEffect(() => {
-    if (!enabled || !authToken) return;
+    if (!enabled || !sessionUsable) return;
+
+    const authToken = getUsableAuthToken();
+    if (!authToken) return;
 
     const unlockedAgain = unlockSeq > 0 && unlockSeq !== prevUnlockSeqRef.current;
     prevUnlockSeqRef.current = unlockSeq;
@@ -37,7 +40,6 @@ export function useInitializePlaidData(enabled = true, unlockSeq = 0) {
       const plaidBrokerAccounts = getPlaidBrokerAccounts(investmentAccounts);
       const hasPlaidBrokerAccounts = plaidBrokerAccounts.length > 0;
       const brokerHoldingsReady = hasPlaidBrokerHoldings(investmentAccounts, investments);
-      // Account metadata can load before holdings; don't skip when broker accounts exist but holdings are empty.
       const brokerDataReady = !hasPlaidBrokerAccounts || brokerHoldingsReady;
       const needsBrokerHoldings = hasPlaidBrokerAccounts && !brokerHoldingsReady;
       if (!unlockedAgain && hasBanking && brokerDataReady) return;
@@ -61,7 +63,7 @@ export function useInitializePlaidData(enabled = true, unlockSeq = 0) {
     void loadAssetHistory();
   }, [
     enabled,
-    authToken,
+    sessionUsable,
     unlockSeq,
     accounts.length,
     investments.length,

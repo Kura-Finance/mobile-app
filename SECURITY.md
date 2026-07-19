@@ -27,7 +27,7 @@ Related: [Threat model](docs/threat-model.md) · [Transparency](docs/transparenc
 | Area | Where to report |
 |------|-----------------|
 | Kura hosted backend (`api.kura-finance.com`) | **security@kura-finance.com** (we coordinate internally) |
-| Privy, Pimlico, Reown, MoonPay, Gnosis Pay SaaS | Respective vendor programs |
+| Privy, Pimlico, Reown, Gnosis Pay SaaS | Respective vendor programs |
 | Base smart contract vulnerabilities | Chain / protocol security contacts |
 | Social engineering of individual users | Not a client code issue |
 | Issues in forked apps with modified code | Fork maintainer first |
@@ -45,7 +45,7 @@ Related: [Threat model](docs/threat-model.md) · [Transparency](docs/transparenc
 - **Privy** — Authentication and embedded EOA provisioning.
 - **Pimlico** — ERC-4337 bundler and paymaster on Base.
 - **Reown / WalletConnect** — Relay and dApp pairing.
-- **Third-party ramps** — MoonPay, Li.Fi, Gnosis Pay when enabled.
+- **Third-party ramps** — Li.Fi, Bridge, Gnosis Pay when enabled.
 - **Kura backend** (if configured) — JWT issuance, Plaid/DeBank proxies, ciphertext storage.
 - **User approval** — Malicious dApps can propose harmful calldata; protection depends on the user reading confirm screens.
 

@@ -12,10 +12,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { makeModalStyles } from './modalStyles';
-import MoonPayModal from './MoonPayModal';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import { useAppStore } from '../../../shared/store/useAppStore';
+import { getUsableAuthToken, useSessionUsable } from '../../../lib/security/sessionAccess';
 import { hasVerifiedEmail, needsEmailLink } from '../../../lib/api/auth/userProfileHelpers';
 import {
   getOrCreateOnRampAccount,
@@ -30,11 +29,13 @@ import {
   type VirtualAccount,
 } from '../../../lib/api/ramp/client';
 import {
+  customerNeedsKycAdditionalInfo,
   hasSubmittedKyc,
   getKycUiPhase,
   isBridgeTransactReady,
   isKycApproved,
   isKycInReview,
+  isKycPaused,
   normalizeKycStatus,
 } from '../../../lib/api/ramp/bridgeKyc';
 import { openBridgeHostedKycFlow } from '../../../lib/api/ramp/hostedFlow';
@@ -84,7 +85,7 @@ export default function FiatReceivePanel({
   const { colors } = useTheme();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const userProfile = useAppStore((st) => st.userProfile);
-  const authToken = useAppStore((st) => st.authToken);
+  const sessionUsable = useSessionUsable();
   const fiatName = (code: FiatCurrency) =>
     t(`card.fiatName${code.charAt(0).toUpperCase()}${code.slice(1)}`);
 
@@ -94,13 +95,12 @@ export default function FiatReceivePanel({
     setCurrency(initialCurrency);
   }, [initialCurrency]);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [moonpayOpen, setMoonpayOpen] = useState(false);
   const {
     customer,
     setCustomer,
     loadingCustomer,
     refreshCustomer: fetchBridgeCustomer,
-  } = useBridgeCustomer({ enabled: !!authToken });
+  } = useBridgeCustomer({ enabled: sessionUsable });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [accountsByCurrency, setAccountsByCurrency] = useState<
@@ -136,7 +136,7 @@ export default function FiatReceivePanel({
   const selected = FIAT_OPTIONS.find((o) => o.code === currency)!;
 
   const refreshCustomer = useCallback(async () => {
-    if (!useAppStore.getState().authToken) {
+    if (!getUsableAuthToken()) {
       setAccountsByCurrency({});
       return;
     }
@@ -230,7 +230,7 @@ export default function FiatReceivePanel({
   );
 
   useEffect(() => {
-    if (!authToken) {
+    if (!sessionUsable) {
       setAccountsByCurrency({});
       return;
     }
@@ -252,7 +252,7 @@ export default function FiatReceivePanel({
     return () => {
       cancelled = true;
     };
-  }, [authToken, customer]);
+  }, [sessionUsable, customer]);
 
   // When KYC is approved but a rail endorsement (pix / cop / …) is still missing,
   // surface the enable-deposits card before POST /onramp returns 409.
@@ -352,23 +352,6 @@ export default function FiatReceivePanel({
                 </TouchableOpacity>
               );
             })}
-
-            <TouchableOpacity
-              style={s.menuFooter}
-              activeOpacity={0.7}
-              onPress={() => {
-                setMenuOpen(false);
-                setMoonpayOpen(true);
-              }}
-            >
-              <View style={s.menuFooterIcon}>
-                <Ionicons name="card" size={16} color={colors.primary} />
-              </View>
-              <Text style={s.menuFooterText}>
-                {t('card.moonpayUpsell')}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -388,23 +371,20 @@ export default function FiatReceivePanel({
 
     if (customer.canTransact) {
       bg = 'rgba(16,185,129,0.15)'; color = '#10B981'; icon = 'checkmark-circle'; label = t('card.verified');
+    } else if (customerNeedsKycAdditionalInfo(customer)) {
+      bg = 'rgba(251,191,36,0.15)'; color = '#FBBF24'; icon = 'document-text-outline'; label = t('card.actionNeeded');
+    } else if (isKycPaused(customer.kycStatus)) {
+      bg = 'rgba(239,68,68,0.15)'; color = '#EF4444'; icon = 'pause-circle'; label = t('card.verificationPausedTitle');
     } else if (isKycInReview(customer.kycStatus, customer.bridgeCustomerId)) {
       bg = 'rgba(251,191,36,0.15)'; color = '#FBBF24'; icon = 'time-outline'; label = t('card.underReviewLower');
-    } else if (
-      customer.kycStatus === 'awaiting_questionnaire' ||
-      customer.kycStatus === 'awaiting_ubo'
-    ) {
-      bg = 'rgba(251,191,36,0.15)'; color = '#FBBF24'; icon = 'document-text-outline'; label = t('card.actionNeeded');
     } else if (customer.kycStatus === 'rejected') {
       bg = 'rgba(239,68,68,0.15)'; color = '#EF4444'; icon = 'close-circle'; label = t('card.verificationRejected');
     }
 
-    const prefix = customer.customerType === 'business' ? t('card.businessPrefix') : '';
-
     return (
       <View style={[s.statusPill, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={14} color={color} />
-        <Text style={[s.statusPillText, { color }]}>{prefix}{label}</Text>
+        <Text style={[s.statusPillText, { color }]}>{label}</Text>
       </View>
     );
   };
@@ -467,7 +447,6 @@ export default function FiatReceivePanel({
 
         <Text style={s.depositNoteBelow}>{t('card.depositAccountNote')}</Text>
         <DepositBulletList items={depositBullets} />
-        <LegalDisclaimer variant="fiatRamp" style={{ marginTop: 12 }} />
       </>
     );
   };
@@ -644,7 +623,7 @@ export default function FiatReceivePanel({
       return renderKycGate();
     }
 
-    // KYB needs more info, rejected, etc.
+    // KYC rejected / not started, etc.
     return renderKycGate();
   };
 
@@ -659,13 +638,6 @@ export default function FiatReceivePanel({
       {renderBody()}
 
       <View style={{ height: 24 }} />
-
-      <MoonPayModal
-        visible={moonpayOpen}
-        onClose={() => setMoonpayOpen(false)}
-        walletAddress={smartAddress}
-        baseCurrencyCode={currency}
-      />
     </ScrollView>
   );
 }

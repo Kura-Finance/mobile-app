@@ -1,10 +1,20 @@
 const brand = require('./app.config.branding');
 
+/** Production builds use Apple CDN for AASA; local/dev builds fetch AASA directly. */
+const isProdAssociatedDomains =
+  process.env.APP_ENV === 'production'
+  || process.env.EAS_BUILD_PROFILE === 'production'
+  || process.env.EAS_BUILD_PROFILE === 'store';
+
+const webCredentialsDomain = isProdAssociatedDomains
+  ? `webcredentials:${brand.webCredentialsHost}`
+  : `webcredentials:${brand.webCredentialsHost}?mode=developer`;
+
 module.exports = {
   expo: {
     name: brand.appName,
     slug: brand.slug,
-    version: "0.2.13",
+    version: "0.2.16",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -45,7 +55,7 @@ module.exports = {
         ITSAppUsesNonExemptEncryption: false,
         NSLocalNetworkUsageDescription: "This app needs access to your local network to connect to financial services",
         NSBonjourServiceTypes: ["_http._tcp", "_https._tcp"],
-        NSFaceIDUsageDescription: `${brand.appName} uses Face ID to unlock the app after it has been in the background.`,
+        NSFaceIDUsageDescription: `${brand.appName} uses Face ID to verify your identity when you return to the app.`,
         NSCameraUsageDescription:
           `${brand.appName} uses the camera to scan QR codes when sending crypto or connecting to dApps. When you choose, it is also used to take a profile photo or capture images during identity verification with our partners.`,
         NSMicrophoneUsageDescription: "Microphone access is required to record video for liveness verification during identity checks.",
@@ -65,7 +75,7 @@ module.exports = {
       },
       scheme: brand.scheme,
       associatedDomains: [
-        `webcredentials:${brand.webCredentialsHost}`,
+        webCredentialsDomain,
         `applinks:${brand.universalLinkHost}`,
       ],
     },
@@ -114,7 +124,7 @@ module.exports = {
       walletConnectProjectId:
         process.env.EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID ||
         process.env.WALLETCONNECT_PROJECT_ID ||
-        "development_project_id",
+        "",
       backendUrl:
         process.env.EXPO_PUBLIC_API_BASE_URL ||
         process.env.EXPO_PUBLIC_BACKEND_URL ||

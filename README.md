@@ -28,7 +28,7 @@
 | **WalletConnect** | Wallet mode for Base dApps (Reown WalletKit) |
 | **TrackFi** | Plaid, exchange APIs, DeBank DeFi — requires Kura backend + passkey E2EE |
 | **Gnosis Pay** | Kura Card UI + waitlist (card onboarding not in OSS client) |
-| **Optional** | MoonPay on-ramp, Dinari stocks (feature-flagged), logo.dev icons |
+| **Optional** | Dinari stocks (feature-flagged), logo.dev icons |
 
 Leave `EXPO_PUBLIC_API_BASE_URL` empty to run **wallet-only** — TrackFi and Dinari tabs hide automatically.
 
@@ -103,7 +103,7 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 | **WalletConnect** | Base dApp 钱包模式 |
 | **TrackFi** | Plaid、交易所、DeBank（需 Kura 后端 + Passkey E2EE） |
 | **Gnosis Pay** | 虚拟借记卡 |
-| **可选** | MoonPay、Dinari、logo.dev |
+| **可选** | Dinari、logo.dev |
 
 > **透明即安全**
 >

@@ -1,7 +1,7 @@
 /**
  * Invest → Earn tab — Morpho vault listings on Base.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +16,6 @@ import { appliesEarnServiceFee, effectiveEarnNetApy } from '../../../config/earn
 import { matchesVault, normalizeSearchQuery } from '../../crypto/utils/portfolioSearch';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import { earnFavoriteKey } from '../utils/earnFavorites';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -94,6 +93,21 @@ function VaultRow({ vault, depositedUsd, onPress }: {
     </TouchableOpacity>
   );
 }
+
+function areVaultRowPropsEqual(
+  prev: { vault: MorphoVault; depositedUsd: number; onPress: (vault: MorphoVault) => void },
+  next: { vault: MorphoVault; depositedUsd: number; onPress: (vault: MorphoVault) => void },
+): boolean {
+  return (
+    prev.onPress === next.onPress
+    && prev.depositedUsd === next.depositedUsd
+    && prev.vault.address === next.vault.address
+    && prev.vault.netApy === next.vault.netApy
+    && prev.vault.name === next.vault.name
+  );
+}
+
+const VaultRowMemo = memo(VaultRow, areVaultRowPropsEqual);
 
 interface Props {
   embedded?: boolean;
@@ -222,6 +236,19 @@ export default function EarnView({
     t,
   ]);
 
+  const renderEarnRow = useCallback(({ item }: { item: EarnListRow }) => {
+    if (item.kind === 'divider') {
+      return <SectionDivider label={item.label} />;
+    }
+    return (
+      <VaultRowMemo
+        vault={item.vault}
+        depositedUsd={positionsByVault[item.vault.address.toLowerCase()]?.assetsUsd ?? 0}
+        onPress={setSelected}
+      />
+    );
+  }, [positionsByVault]);
+
   const listBody = loading && vaults.length === 0 ? (
     <View style={st.loadingRow}>
       <LoadingDots color={colors.textMuted} size={8} />
@@ -241,18 +268,7 @@ export default function EarnView({
       data={displayRows}
       keyExtractor={(item) => item.id}
       rowHeight={0}
-      renderItem={({ item }) => {
-        if (item.kind === 'divider') {
-          return <SectionDivider label={item.label} />;
-        }
-        return (
-          <VaultRow
-            vault={item.vault}
-            depositedUsd={positionsByVault[item.vault.address.toLowerCase()]?.assetsUsd ?? 0}
-            onPress={setSelected}
-          />
-        );
-      }}
+      renderItem={renderEarnRow}
     />
   );
 
@@ -279,7 +295,6 @@ export default function EarnView({
       {!embedded && (
         <View style={st.footer}>
           <Text style={st.sourceNote}>{t('crypto.earnSourceNote')}</Text>
-          <LegalDisclaimer variant="earn" style={st.legalFooter} />
         </View>
       )}
 
@@ -366,6 +381,5 @@ function makeStyles(c: ThemeColors) {
     starBtn: { width: 28, alignItems: 'center', justifyContent: 'center' },
     sourceNote: { color: c.textFaint, fontSize: 11, textAlign: 'center', marginTop: 16 },
     footer: { paddingBottom: 120 },
-    legalFooter: { marginTop: 8, paddingHorizontal: 16 },
   });
 }

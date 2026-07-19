@@ -226,10 +226,7 @@ export default function BorrowView({
       </View>
       ) : null}
 
-      <SourceAndLegalFooter
-        legalVariant="borrow"
-        sourceNote={t('crypto.footerSourceBorrow')}
-      />
+      <SourceAndLegalFooter sourceNote={t('crypto.footerSourceBorrow')} />
 
       <BorrowDetailModal
         visible={!!selected}

@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useHeaderHeight } from '../../../shared/navigation/Header';
+import { useTabNavigator } from '../../../shared/navigation/TabNavigatorContext';
 import { useHeaderStore } from '../../../shared/store/useHeaderStore';
 import { useFavoritesStore } from '../store/useFavoritesStore';
 import PortfolioToolbar from '../components/PortfolioToolbar';
@@ -38,6 +39,8 @@ function useStyles() {
 
 export default function InvestScreen() {
   const { t } = useTranslation();
+  const { activeTab } = useTabNavigator();
+  const isActive = activeTab === 'Invest';
   const { colors } = useTheme();
   const st = useStyles();
   const headerHeight = useHeaderHeight();
@@ -63,10 +66,10 @@ export default function InvestScreen() {
     balances,
   } = useKuraCardWallet();
 
-  const { tokens, isRefreshing, error, refresh } = usePortfolio(balances);
+  const { tokens, isRefreshing, error, refresh } = usePortfolio(balances, { enabled: isActive });
 
-  const stocksEnabled = features.dinariStocks;
-  const earnEnabled = features.morphoEarn;
+  const stocksEnabled = features.dinariStocks && isActive;
+  const earnEnabled = features.morphoEarn && isActive;
 
   const [assetClass, setAssetClass] = useState<AssetClass>('stablecoin');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -130,7 +133,6 @@ export default function InvestScreen() {
     || (showStocks && stocksRefreshing)
     || (showEarn && earnRefreshing);
 
-  const footerVariant = showStocks ? 'securities' : showEarn ? 'earn' : 'portfolio';
   const footerSourceNote = showStocks
     ? t('crypto.footerSourceStocks')
     : showEarn
@@ -219,7 +221,7 @@ export default function InvestScreen() {
           />
         )}
 
-        <SourceAndLegalFooter legalVariant={footerVariant} sourceNote={footerSourceNote} />
+        <SourceAndLegalFooter sourceNote={footerSourceNote} />
       </ScrollView>
 
       <TokenDetailModal

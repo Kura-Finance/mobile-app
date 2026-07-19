@@ -10,6 +10,7 @@ export const brand = {
   bundleId: 'com.kurafinance.app',
   scheme: 'kura',
   homepage: 'https://kura-finance.com',
+  supportEmail: 'support@kura-finance.com',
   signupUrl: 'https://app.kura-finance.com/signup',
   defaultIconUrl: 'https://kura-finance.com/icon.png',
   webCredentialsHost: 'api.kura-finance.com',

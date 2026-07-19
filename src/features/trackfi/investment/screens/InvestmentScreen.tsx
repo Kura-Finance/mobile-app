@@ -12,6 +12,7 @@ import { useRefreshInvestmentData } from '../hooks/useRefreshInvestmentData';
 import { useFinanceStore } from '../../../../shared/store/finance';
 import { useExchangeStore } from '../../../../shared/store/useExchangeStore';
 import { useAppStore } from '../../../../shared/store/useAppStore';
+import { getUsableAuthToken } from '../../../../lib/security/sessionAccess';
 import { getAssetHistoryDaysLimit } from '../../../../shared/utils/membership';
 import type { InvestmentCategory } from '../../../../shared/navigation/TabNavigator';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,7 +43,6 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
   const st = useMemo(() => makeStyles(colors), [colors]);
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const authToken = useAppStore((state) => state.authToken);
 
   const financeInvestmentAccounts = useFinanceStore((state) => state.investmentAccounts);
   const financeInvestments = useFinanceStore((state) => state.investments);
@@ -103,9 +103,11 @@ export default function InvestmentScreen({ category, unlockSeq = 0 }: Investment
   }, [financeInvestments, exchangeInvestments, category]);
 
   useEffect(() => {
-    if (!authToken || unlockSeq === 0) return;
+    if (unlockSeq === 0) return;
+    const authToken = getUsableAuthToken();
+    if (!authToken) return;
     void refreshTrackFiBrokerData(authToken, { force: true });
-  }, [authToken, unlockSeq]);
+  }, [unlockSeq]);
 
   useEffect(() => {
     if (selectedAccountId && !investmentAccounts.find((acc) => acc.id === selectedAccountId)) {

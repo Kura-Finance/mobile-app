@@ -15,7 +15,6 @@ import BaseCurrencySelector from '../components/BaseCurrencySelector';
 import LanguageSelector from '../components/LanguageSelector';
 import ThemeSelector from '../components/ThemeSelector';
 import SectionHeader from '../components/SectionHeader';
-import LegalDisclaimer from '../../../shared/components/LegalDisclaimer';
 import SettingsList from '../components/SettingsList';
 import ActionsAgreementsList from '../components/ActionsAgreementsList';
 import ProfileSecurityScreen from './ProfileSecurityScreen';
@@ -305,9 +304,6 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
                 showSignOut={authStatus === 'authenticated'}
               />
             </View>
-
-            <SectionHeader title={t('settings.legalSection')} />
-            <LegalDisclaimer variant="riskSummary" centered={false} style={{ marginBottom: 32 }} />
           </ScrollView>
         </Animated.View>
       </View>

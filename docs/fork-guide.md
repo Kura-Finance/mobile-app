@@ -66,7 +66,6 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_BASE_RPC_URL` | On-chain reads | Optional; auto-fallback to `mainnet.base.org` |
 | `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, auth JWT | Your backend or Kura API |
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs if unset; see logo.dev domain restrictions in [official-services.md](official-services.md) |
-| `EXPO_PUBLIC_MOONPAY_*` | Buy crypto | Optional |
 | `EXPO_PUBLIC_LIFI_*` | Integrator fee on swaps | Optional |
 | `EXPO_PUBLIC_MORPHO_EARN_ENABLED` | Invest → Earn tab | Default on when Pimlico key set |
 | `EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST` | Vault addresses (JSON array) | Default Steakhouse USDC + Gauntlet EURC Balanced + USDC |

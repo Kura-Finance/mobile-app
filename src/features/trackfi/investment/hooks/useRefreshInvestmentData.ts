@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useFinanceStore } from '../../../../shared/store/finance';
 import { useExchangeStore } from '../../../../shared/store/useExchangeStore';
-import { useAppStore } from '../../../../shared/store/useAppStore';
+import { getUsableAuthToken } from '../../../../lib/security/sessionAccess';
 import Logger from '../../../../shared/utils/Logger';
 
 /**
@@ -14,9 +14,9 @@ export function useRefreshInvestmentData() {
   const hydrateAssetHistory = useFinanceStore((state) => state.hydrateAssetHistory);
   const fetchExchangeBalances = useExchangeStore((state) => state.fetchExchangeBalances);
   const exchangeAccounts = useExchangeStore((state) => state.exchangeAccounts);
-  const authToken = useAppStore((state) => state.authToken);
 
   const handleRefresh = useCallback(async () => {
+    const authToken = getUsableAuthToken();
     if (!authToken) {
       Logger.warn('useRefreshInvestmentData', 'No auth token available');
       return;
@@ -45,7 +45,7 @@ export function useRefreshInvestmentData() {
     } finally {
       setRefreshing(false);
     }
-  }, [authToken, hydratePlaidFinanceData, hydrateAssetHistory, fetchExchangeBalances, exchangeAccounts]);
+  }, [hydratePlaidFinanceData, hydrateAssetHistory, fetchExchangeBalances, exchangeAccounts]);
 
   return {
     refreshing,

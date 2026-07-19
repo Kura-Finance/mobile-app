@@ -43,7 +43,6 @@ import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
 import { useFavoritesStore } from '../../crypto/store/useFavoritesStore';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
-import { LegalDisclaimerInfoButton } from '../../../shared/components/LegalDisclaimer';
 import { earnFavoriteKey } from '../utils/earnFavorites';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -197,7 +196,6 @@ export default function EarnDetailModal({
             </TouchableOpacity>
             <View style={st.topTitleGroup}>
               <Text style={st.topTitle}>{topTitle}</Text>
-              <LegalDisclaimerInfoButton variant="earn" size={18} />
             </View>
             <View style={st.topRight}>
               <TouchableOpacity

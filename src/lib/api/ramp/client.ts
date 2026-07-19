@@ -52,14 +52,20 @@ export type KycStatus =
   | 'incomplete'
   | 'approved'
   | 'rejected'
-  // KYB (business) in-progress states — more info required on Bridge's hosted page
+  | 'paused'
   | 'awaiting_questionnaire'
   | 'awaiting_ubo'
   | string;
 
+/** End-user facing Bridge rejection / pause reason (no developer_reason). */
+export interface BridgeRejectionReason {
+  reason: string;
+  createdAt?: string;
+}
+
 export type TosStatus = 'pending' | 'approved' | string;
 
-/** Whether the Bridge customer is an individual (KYC) or a business (KYB). */
+/** Bridge customer type returned by the API (app only starts individual KYC). */
 export type CustomerType = 'individual' | 'business';
 
 /** Fiat rails accepted by the backend on-ramp source / off-ramp destination. */
@@ -155,19 +161,15 @@ export interface TransferResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface KycLinkRequest {
-  /** Person's full name (individual) or company legal name (business). */
+  /** Person's full name for individual KYC. */
   fullName: string;
   email?: string;
+  /** App always sends `individual`. */
   type?: CustomerType;
-  /** KYB only — pre-request payment rails (e.g. ['base', 'sepa']). */
-  endorsements?: string[];
-  /** URL to return to after the hosted flow completes. */
   redirectUri?: string;
   /** Required when the name contains non-Latin-1 characters. */
   transliteratedFirstName?: string;
   transliteratedLastName?: string;
-  /** KYB only — required when the legal name contains non-Latin-1 characters. */
-  transliteratedBusinessLegalName?: string;
 }
 
 export interface KycLinkResult {
@@ -227,6 +229,11 @@ export interface BridgeCustomer {
   tosStatus: TosStatus;
   endorsements: BridgeEndorsement[];
   canTransact: boolean;
+  /**
+   * User-visible reasons from Bridge (rejected / paused). Empty when Bridge
+   * omitted rejection_reasons. Never includes developer_reason.
+   */
+  rejectionReasons?: BridgeRejectionReason[];
 }
 
 export function isEndorsementApproved(

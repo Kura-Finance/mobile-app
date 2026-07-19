@@ -22,7 +22,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Logger from '../utils/Logger';
 import { useTheme } from '../theme/ThemeContext';
-import { useAppStore } from '../store/useAppStore';
+import { getUsableAuthToken, useSessionUsable } from '../../lib/security/sessionAccess';
 import { useExchangeStore } from '../store/useExchangeStore';
 import {
   connectExchange as connectExchangeAccount,
@@ -32,7 +32,6 @@ import {
 } from '../../lib/api/exchange';
 
 import { logoDevImageSource } from '../../config/logodev';
-import LegalDisclaimer from './LegalDisclaimer';
 
 interface ExchangeLinkModalProps {
   isOpen: boolean;
@@ -46,7 +45,7 @@ export default function ExchangeLinkModal({
   onSuccess,
 }: ExchangeLinkModalProps) {
   const { colors } = useTheme();
-  const { authToken } = useAppStore();
+  const sessionUsable = useSessionUsable();
   const { fetchExchangeBalances, addExchangeAccount } = useExchangeStore();
   const connectedExchanges = useExchangeStore((state) => state.exchangeAccounts);
 
@@ -103,7 +102,7 @@ export default function ExchangeLinkModal({
     if (isOpen) {
       loadSupportedExchanges();
     }
-  }, [isOpen, authToken]);
+  }, [isOpen, sessionUsable]);
 
   // Hide exchanges that are already connected & active — connection status is
   // driven by GET /accounts, not by re-entering API keys. Users re-link via the
@@ -142,6 +141,7 @@ export default function ExchangeLinkModal({
   };
 
   const handleValidateAndConnect = async () => {
+    const authToken = getUsableAuthToken();
     if (!selectedExchange || !authToken) {
       setError(authToken ? 'Missing exchange information' : 'Please log in to connect an exchange');
       return;
@@ -322,11 +322,6 @@ export default function ExchangeLinkModal({
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-
-            <LegalDisclaimer
-              variant="exchangeReadOnly"
-              style={{ marginBottom: 16, paddingHorizontal: 4 }}
-            />
 
             {/* Content */}
             <ScrollView
@@ -593,7 +588,6 @@ export default function ExchangeLinkModal({
             {/* Footer Buttons */}
             {step === 'credentials' && (
               <View style={{ gap: 12, marginTop: 20 }}>
-                <LegalDisclaimer variant="exchangeReadOnly" style={{ paddingHorizontal: 4 }} />
                 <TouchableOpacity
                   onPress={handleValidateAndConnect}
                   disabled={isLoading}

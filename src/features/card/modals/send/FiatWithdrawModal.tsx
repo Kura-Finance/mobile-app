@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../../../shared/store/useAppStore';
+import { getUsableAuthToken, useSessionUsable } from '../../../../lib/security/sessionAccess';
 import { hasVerifiedEmail, needsEmailLink } from '../../../../lib/api/auth/userProfileHelpers';
 import { splitDisplayName } from '../../../../lib/auth/oauthDisplayName';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
@@ -59,6 +60,7 @@ import KycVerificationCard from '../../components/KycVerificationCard';
 import { PAY_GAS_IN_USDC } from '../../config/cardWalletConfig';
 import { formatAbaBankName, lookupAbaBank } from '../../../../lib/api/bankRouting/client';
 import { useBridgeCustomer } from '../../hooks/useBridgeCustomer';
+import { useLocalAuthGate } from '../../../../shared/hooks/useLocalAuthGate';
 
 export interface WithdrawNavState {
   titleKey: string;
@@ -167,12 +169,14 @@ export function FiatWithdrawPanel({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const money = useMoneyFormat();
+  const { requireLocalAuth } = useLocalAuthGate();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const st = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const userProfile = useAppStore((s) => s.userProfile);
   const authToken = useAppStore((s) => s.authToken);
   const authStatus = useAppStore((s) => s.authStatus);
+  const sessionUsable = useSessionUsable();
 
   const [currency, setCurrency] = useState<FiatCurrency>('usd');
   const {
@@ -180,7 +184,7 @@ export function FiatWithdrawPanel({
     setCustomer,
     loadingCustomer,
     refreshCustomer: fetchBridgeCustomer,
-  } = useBridgeCustomer({ enabled: active && !!authToken });
+  } = useBridgeCustomer({ enabled: active && sessionUsable });
   const [creatingKyc, setCreatingKyc] = useState(false);
 
   const [payoutOptions, setPayoutOptions] = useState<PayoutOption[]>([]);
@@ -369,7 +373,7 @@ export function FiatWithdrawPanel({
   }, [resetForm, navigate]);
 
   const refreshCustomer = useCallback(async () => {
-    if (!useAppStore.getState().authToken) {
+    if (!getUsableAuthToken()) {
       setAccounts([]);
       setPayoutOptions([]);
       setLoadingPayoutOptions(false);
@@ -423,7 +427,7 @@ export function FiatWithdrawPanel({
   }, [active, startInAddBank, refreshGasEstimate, resetFlow, slideAnim]);
 
   useEffect(() => {
-    if (!active || !authToken || !customer?.canTransact) return;
+    if (!active || !sessionUsable || !customer?.canTransact) return;
 
     let cancelled = false;
     void (async () => {
@@ -449,7 +453,7 @@ export function FiatWithdrawPanel({
     return () => {
       cancelled = true;
     };
-  }, [active, authToken, customer?.canTransact, customer?.bridgeCustomerId]);
+  }, [active, sessionUsable, customer?.canTransact, customer?.bridgeCustomerId]);
 
   useEffect(() => {
     if (!active || screen !== 'amount' || !payoutAddress) return;
@@ -550,7 +554,7 @@ export function FiatWithdrawPanel({
   }, [refreshCustomer, userProfile, t]);
 
   const ensurePayoutAddress = useCallback(async () => {
-    if (!useAppStore.getState().authToken) return;
+    if (!getUsableAuthToken()) return;
     if (!selectedAccountId || !selectedRail || !smartAddress) return;
     const acct = accounts.find((a) => a.bridgeExternalAccountId === selectedAccountId);
     if (!acct) return;
@@ -598,11 +602,11 @@ export function FiatWithdrawPanel({
 
   useEffect(() => {
     if (!active || !customer?.canTransact || isAddBankScreen) return;
-    if (!authToken || !selectedAccountId || !selectedRail || !smartAddress) return;
+    if (!sessionUsable || !selectedAccountId || !selectedRail || !smartAddress) return;
     void ensurePayoutAddress();
   }, [
     active,
-    authToken,
+    sessionUsable,
     customer?.canTransact,
     isAddBankScreen,
     selectedAccountId,
@@ -613,7 +617,7 @@ export function FiatWithdrawPanel({
 
   const saveBank = useCallback(async () => {
     clearError();
-    if (!useAppStore.getState().authToken) {
+    if (!getUsableAuthToken()) {
       reportError(t('card.bridgeAuthRequired'));
       return;
     }
@@ -778,6 +782,11 @@ export function FiatWithdrawPanel({
     clearError();
     const value = validateAmount();
     if (value == null) return;
+    const gate = await requireLocalAuth('card.biometricWithdrawPrompt');
+    if (!gate.allowed) {
+      if (gate.message) reportError(gate.message);
+      return;
+    }
     setSubmitting(true);
     try {
       const hash = await onSend(payoutAddress!.depositAddress, value);
@@ -788,7 +797,7 @@ export function FiatWithdrawPanel({
     } finally {
       setSubmitting(false);
     }
-  }, [validateAmount, payoutAddress, onSend, navigate]);
+  }, [validateAmount, payoutAddress, onSend, navigate, requireLocalAuth, reportError, clearError]);
 
   useEffect(() => {
     if (screen !== 'success' || !doneTxHash || !payoutAddress?.bridgeLiquidationAddressId) {
@@ -1224,7 +1233,8 @@ export function FiatWithdrawPanel({
       return renderLoading();
     }
 
-    if (!authToken) {
+    if (!sessionUsable) {
+      if (authToken) return renderLoading();
       return (
         <View style={st.center}>
           <Text style={st.stepSub}>{t('card.bridgeAuthRequired')}</Text>

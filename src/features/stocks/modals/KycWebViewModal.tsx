@@ -17,6 +17,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { DISABLE_EME_JS } from '../../../shared/utils/webviewGuards';
+import {
+  allowedHostsFromSeedUrl,
+  shouldAllowWebViewNavigation,
+} from '../../../shared/utils/webviewAllowlist';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../shared/theme/theme';
@@ -29,6 +33,8 @@ interface Props {
   onCheck: () => Promise<boolean>;
   onClose: () => void;
 }
+
+const KYC_PARTNER_HOSTS = ['dinari.com', 'withpersona.com'] as const;
 
 export default function KycWebViewModal({ visible, getUrl, onCheck, onClose }: Props) {
   const insets = useSafeAreaInsets();
@@ -66,6 +72,11 @@ export default function KycWebViewModal({ visible, getUrl, onCheck, onClose }: P
     return () => { active = false; clearInterval(timer); };
   }, [visible, url, onCheck, onClose]);
 
+  const allowedHosts = useMemo(() => {
+    if (!url) return [...KYC_PARTNER_HOSTS];
+    return [...new Set([...allowedHostsFromSeedUrl(url), ...KYC_PARTNER_HOSTS])];
+  }, [url]);
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <View style={[st.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -94,14 +105,17 @@ export default function KycWebViewModal({ visible, getUrl, onCheck, onClose }: P
           ) : url ? (
             <WebView
               source={{ uri: url }}
-              originWhitelist={['*']}
+              originWhitelist={['https://*']}
               javaScriptEnabled
               domStorageEnabled
               startInLoadingState
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction
               injectedJavaScriptBeforeContentLoaded={DISABLE_EME_JS}
-              mediaCapturePermissionGrantType="grant"
+              mediaCapturePermissionGrantType="prompt"
+              onShouldStartLoadWithRequest={(event) =>
+                shouldAllowWebViewNavigation(event.url, allowedHosts)
+              }
               style={{ backgroundColor: colors.background }}
               renderLoading={() => (
                 <View style={st.center}>

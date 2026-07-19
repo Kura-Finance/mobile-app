@@ -20,7 +20,7 @@ import { applyPendingOAuthDisplayName } from './src/lib/auth/applyPendingOAuthNa
 import { fetchIdentityTokenWithRetry } from './src/lib/auth/privyTokens';
 import { KuraApiError } from './src/lib/api/errors';
 import { clearDataKey } from './src/lib/crypto/dataKeySession';
-import { env } from './src/config/env';
+import { env, hasValidWalletConnectProjectId } from './src/config/env';
 import { useAppStore } from './src/shared/store/useAppStore';
 import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
 import Logger from './src/shared/utils/Logger';
@@ -49,6 +49,9 @@ import {
 } from './src/lib/referral/pendingReferralCode';
 import BootLoadingView from './src/shared/components/BootLoadingView';
 import BootErrorScreen from './src/shared/components/BootErrorScreen';
+import SessionLockOverlay from './src/shared/components/SessionLockOverlay';
+import AppPinSetupOverlay from './src/shared/components/AppPinSetupOverlay';
+import LocalAuthOverlay from './src/shared/components/LocalAuthOverlay';
 
 // Boot breadcrumb: confirms the JS bundle finished evaluating top-level imports
 // (incl. AppKitConfig's createAppKit). On a release build that's stuck on the
@@ -72,6 +75,7 @@ if (!PRIVY_CLIENT_ID) {
  * can show an actionable configuration screen instead of a blank crash.
  */
 const HAS_VALID_PRIVY_APP_ID = PRIVY_APP_ID.trim().length > 0;
+const HAS_VALID_WC_PROJECT_ID = hasValidWalletConnectProjectId();
 
 const Stack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -129,6 +133,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
   const privyClient = usePrivyClient();
   const setPrivySession = useAppStore((s) => s.setPrivySession);
   const clearAuthSession = useAppStore((s) => s.clearAuthSession);
+  const sessionLockStatus = useAppStore((s) => s.sessionLockStatus);
   const authStatus = useAppStore((s) => s.authStatus);
 
   const [exchangeStatus, setExchangeStatus] = useState<LoginExchangeStatus>('idle');
@@ -143,16 +148,33 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     if (user) {
+      if (sessionLockStatus === 'checking') {
+        return;
+      }
+      if (sessionLockStatus === 'locked') {
+        setExchangeStatus('idle');
+        return;
+      }
+
       const privyUserId = user.id;
-      const isNewPrivyUser = activePrivyUserIdRef.current !== privyUserId;
-      if (isNewPrivyUser) {
-        activePrivyUserIdRef.current = privyUserId;
-        // Switching Privy accounts on the same device must not reuse the prior
-        // Kura JWT while the new token exchange is in flight.
-        if (useAppStore.getState().authToken) {
-          clearDataKey();
-          clearAuthSession();
+      const existingToken = useAppStore.getState().authToken;
+      const knownPrivyUserId = activePrivyUserIdRef.current;
+
+      // Biometric resume / cold-start restore already has a Kura JWT — do not
+      // re-exchange on every sessionLockStatus flip or we hammer /api/auth/login.
+      if (existingToken) {
+        const samePrivyUser =
+          knownPrivyUserId === null || knownPrivyUserId === privyUserId;
+        if (samePrivyUser) {
+          activePrivyUserIdRef.current = privyUserId;
+          setExchangeStatus('idle');
+          return;
         }
+        clearDataKey();
+        clearAuthSession();
+        activePrivyUserIdRef.current = privyUserId;
+      } else if (knownPrivyUserId !== privyUserId) {
+        activePrivyUserIdRef.current = privyUserId;
       }
 
       Logger.info('PrivyBridge', '[2] Privy user detected', {
@@ -214,7 +236,6 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
 
           Logger.info('PrivyBridge', '[3] Tokens received', {
             hasAccessToken: !!accessToken,
-            accessTokenPrefix: accessToken.slice(0, 20) + '...',
             hasIdentityToken: !!identityToken,
           });
         } catch (err) {
@@ -261,7 +282,6 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
             }
 
             Logger.info('PrivyBridge', '[5] Kura JWT received', {
-              kuraJwtPrefix: login.token.slice(0, 20) + '...',
               backendUserId: profile.id,
               backendUserEmail: profile.email,
               emailIsPlaceholder: profile.emailIsPlaceholder,
@@ -328,11 +348,14 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, user?.id, retryNonce]);
+  }, [isReady, user?.id, retryNonce, sessionLockStatus]);
 
   return (
     <LoginExchangeContext.Provider value={{ status: exchangeStatus, retry }}>
       {children}
+      <SessionLockOverlay />
+      <AppPinSetupOverlay />
+      <LocalAuthOverlay />
     </LoginExchangeContext.Provider>
   );
 }
@@ -387,13 +410,20 @@ function AppInner() {
     colors: { ...DefaultTheme.colors, background: colors.background },
   };
   const hydrateUserProfile = useAppStore((s) => s.hydrateUserProfile);
+  const initializeSessionLock = useAppStore((s) => s.initializeSessionLock);
   const authToken = useAppStore((s) => s.authToken);
+  const sessionLockStatus = useAppStore((s) => s.sessionLockStatus);
   const { status: loginStatus } = useLoginExchange();
   const [backendOffline, setBackendOffline] = useState(false);
   const [initTimedOut, setInitTimedOut] = useState(false);
   const [signInTimedOut, setSignInTimedOut] = useState(false);
 
-  Logger.debug('Boot', 'AppInner render', { isReady, hasUser: !!user, hasToken: !!authToken });
+  Logger.debug('Boot', 'AppInner render', { isReady, hasUser: !!user, hasToken: !!authToken, sessionLockStatus });
+
+  useEffect(() => {
+    if (!isReady) return;
+    void initializeSessionLock(!!user);
+  }, [isReady, user?.id, initializeSessionLock]);
 
   // Watchdog 1: Privy SDK never reports ready (e.g. prod app/bundle not allowed).
   useEffect(() => {
@@ -456,17 +486,17 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (user && sessionLockStatus === 'unlocked') {
       void hydrateUserProfile();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, sessionLockStatus]);
 
   useEffect(() => {
-    if (user && authToken) {
+    if (user && sessionLockStatus === 'unlocked' && authToken) {
       startDeepLinkCapture();
     }
-  }, [user, authToken]);
+  }, [user, sessionLockStatus, authToken]);
 
   if (!isReady) {
     if (initTimedOut) {
@@ -480,6 +510,10 @@ function AppInner() {
     return <BootLoadingView />;
   }
 
+  if (user && sessionLockStatus === 'checking') {
+    return <BootLoadingView />;
+  }
+
   // Privy is authenticated but the Kura token exchange keeps failing (backend
   // 5xx / network). Don't kick the user back to login — offer a retry instead.
   if (user && loginStatus === 'error') {
@@ -488,45 +522,48 @@ function AppInner() {
 
   // Privy user present but no Kura session yet → the exchange is in flight.
   // Show a loader instead of flashing the (session-less) main UI.
-  if (user && !authToken) {
+  // Locked cold starts show the main shell under SessionLockOverlay (JWT stays in SecureStore only).
+  if (user && !authToken && sessionLockStatus !== 'locked') {
     if (signInTimedOut && loginStatus !== 'pending') {
       return <LoginRetryScreen />;
     }
     return <BootLoadingView caption="Signing in…" />;
   }
 
+  const showMainApp = user && (authToken || sessionLockStatus === 'locked');
+
   const navigation = (
     <NavigationContainer theme={navTheme}>
-      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} translucent={true} />
-      {backendOffline ? (
-        <View
-          style={{
-            paddingTop: 44,
-            paddingHorizontal: 16,
-            paddingBottom: 8,
-            backgroundColor: '#7F1D1D',
-          }}
-        >
-          <Text style={{ color: '#FECACA', fontSize: 12, textAlign: 'center' }}>
-            Connection issue — some data may be out of date.
-          </Text>
-        </View>
-      ) : null}
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <Stack.Screen name="Main" component={MainNavigator} />
-        ) : (
-          <Stack.Screen
-            name="Auth"
-            component={PrivyLoginScreen}
-            options={{ animationTypeForReplace: 'pop' }}
-          />
-        )}
-      </Stack.Navigator>
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} translucent={true} />
+        {backendOffline ? (
+          <View
+            style={{
+              paddingTop: 44,
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              backgroundColor: '#7F1D1D',
+            }}
+          >
+            <Text style={{ color: '#FECACA', fontSize: 12, textAlign: 'center' }}>
+              Connection issue — some data may be out of date.
+            </Text>
+          </View>
+        ) : null}
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {showMainApp ? (
+            <Stack.Screen name="Main" component={MainNavigator} />
+          ) : (
+            <Stack.Screen
+              name="Auth"
+              component={PrivyLoginScreen}
+              options={{ animationTypeForReplace: 'pop' }}
+            />
+          )}
+        </Stack.Navigator>
     </NavigationContainer>
   );
 
-  if (user && authToken) {
+  if (showMainApp) {
     return <KuraWalletConnectShell>{navigation}</KuraWalletConnectShell>;
   }
 
@@ -608,6 +645,16 @@ class RootErrorBoundary extends React.Component<
 // Missing-config fallback — shown when Privy appId is not set
 // ─────────────────────────────────────────────────────────────────────────────
 
+function WalletConnectConfigErrorScreen() {
+  return (
+    <BootErrorScreen
+      icon="settings"
+      title={i18n.t('boot.configTitle')}
+      message={i18n.t('boot.walletConnectConfigMessage')}
+    />
+  );
+}
+
 function PrivyConfigErrorScreen() {
   return (
     <BootErrorScreen
@@ -623,17 +670,51 @@ function PrivyConfigErrorScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AppKitGate({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const [instance, setInstance] = useState<ReturnType<typeof createAppKit> | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
-    initAppKit()
-      .then(setInstance)
+    let cancelled = false;
+    setInitError(null);
+
+    void initAppKit()
+      .then((next) => {
+        if (!cancelled) setInstance(next);
+      })
       .catch((err) => {
-        Logger.error('App', 'AppKit init failed', {
-          error: err instanceof Error ? err.message : String(err),
-        });
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : String(err);
+        Logger.error('App', 'AppKit init failed', { error: message });
+        setInitError(message);
       });
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryNonce]);
+
+  if (initError) {
+    return (
+      <BootErrorScreen
+        icon="settings"
+        title={t('boot.appKitFailedTitle')}
+        message={t('boot.appKitFailedMessage')}
+        actions={[
+          {
+            label: t('boot.tryAgain'),
+            onPress: () => {
+              setInstance(null);
+              setInitError(null);
+              setRetryNonce((n) => n + 1);
+            },
+            variant: 'primary',
+          },
+        ]}
+      />
+    );
+  }
 
   if (!instance) {
     return <BootLoadingView />;
@@ -656,6 +737,21 @@ export default function App() {
         <SafeAreaProvider>
           <StatusBar style="dark" translucent={true} />
           <PrivyConfigErrorScreen />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (!HAS_VALID_WC_PROJECT_ID) {
+    Logger.error(
+      'App',
+      'WalletConnect Project ID is missing or invalid — set EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID',
+    );
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaProvider>
+          <StatusBar style="dark" translucent={true} />
+          <WalletConnectConfigErrorScreen />
         </SafeAreaProvider>
       </GestureHandlerRootView>
     );

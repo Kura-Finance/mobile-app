@@ -9,7 +9,7 @@
 import { Core } from '@walletconnect/core';
 import SignClient from '@walletconnect/sign-client';
 import UniversalProvider from '@walletconnect/universal-provider';
-import { env } from '../../config/env';
+import { assertValidWalletConnectProjectId } from '../../config/env';
 
 let sharedCore: InstanceType<typeof Core> | null = null;
 let sharedSignClient: Awaited<ReturnType<typeof SignClient.init>> | null = null;
@@ -17,11 +17,7 @@ let sharedUniversalProvider: Awaited<ReturnType<typeof UniversalProvider.init>> 
   null;
 
 export function getWalletConnectProjectId(): string {
-  const projectId = env.walletConnectProjectId;
-  if (!projectId) {
-    throw new Error('EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID is not configured.');
-  }
-  return projectId;
+  return assertValidWalletConnectProjectId();
 }
 
 export function getSharedWalletConnectCore(): InstanceType<typeof Core> {

@@ -118,12 +118,6 @@ export class StorageAdapter {
       const appState = useAppStore.getState()
       const financeState = useFinanceStore.getState()
 
-      // Store authentication state
-      if (appState.authToken) {
-        await this.setItem('auth_token', appState.authToken)
-        await this.setItem('auth_status', appState.authStatus)
-      }
-
       // Store user profile
       if (appState.userProfile) {
         await this.setItem(

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -86,6 +86,22 @@ function HoldingRow({
   );
 }
 
+function areHoldingRowPropsEqual(
+  prev: { investment: Investment; totalValue: number },
+  next: { investment: Investment; totalValue: number },
+): boolean {
+  return (
+    prev.totalValue === next.totalValue
+    && prev.investment.id === next.investment.id
+    && prev.investment.holdings === next.investment.holdings
+    && prev.investment.currentPrice === next.investment.currentPrice
+    && prev.investment.change24h === next.investment.change24h
+    && prev.investment.usdValue === next.investment.usdValue
+  );
+}
+
+const HoldingRowMemo = memo(HoldingRow, areHoldingRowPropsEqual);
+
 export default function HoldingsList({
   investments,
   selectedAccountId,
@@ -96,24 +112,30 @@ export default function HoldingsList({
   const st = useMemo(() => makeStyles(colors), [colors]);
   const [selectedFilter, setSelectedFilter] = useState<AssetClassFilter>('All');
 
-  const filteredInvestments = investments
-    .filter((inv) => {
-      if (selectedFilter === 'All') return true;
-      if (selectedFilter === 'Stock') return inv.type === 'stock';
-      if (selectedFilter === 'ETF') return inv.type === 'etf';
-      if (selectedFilter === 'Crypto') return inv.type === 'crypto';
-      return true;
-    })
-    .sort((a, b) => {
-      const valueA = a.usdValue ?? (a.holdings * a.currentPrice);
-      const valueB = b.usdValue ?? (b.holdings * b.currentPrice);
-      return valueB - valueA;
-    });
+  const filteredInvestments = useMemo(
+    () => investments
+      .filter((inv) => {
+        if (selectedFilter === 'All') return true;
+        if (selectedFilter === 'Stock') return inv.type === 'stock';
+        if (selectedFilter === 'ETF') return inv.type === 'etf';
+        if (selectedFilter === 'Crypto') return inv.type === 'crypto';
+        return true;
+      })
+      .sort((a, b) => {
+        const valueA = a.usdValue ?? (a.holdings * a.currentPrice);
+        const valueB = b.usdValue ?? (b.holdings * b.currentPrice);
+        return valueB - valueA;
+      }),
+    [investments, selectedFilter],
+  );
 
-  const totalValue = investments.reduce((sum, inv) => {
-    const invValue = inv.usdValue ?? (inv.holdings * inv.currentPrice);
-    return sum + invValue;
-  }, 0);
+  const totalValue = useMemo(
+    () => investments.reduce((sum, inv) => {
+      const invValue = inv.usdValue ?? (inv.holdings * inv.currentPrice);
+      return sum + invValue;
+    }, 0),
+    [investments],
+  );
 
   const filterTabs: AssetClassFilter[] = ['All', 'Stock', 'ETF', 'Crypto'];
 
@@ -159,7 +181,7 @@ export default function HoldingsList({
       <View style={st.card}>
         {filteredInvestments.length > 0 ? (
           filteredInvestments.map((investment) => (
-            <HoldingRow
+            <HoldingRowMemo
               key={investment.id}
               investment={investment}
               totalValue={totalValue}

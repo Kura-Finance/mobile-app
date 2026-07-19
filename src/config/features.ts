@@ -10,14 +10,14 @@
  */
 
 import { isMorphoEarnEnabled } from './earn';
-import { env, hasKuraBackend } from './env';
+import { env, hasKuraBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
   /** Base smart account: send, receive, swap (with third-party keys). */
   wallet: true,
 
   /** Reown WalletConnect wallet mode (requires project id). */
-  walletConnect: env.walletConnectProjectId.length > 0,
+  walletConnect: hasValidWalletConnectProjectId(),
 
   /** TrackFi hub: Plaid banking, brokers, DeBank DeFi portfolio. */
   trackFi: hasKuraBackend(),
@@ -30,9 +30,6 @@ export const features = {
 
   /** Dinari dShares in Invest → US Stock tab. */
   dinariStocks: hasKuraBackend(),
-
-  /** MoonPay ramp widget. */
-  moonPay: env.moonpayApiKey.length > 0,
 
   /** Li.Fi bridge / swap integrator fee (optional). */
   lifiSwap: true,
