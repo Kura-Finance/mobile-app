@@ -6,7 +6,7 @@
 
 ### Our pledge
 
-We as members, contributors, and maintainers pledge to make participation in the Kura Wallet project a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
+We as members, contributors, and maintainers pledge to make participation in the Kura project a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
 We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
@@ -55,7 +55,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 
 ### 我们的承诺
 
-维护者、贡献者与社区成员承诺：无论年龄、体型、可见或不可见残疾、族裔、性别特征、性别认同与表达、经验水平、教育、社会经济地位、国籍、相貌、种族、宗教或性取向，参与 Kura Wallet 项目均不应受到骚扰。
+维护者、贡献者与社区成员承诺：无论年龄、体型、可见或不可见残疾、族裔、性别特征、性别认同与表达、经验水平、教育、社会经济地位、国籍、相貌、种族、宗教或性取向，参与 Kura 项目均不应受到骚扰。
 
 ### 行为标准
 

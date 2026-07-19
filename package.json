@@ -1,7 +1,7 @@
 {
   "name": "kura",
   "version": "1.0.0",
-  "description": "Kura Wallet mobile client — non-custodial smart wallet on Base (React Native / Expo).",
+  "description": "Kura mobile client — non-custodial smart wallet on Base (React Native / Expo).",
   "main": "node_modules/expo/AppEntry.js",
   "repository": {
     "type": "git",

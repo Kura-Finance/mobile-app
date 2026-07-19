@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-This policy defines vulnerability scope, reporting, and response expectations for the Kura Wallet mobile client.
+This policy defines vulnerability scope, reporting, and response expectations for the Kura mobile client.
 
 Related: [Threat model](docs/threat-model.md) · [Transparency](docs/transparency.md) · [Secrets rotation](docs/secrets-rotation.md)
 

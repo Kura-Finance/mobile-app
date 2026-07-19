@@ -711,7 +711,7 @@
       }
     },
     "defiPortfolio": {
-      "connectKuraWallet": "Connect Kura Wallet",
+      "connectKuraWallet": "Connect Kura",
       "connectingKura": "Connecting…",
       "walletNotReady": "Your Kura wallet is still being set up. Please try again shortly.",
       "cryptoSessionRequired": "Unlock TrackFi with your passkey to load encrypted on-chain data.",
@@ -738,7 +738,7 @@
       "removeWalletConfirm": "Remove",
       "walletCount": "{{count}} wallet",
       "walletCount_plural": "{{count}} wallets",
-      "kuraWalletLabel": "Kura Wallet",
+      "kuraWalletLabel": "Kura",
       "chains": {
         "eth": "Ethereum",
         "bsc": "BSC",

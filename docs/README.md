@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Welcome to the Kura Wallet mobile client documentation. These guides explain how the app works, trust boundaries, and how to build or ship releases.
+Welcome to the Kura mobile client documentation. These guides explain how the app works, trust boundaries, and how to build or ship releases.
 
 ---
 
@@ -40,7 +40,7 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 |----------|---------|
 | [`.env.example`](../.env.example) | All environment variables with comments |
 | [i18n guide](../src/shared/locales/README.md) | Translation workflow (en / zh-TW) |
-| [LICENSE](../LICENSE) | Proprietary license — all rights reserved |
+| [LICENSE](../LICENSE) | Proprietary — © Kura Finance LLC |
 
 ### Design principles
 
@@ -85,7 +85,7 @@ Welcome to the Kura Wallet mobile client documentation. These guides explain how
 |------|------|
 | [`.env.example`](../.env.example) | 环境变量说明 |
 | [国际化指南](../src/shared/locales/README.md) | 翻译流程 |
-| [LICENSE](../LICENSE) | 专有授权 |
+| [LICENSE](../LICENSE) | 专有授权 — © Kura Finance LLC |
 
 ### 文档原则
 

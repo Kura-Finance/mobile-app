@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Build the Kura Wallet mobile client from source. Read [transparency.md](transparency.md) first if you want to understand what you are verifying vs. trusting.
+Build the Kura mobile client from source. Read [transparency.md](transparency.md) first if you want to understand what you are verifying vs. trusting.
 
 **Hub:** [docs/README.md](README.md)
 

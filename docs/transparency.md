@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-This document describes trust boundaries for the **Kura Wallet mobile client**: what the app handles on-device, what depends on the Kura backend or third parties, and what you can verify in a local build.
+This document describes trust boundaries for the **Kura mobile client**: what the app handles on-device, what depends on the Kura backend or third parties, and what you can verify in a local build.
 
 ---
 

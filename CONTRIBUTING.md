@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Thank you for helping improve the Kura Wallet mobile client. This is **proprietary software**. By contributing you assign (or irrevocably license) your contributions to Kura Finance under the terms of [LICENSE](LICENSE) and any applicable contributor agreement.
+Thank you for helping improve the Kura mobile client. This is **proprietary software**. By contributing you assign (or irrevocably license) your contributions to Kura Finance LLC under the terms of [LICENSE](LICENSE) and any applicable contributor agreement.
 
 Please read our [Code of Conduct](CODE_OF_CONDUCT.md). Security issues: [SECURITY.md](SECURITY.md) (private email only).
 
@@ -82,7 +82,7 @@ Open an internal issue or discussion labeled **question** before large architect
 
 ### Intellectual property
 
-Contributions become proprietary property of Kura Finance (see [LICENSE](LICENSE)). You must have the right to submit the code you contribute.
+Contributions become proprietary property of Kura Finance LLC (see [LICENSE](LICENSE)). You must have the right to submit the code you contribute.
 
 ---
 
@@ -133,4 +133,4 @@ npx expo start
 
 ### 知识产权
 
-贡献归 Kura Finance 专有（见 [LICENSE](LICENSE)）。提交前须确保你有权贡献该代码。
+贡献归 Kura Finance LLC 专有（见 [LICENSE](LICENSE)）。提交前须确保你有权贡献该代码。

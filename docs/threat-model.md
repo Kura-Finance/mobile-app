@@ -4,7 +4,7 @@
 
 This document describes what the **mobile client** defends against, what it explicitly does **not** defend against, and where trust remains. It complements [transparency.md](transparency.md) and [SECURITY.md](../SECURITY.md).
 
-Scope: **Kura Wallet mobile client** on iOS and Android. Out of scope: Kura backend internals, Privy/Pimlico/Reown operations, Base smart contract bugs.
+Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend internals, Privy/Pimlico/Reown operations, Base smart contract bugs.
 
 ---
 

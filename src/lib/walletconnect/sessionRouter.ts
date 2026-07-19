@@ -63,7 +63,7 @@ function parseSwitchChain(params: unknown[]): void {
   const chainId = (param as Record<string, unknown>).chainId;
   if (typeof chainId !== 'string') throw new Error('Invalid chain id.');
   if (chainId.toLowerCase() !== BASE_CHAIN_ID_HEX.toLowerCase()) {
-    throw new Error('Kura Wallet only supports Base.');
+    throw new Error('Kura only supports Base.');
   }
 }
 

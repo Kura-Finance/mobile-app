@@ -26,7 +26,7 @@ export async function getKuraWalletKit(): Promise<KuraWalletKitInstance> {
     walletKitInstance = await WalletKit.init({
       core,
       metadata: {
-        name: `${brand.walletName} Wallet`,
+        name: brand.walletName,
         description: brand.walletKitDescription,
         url: brand.homepage,
         icons: [...KURA_WALLET_METADATA_ICONS],

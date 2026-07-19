@@ -711,7 +711,7 @@
       }
     },
     "defiPortfolio": {
-      "connectKuraWallet": "連接 Kura 錢包",
+      "connectKuraWallet": "連接 Kura",
       "connectingKura": "連接中…",
       "walletNotReady": "Kura 錢包仍在設定中，請稍後再試。",
       "cryptoSessionRequired": "請使用通行密鑰解鎖 TrackFi，以載入加密的鏈上資料。",
@@ -738,7 +738,7 @@
       "removeWalletConfirm": "移除",
       "walletCount": "{{count}} 個錢包",
       "walletCount_plural": "{{count}} 個錢包",
-      "kuraWalletLabel": "Kura 錢包",
+      "kuraWalletLabel": "Kura",
       "chains": {
         "eth": "Ethereum",
         "bsc": "BSC",

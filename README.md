@@ -1,8 +1,8 @@
-# Kura Wallet — Mobile Client / 行動錢包客戶端
+# Kura — Mobile Client / 行動客戶端
 
 **English** | [中文](#中文)
 
-**Kura Wallet** is a non-custodial smart wallet on **Base**. This repository contains the **React Native / Expo mobile client** — login, signing, WalletConnect, and optional finance tracking.
+**Kura** is a non-custodial smart wallet on **Base**. This repository contains the **React Native / Expo mobile client** — login, signing, WalletConnect, and optional finance tracking.
 
 > **Proprietary software**
 >
@@ -84,7 +84,7 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 
 ### License
 
-Proprietary — see [LICENSE](LICENSE). All rights reserved.
+Proprietary — © 2026 Kura Finance LLC. See [LICENSE](LICENSE). All rights reserved.
 
 ---
 
@@ -142,4 +142,4 @@ npx expo run:ios
 
 ### 授权
 
-专有软件 — 见 [LICENSE](LICENSE)。保留所有权利。
+专有软件 — © 2026 Kura Finance LLC。见 [LICENSE](LICENSE)。保留所有权利。

@@ -19,9 +19,9 @@ export const brand = {
   walletId: 'kura-wallet',
   walletName: 'Kura',
   /** WebAuthn relying party display name (passkey registration). */
-  passkeyRpName: 'Kura Finance',
+  passkeyRpName: 'Kura',
   /** WalletConnect / WalletKit metadata description. */
-  walletKitDescription: 'Kura Safe Smart Account on Base',
+  walletKitDescription: 'Kura — Safe smart account on Base',
   appDescription:
     'One app to manage all your finances, from tradFi to crypto.',
 } as const;

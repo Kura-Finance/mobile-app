@@ -1,7 +1,7 @@
 /** Base mainnet — CAIP-2 */
 export const BASE_CAIP2 = 'eip155:8453';
 
-/** Chains Kura WalletConnect sessions can approve (Base-only). */
+/** Chains WalletConnect sessions in Kura can approve (Base only). */
 export const SUPPORTED_WC_CHAINS = [BASE_CAIP2] as const;
 
 /** Base mainnet chain id (hex) */
