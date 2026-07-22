@@ -3,7 +3,7 @@
  * for the unified transaction history feed.
  */
 
-import { hasKuraBackend } from '../../../config/env';
+import { hasAppBackend } from '../../../config/env';
 import { readAuthToken } from '../../../lib/api/client';
 import {
   isCryptoTransferComplete,
@@ -500,7 +500,7 @@ export async function fetchBridgeActivities(options?: {
     externalAccounts: [],
   };
 
-  if (!hasKuraBackend()) return empty;
+  if (!hasAppBackend()) return empty;
 
   const token = await readAuthToken();
   if (!token) return empty;

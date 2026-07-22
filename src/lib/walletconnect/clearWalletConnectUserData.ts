@@ -1,6 +1,6 @@
 import { getSdkError } from '@walletconnect/utils';
 import { clearDappSessionHistory } from '../../features/walletconnect/lib/dappSessionHistory';
-import { getKuraWalletKit } from './kuraWalletKit';
+import { getWalletKit } from './walletKit';
 import Logger from '../../shared/utils/Logger';
 
 const TAG = 'WalletConnectLogout';
@@ -13,7 +13,7 @@ export async function clearWalletConnectUserData(userId?: string): Promise<void>
   await clearDappSessionHistory(userId);
 
   try {
-    const kit = await getKuraWalletKit();
+    const kit = await getWalletKit();
     const sessions = Object.values(kit.getActiveSessions());
     await Promise.all(
       sessions.map((session) =>

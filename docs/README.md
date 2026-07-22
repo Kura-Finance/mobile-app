@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Welcome to the Kura mobile client documentation. These guides explain how the app works, trust boundaries, and how to build or ship releases.
+Welcome to the mobile client documentation. These guides explain how the app works, trust boundaries, how to build or ship releases, and how to hand the repo to a new maintainer.
 
 ---
 
@@ -17,13 +17,20 @@ Welcome to the Kura mobile client documentation. These guides explain how the ap
 | [Getting started](getting-started.md) | Developers | Clone, configure, run, test |
 | [Architecture](architecture.md) | Contributors, auditors | Layers, auth, wallet, E2EE, data flows |
 
+### Maintain & transfer
+
+| Guide | Who it's for |
+|-------|--------------|
+| [Maintainers map](maintainers.md) | Engineers changing brand, env, or modules |
+| [Handover checklist](handover.md) | Buyers / ops transferring the product |
+| [Rebrand guide](fork-guide.md) | Teams white-labeling the client |
+| [Official & third-party services](official-services.md) | Anyone mapping API keys and backend dependencies |
+
 ### Build & ship
 
 | Guide | Who it's for |
 |-------|--------------|
 | [Local release](local-release.md) | Maintainers publishing to App Store / Play Console |
-| [Rebrand guide](fork-guide.md) | Teams white-labeling or rebranding the client |
-| [Official & third-party services](official-services.md) | Anyone mapping API keys and backend dependencies |
 
 ### Security & governance
 
@@ -48,6 +55,7 @@ Welcome to the Kura mobile client documentation. These guides explain how the ap
 2. **Local verifiability** — instructions to compile and exercise critical security flows.
 3. **Actionable security** — private disclosure path, rotation checklists, and threat-model alignment.
 4. **Operational clarity** — env, branding, and release steps stay in sync with code.
+5. **Buyer-friendly surface** — brand and secrets live in config; prefer neutral maintainer APIs (`hasAppBackend`, `walletKit`).
 
 ---
 
@@ -62,13 +70,20 @@ Welcome to the Kura mobile client documentation. These guides explain how the ap
 | [快速开始](getting-started.md) | 开发者 | 配置、运行、测试 |
 | [架构](architecture.md) | 贡献者 / 审计 | 分层、登录、钱包、E2EE、数据流 |
 
+### 维护与交接
+
+| 文档 | 适合对象 |
+|------|----------|
+| [维护地图](maintainers.md) | 改品牌 / env / 模块的工程师 |
+| [交接清单](handover.md) | 买家 / 运维交接 |
+| [换牌指南](fork-guide.md) | 换牌 / 白标团队 |
+| [官方与第三方服务](official-services.md) | 梳理 API Key 与后端依赖 |
+
 ### 构建与发布
 
 | 文档 | 适合对象 |
 |------|----------|
 | [本地发布](local-release.md) | 上架 App Store / Play 的维护者 |
-| [换牌指南](fork-guide.md) | 换牌 / 白标团队 |
-| [官方与第三方服务](official-services.md) | 梳理 API Key 与后端依赖 |
 
 ### 安全与治理
 
@@ -89,4 +104,4 @@ Welcome to the Kura mobile client documentation. These guides explain how the ap
 
 ### 文档原则
 
-**边界诚实**、**本地可核对**、**安全可行动**、**运维清晰**。
+**边界诚实**、**本地可核对**、**安全可行动**、**运维清晰**、**维护面中性**（品牌与密钥集中在 config）。

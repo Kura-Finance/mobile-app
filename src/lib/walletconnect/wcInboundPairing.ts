@@ -5,9 +5,9 @@ import { parseWalletConnectDeepLink } from './deepLink';
 import { warmWalletConnectWalletMode } from './walletConnectBootstrap';
 import Logger from '../../shared/utils/Logger';
 
-async function getKuraWalletKit() {
-  const { getKuraWalletKit: loadKit } = await import('./kuraWalletKit');
-  return loadKit();
+async function loadWalletKit() {
+  const { getWalletKit } = await import('./walletKit');
+  return getWalletKit();
 }
 
 const TAG = 'WcInbound';
@@ -61,7 +61,7 @@ async function ensureKitListeners(): Promise<void> {
 
   kitListenersPromise = (async () => {
     await warmWalletConnectWalletMode();
-    const kit = await getKuraWalletKit();
+    const kit = await loadWalletKit();
 
     if (!listenersAttached) {
       kit.on('session_proposal', dispatchProposal);
@@ -87,7 +87,7 @@ async function pairWalletConnectUriInternal(uri: string): Promise<void> {
   await ensureKitListeners();
   seenUris.add(trimmed);
 
-  const kit = await getKuraWalletKit();
+  const kit = await loadWalletKit();
   Logger.info(TAG, 'Pairing WC URI');
   try {
     await kit.pair({ uri: trimmed });

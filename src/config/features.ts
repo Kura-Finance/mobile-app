@@ -1,15 +1,15 @@
 /**
  * Feature flags for the mobile client.
  *
- * Core wallet + WalletConnect work without the Kura backend.
+ * Core wallet + WalletConnect work without a hosted backend.
  * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL.
  *
- * Morpho Earn uses Morpho's public API (no Kura backend) but needs Pimlico
+ * Morpho Earn uses Morpho's public API (no app backend) but needs Pimlico
  * for on-chain deposits — see src/config/earn.ts.
  */
 
 import { isMorphoEarnEnabled } from './earn';
-import { hasKuraBackend, hasValidWalletConnectProjectId } from './env';
+import { hasAppBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
   /** Base smart account: send, receive, swap (with third-party keys). */
@@ -19,16 +19,16 @@ export const features = {
   walletConnect: hasValidWalletConnectProjectId(),
 
   /** TrackFi hub: Plaid banking, brokers, DeBank DeFi portfolio. */
-  trackFi: hasKuraBackend(),
+  trackFi: hasAppBackend(),
 
   /** Plaid-linked accounts and transactions. */
-  plaid: hasKuraBackend(),
+  plaid: hasAppBackend(),
 
   /** DeBank proxy (/api/debank/*). */
-  debank: hasKuraBackend(),
+  debank: hasAppBackend(),
 
-  /** Dinari dShares in Invest → US Stock tab. */
-  dinariStocks: hasKuraBackend(),
+  /** Dinari dShares in Invest → US Stock tab (on when backend URL is set). */
+  dinariStocks: hasAppBackend(),
 
   /** Li.Fi bridge / swap integrator fee (optional). */
   lifiSwap: true,

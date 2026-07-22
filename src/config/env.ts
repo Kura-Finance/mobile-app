@@ -2,7 +2,7 @@
  * Centralised environment configuration for the mobile client.
  *
  * All EXPO_PUBLIC_* variables should be read here (or via helpers exported
- * from this module). See docs/fork-guide.md.
+ * from this module). See docs/fork-guide.md and docs/maintainers.md.
  *
  * Expo lint requires static `process.env.NAME` access (no dynamic keys) so
  * Metro can inline EXPO_PUBLIC_* values at build time.
@@ -29,7 +29,7 @@ function envBool(raw: string | undefined, fallback: boolean): boolean {
   return raw.toLowerCase() === 'true' || raw === '1';
 }
 
-/** Resolved Kura backend base URL (no trailing slash), or empty when unset. */
+/** Resolved app backend base URL (no trailing slash), or empty when unset. */
 export function getResolvedApiBaseUrl(): string {
   const fromEnv =
     trimEnv(process.env.EXPO_PUBLIC_API_BASE_URL) ||
@@ -50,20 +50,27 @@ export function getResolvedApiBaseUrl(): string {
   return url.replace(/\/+$/, '');
 }
 
-export function hasKuraBackend(): boolean {
+/** True when an optional hosted backend URL is configured. */
+export function hasAppBackend(): boolean {
   return getResolvedApiBaseUrl().length > 0;
 }
 
-/** DeBank / Plaid / TrackFi require the Kura backend — mobile never calls those APIs directly. */
-export function assertKuraBackend(): void {
-  if (!hasKuraBackend()) {
+/** @deprecated Prefer {@link hasAppBackend}. */
+export const hasKuraBackend = hasAppBackend;
+
+/** DeBank / Plaid / TrackFi require the hosted backend — mobile never calls those APIs directly. */
+export function assertAppBackend(): void {
+  if (!hasAppBackend()) {
     throw new Error(
-      'Kura backend URL is not configured (EXPO_PUBLIC_API_BASE_URL). ' +
+      'App backend URL is not configured (EXPO_PUBLIC_API_BASE_URL). ' +
         'DeBank data is only available via the backend proxy (/api/debank/*); ' +
         'the mobile app never calls DeBank OpenAPI directly.',
     );
   }
 }
+
+/** @deprecated Prefer {@link assertAppBackend}. */
+export const assertKuraBackend = assertAppBackend;
 
 /** True when a Pimlico bundler/paymaster key is available (required for SCA txs). */
 export function hasPimlicoApiKey(): boolean {
@@ -90,6 +97,16 @@ export function assertValidWalletConnectProjectId(): string {
   return assertWalletConnectProjectId(resolveWalletConnectProjectId());
 }
 
+const walletIconUrl =
+  trimEnv(process.env.EXPO_PUBLIC_WALLET_ICON_URL) ||
+  trimEnv(process.env.EXPO_PUBLIC_KURA_WALLET_ICON_URL);
+
+const earnFeeRecipient =
+  trimEnv(process.env.EXPO_PUBLIC_EARN_FEE_RECIPIENT) ||
+  trimEnv(process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT) ||
+  readExtra('earnFeeRecipient') ||
+  readExtra('kuraEarnFeeRecipient');
+
 export const env = {
   appEnv:
     trimEnv(process.env.APP_ENV) ||
@@ -100,7 +117,10 @@ export const env = {
 
   walletConnectProjectId: resolveWalletConnectProjectId(),
 
-  kuraWalletIconUrl: trimEnv(process.env.EXPO_PUBLIC_KURA_WALLET_ICON_URL),
+  /** Public wallet icon URL for AppKit / WalletKit (falls back to brand.defaultIconUrl). */
+  walletIconUrl,
+  /** @deprecated Prefer {@link env.walletIconUrl}. */
+  kuraWalletIconUrl: walletIconUrl,
 
   privyAppId: trimEnv(process.env.EXPO_PUBLIC_PRIVY_APP_ID) || readExtra('privyAppId'),
   privyClientId: trimEnv(process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID) || readExtra('privyClientId'),
@@ -132,11 +152,12 @@ export const env = {
    * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime + Gauntlet USDC Frontier when unset.
    */
   morphoEarnVaultAllowlist: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST),
-  /** Morpho Earn — Kura performance fee (0–1 decimal, default 0.1 = 10%). */
+  /** Morpho Earn — performance fee rate (0–1 decimal, default 0.1 = 10%). */
   morphoEarnFee: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_FEE) || '0.1',
-  /** Treasury address that receives Kura's Morpho earn performance fee. */
-  kuraEarnFeeRecipient:
-    trimEnv(process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT) || readExtra('kuraEarnFeeRecipient'),
+  /** Treasury address that receives Morpho earn performance fee. */
+  earnFeeRecipient,
+  /** @deprecated Prefer {@link env.earnFeeRecipient}. */
+  kuraEarnFeeRecipient: earnFeeRecipient,
   /**
    * Optional JSON map of inner vault → fee-wrapper vault addresses.
    * Example: {"0xee8f...":"0x002f..."}

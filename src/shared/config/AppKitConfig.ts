@@ -7,7 +7,7 @@ import { EthersAdapter } from '@reown/appkit-ethers-react-native'
 import { mainnet, polygon, arbitrum, avalanche, bsc, fantom } from 'viem/chains'
 import { storageAdapter } from './StorageAdapter'
 import Logger from '../utils/Logger'
-import { KURA_CUSTOM_WALLET, KURA_WALLET_ID, KURA_WALLET_ICON } from '../../lib/walletconnect/kuraWalletListing'
+import { CUSTOM_WALLET, WALLET_ID, WALLET_ICON } from '../../lib/walletconnect/walletListing'
 import { brand } from '../../config/branding'
 import { assertValidWalletConnectProjectId } from '../../config/env'
 
@@ -46,15 +46,15 @@ export async function initAppKit(): Promise<ReturnType<typeof createAppKit>> {
           name: brand.walletName,
           description: brand.appDescription,
           url: brand.homepage,
-          icons: [KURA_WALLET_ICON],
+          icons: [WALLET_ICON],
           redirect: {
             native: `${brand.scheme}://`,
             universal: brand.universalLinkDashboard,
           },
         },
 
-        customWallets: [KURA_CUSTOM_WALLET],
-        featuredWalletIds: [KURA_WALLET_ID],
+        customWallets: [CUSTOM_WALLET],
+        featuredWalletIds: [WALLET_ID],
       });
       Logger.info('Boot', 'AppKitConfig: AppKit instance created ✓');
       return appKitInstance;

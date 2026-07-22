@@ -49,6 +49,7 @@ Full guide: [docs/getting-started.md](docs/getting-started.md) · Trust boundari
 |---|---|
 | **Understand** | [Trust model](docs/transparency.md) · [Threat model](docs/threat-model.md) · [Architecture](docs/architecture.md) |
 | **Build** | [Getting started](docs/getting-started.md) · [Local release](docs/local-release.md) |
+| **Maintain** | [Maintainers map](docs/maintainers.md) · [Handover](docs/handover.md) |
 | **Rebrand** | [Rebrand guide](docs/fork-guide.md) · [Services & API keys](docs/official-services.md) |
 | **Security** | [SECURITY.md](SECURITY.md) · [Secrets rotation](docs/secrets-rotation.md) |
 | **Contribute** | [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) |
@@ -124,6 +125,7 @@ npx expo run:ios
 |---|---|
 | **理解** | [信任模型](docs/transparency.md) · [威胁模型](docs/threat-model.md) · [架构](docs/architecture.md) |
 | **构建** | [快速开始](docs/getting-started.md) · [本地发布](docs/local-release.md) |
+| **维护** | [维护地图](docs/maintainers.md) · [交接清单](docs/handover.md) |
 | **换牌** | [换牌指南](docs/fork-guide.md) · [服务与 API](docs/official-services.md) |
 | **安全** | [SECURITY.md](SECURITY.md) · [密钥轮换](docs/secrets-rotation.md) |
 | **贡献** | [CONTRIBUTING.md](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) |

@@ -14,7 +14,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 
 | Type | Examples | Config / code |
 |------|----------|---------------|
-| **Kura backend** | Auth, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
+| **App backend** | Auth, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
 | **Third-party (your keys)** | Privy, Pimlico, Reown, Li.Fi, logo.dev | `.env` → `src/config/env.ts` |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
 | **Public RPC / CDN** | Base chain, logo images | RPC URL + logo.dev token |
@@ -29,7 +29,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 | WalletConnect dApps | No | WC project id, Privy | Base only |
 | TrackFi (Plaid, brokers) | **Yes** | Passkey registration | E2EE snapshots |
 | DeBank DeFi portfolio | **Yes** | Backend proxy | Client normalizes in `debank/normalize.ts` |
-| Dinari stocks | **Yes** | Feature flag `dinariStocks` | Currently off in `features.ts` |
+| Dinari stocks | **Yes** | Feature flag `dinariStocks` | On when `hasAppBackend()` (backend URL set) |
 | Morpho Earn | No | `morphoEarn` + Pimlico | Public Morpho GraphQL; vault list in `src/config/earn.ts` |
 | Kura Card (waitlist UI) | No | — | Card manager + waitlist; full GP onboarding is separate |
 | Stock/crypto logos | No | `EXPO_PUBLIC_LOGODEV_TOKEN` | Falls back to glyphs |
@@ -80,7 +80,7 @@ See [local-release.md](local-release.md).
 
 | 类型 | 例子 | 配置 |
 |------|------|------|
-| **Kura 后端** | 登录、Plaid、DeBank、Dinari | `EXPO_PUBLIC_API_BASE_URL` |
+| **托管后端** | 登录、Plaid、DeBank、Dinari | `EXPO_PUBLIC_API_BASE_URL` |
 | **第三方（自备 key）** | Privy、Pimlico、WC、Li.Fi、logo.dev | `.env` |
 | **纯客户端** | 签名、WC UI、SecureStore | 钱包与 WC 模块 |
 
@@ -94,7 +94,7 @@ See [local-release.md](local-release.md).
 | WalletConnect | 否 | WC Project ID |
 | TrackFi / Plaid | **是** | Passkey |
 | DeBank | **是** | 后端代理 |
-| Dinari 股票 | **是** | 功能开关（当前默认关） |
+| Dinari 股票 | **是** | 有后端 URL 时开启（`hasAppBackend()`） |
 | Kura Card | 否 | 卡片 UI + waitlist |
 | logo.dev 图标 | 否 | `EXPO_PUBLIC_LOGODEV_TOKEN` |
 

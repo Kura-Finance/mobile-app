@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../../../shared/store/useAppStore';
-import { hasKuraBackend } from '../../../config/env';
+import { hasAppBackend } from '../../../config/env';
 import {
   getWaitlistStatus,
   joinWaitlist,
@@ -47,7 +47,7 @@ export function useWaitlistJoin(
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !hasKuraBackend() || !hasRealEmail) {
+    if (!enabled || !hasAppBackend() || !hasRealEmail) {
       setJoined(false);
       setChecking(false);
       return;
@@ -81,7 +81,7 @@ export function useWaitlistJoin(
   }, [enabled, email, hasRealEmail, product]);
 
   const join = useCallback(async () => {
-    if (!hasKuraBackend()) {
+    if (!hasAppBackend()) {
       throw new Error('WAITLIST_UNAVAILABLE');
     }
     if (!hasRealEmail) {
@@ -110,6 +110,6 @@ export function useWaitlistJoin(
     checking,
     submitting,
     hasRealEmail,
-    backendAvailable: hasKuraBackend(),
+    backendAvailable: hasAppBackend(),
   };
 }

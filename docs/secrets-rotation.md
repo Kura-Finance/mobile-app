@@ -4,7 +4,7 @@
 
 If credentials were ever committed to git, shared in chat, or built into a leaked artifact, **rotate before** continuing development or publishing. Documentation does not replace key hygiene — `EXPO_PUBLIC_*` values are embedded in every store build.
 
-**Related:** [SECURITY.md](../SECURITY.md) · [local-release.md](local-release.md) · [transparency.md](transparency.md)
+**Related:** [SECURITY.md](../SECURITY.md) · [local-release.md](local-release.md) · [transparency.md](transparency.md) · [handover.md](handover.md)
 
 ---
 
@@ -19,7 +19,7 @@ If credentials were ever committed to git, shared in chat, or built into a leake
 | Pimlico API key | [dashboard.pimlico.io](https://dashboard.pimlico.io) | ERC-4337 bundler |
 | logo.dev publishable key | [logo.dev](https://logo.dev) | Stock/crypto logos |
 | Li.Fi integrator / API key | [li.fi](https://li.fi) | Swap / bridge fees |
-| Morpho fee recipient / wrappers | Your deployment | Earn yield fees |
+| Morpho fee recipient / wrappers | Your deployment | Earn yield fees (`EXPO_PUBLIC_EARN_FEE_RECIPIENT`) |
 | Base RPC provider key | Alchemy / Infura dashboard | On-chain reads |
 | Android keystore passwords | Generate new keystore if compromised | Play Store signing |
 | Kura backend JWT secret | Kura ops (not in this repo) | If backend leaked |

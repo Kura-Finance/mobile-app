@@ -11,6 +11,7 @@
  */
 
 import { env } from './env';
+import { OFFICIAL_FEE_WRAPPER_DEFAULTS as OFFICIAL_FEE_WRAPPER_DEFAULTS_SOURCE } from './morphoVaultAddresses';
 
 const ETH_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
@@ -23,15 +24,17 @@ function envBool(raw: string, fallback: boolean): boolean {
 export type MorphoFeeWrapperMap = Record<string, `0x${string}`>;
 
 /**
- * Kura fee-wrapper vaults on Base (inner Morpho vault → Kura FeeWrapper).
- * Env `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` overrides matching keys.
+ * Official-app fee-wrapper vaults on Base (inner Morpho vault → FeeWrapper).
+ * Forks / buyers should set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` to their
+ * own contracts, or set `EXPO_PUBLIC_MORPHO_EARN_FEE=0` to disable yield fees.
+ * Env overrides matching keys.
  */
-export const DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES = {
-  '0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9': '0x0F457aa0AfD3D208cbfEE520804118f88965a529',
-  '0x94Af495DE1F56Aa5576dEB17986bDCeE5Dd9778D': '0x6D10990b11f88EE40e4ABc2f8CbE1f7194190Db0',
-  '0x050cE30b927Da55177A4914EC73480238BAD56f0': '0x50e8B8B50037322BE0Efc2048d66Cb957f349816',
-  '0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765': '0x07540AeeD4B12408c87365417aE7CE59A966CA47',
-} as const satisfies MorphoFeeWrapperMap;
+export const OFFICIAL_FEE_WRAPPER_DEFAULTS: MorphoFeeWrapperMap = {
+  ...OFFICIAL_FEE_WRAPPER_DEFAULTS_SOURCE,
+};
+
+/** @deprecated Prefer {@link OFFICIAL_FEE_WRAPPER_DEFAULTS}. */
+export const DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES = OFFICIAL_FEE_WRAPPER_DEFAULTS;
 
 export function normalizeMorphoVaultAddress(address: string): string {
   return address.toLowerCase();
@@ -74,7 +77,7 @@ function mergeFeeWrapperMaps(...maps: MorphoFeeWrapperMap[]): MorphoFeeWrapperMa
 }
 
 export const MORPHO_FEE_WRAPPER_OVERRIDES: MorphoFeeWrapperMap = mergeFeeWrapperMaps(
-  DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES,
+  OFFICIAL_FEE_WRAPPER_DEFAULTS,
   parseMorphoFeeWrapperOverrides(env.morphoFeeWrapperOverrides),
 );
 

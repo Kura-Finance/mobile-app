@@ -12,7 +12,7 @@
  * on explicit pull-to-refresh.
  */
 
-import { assertKuraBackend } from '../../../config/env';
+import { assertAppBackend } from '../../../config/env';
 import { requestJson } from '../client';
 import {
   mergeRateLimitWithCacheMetadata,
@@ -56,7 +56,7 @@ export async function fetchDeBankProtocols(
   address: string,
   refresh: boolean = false,
 ): Promise<DeBankProtocolsResult> {
-  assertKuraBackend();
+  assertAppBackend();
   const normalized = normalizeEvmAddress(address);
   const raw = await requestJson<unknown>(
     `/api/debank/protocols${buildQuery(normalized, refresh)}`,
@@ -114,7 +114,7 @@ export async function fetchDeBankTokens(
   address: string,
   refresh: boolean = false,
 ): Promise<DeBankTokensResult> {
-  assertKuraBackend();
+  assertAppBackend();
   const normalized = normalizeEvmAddress(address);
   const raw = await requestJson<unknown>(
     `/api/debank/tokens${buildQuery(normalized, refresh)}`,
@@ -172,7 +172,7 @@ export async function fetchDeBankTokens(
 export async function unlinkDeBankAddress(
   address: string,
 ): Promise<UnlinkDeBankAddressResult> {
-  assertKuraBackend();
+  assertAppBackend();
   const normalized = normalizeEvmAddress(address);
   const raw = await requestJson<unknown>(
     `/api/debank/addresses/${encodeURIComponent(normalized)}`,

@@ -10,12 +10,20 @@ export const DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST = [
   '0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765',
 ] as const satisfies readonly `0x${string}`[];
 
-export const DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES = {
+/**
+ * Official-app fee-wrapper vaults on Base (inner → FeeWrapper).
+ * Kept here (no expo/env) so unit tests can import safely.
+ * Forks should override via env — see earnFeeWrapper.ts.
+ */
+export const OFFICIAL_FEE_WRAPPER_DEFAULTS = {
   '0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9': '0x0F457aa0AfD3D208cbfEE520804118f88965a529',
   '0x94Af495DE1F56Aa5576dEB17986bDCeE5Dd9778D': '0x6D10990b11f88EE40e4ABc2f8CbE1f7194190Db0',
   '0x050cE30b927Da55177A4914EC73480238BAD56f0': '0x50e8B8B50037322BE0Efc2048d66Cb957f349816',
   '0x1deEfABEe758AAbdC29a542B24ca3b75aFD56765': '0x07540AeeD4B12408c87365417aE7CE59A966CA47',
 } as const satisfies Record<string, `0x${string}`>;
+
+/** @deprecated Prefer {@link OFFICIAL_FEE_WRAPPER_DEFAULTS}. */
+export const DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES = OFFICIAL_FEE_WRAPPER_DEFAULTS;
 
 export function buildMorphoEarnVaultAddressSet(
   vaultAllowlist: readonly string[],
@@ -36,6 +44,6 @@ export function buildMorphoEarnVaultAddressSet(
 export function defaultMorphoEarnVaultAddressSet(): Set<string> {
   return buildMorphoEarnVaultAddressSet(
     DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST,
-    DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES,
+    OFFICIAL_FEE_WRAPPER_DEFAULTS,
   );
 }

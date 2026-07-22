@@ -1,4 +1,6 @@
-const PLACEHOLDER_EMAIL_SUFFIX = '@placeholder.kura-finance.internal';
+import { brand } from '../../config/branding';
+
+const PLACEHOLDER_EMAIL_SUFFIX = `@placeholder.${brand.universalLinkHost}.internal`;
 
 /** Mask placeholder emails from cashback history rows. */
 export function formatReferredUserLabel(email: string | null | undefined): string | null {

@@ -64,18 +64,20 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect | [Reown Cloud](https://cloud.reown.com) |
 | `EXPO_PUBLIC_PIMLICO_API_KEY` | Smart account | [Pimlico](https://dashboard.pimlico.io) |
 | `EXPO_PUBLIC_BASE_RPC_URL` | On-chain reads | Optional; auto-fallback to `mainnet.base.org` |
-| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, auth JWT | Your backend or Kura API |
+| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, auth JWT | Your backend or official API |
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs if unset; see logo.dev domain restrictions in [official-services.md](official-services.md) |
 | `EXPO_PUBLIC_LIFI_*` | Integrator fee on swaps | Optional |
 | `EXPO_PUBLIC_MORPHO_EARN_ENABLED` | Invest → Earn tab | Default on when Pimlico key set |
 | `EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST` | Vault addresses (JSON array) | Default Steakhouse USDC + Gauntlet EURC Balanced + USDC |
 | `EXPO_PUBLIC_MORPHO_EARN_FEE` | Optional performance fee on yield | Requires fee-wrapper + recipient |
+| `EXPO_PUBLIC_EARN_FEE_RECIPIENT` | Fee treasury address | Legacy alias: `EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT` |
+| `EXPO_PUBLIC_WALLET_ICON_URL` | AppKit / WalletKit icon | Legacy alias: `EXPO_PUBLIC_KURA_WALLET_ICON_URL` |
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` | Inner vault → wrapper address map (JSON) | See `src/config/earnFeeWrapper.ts` |
 | `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` | Query Morpho for matching wrappers | Default `true`; set `false` for overrides-only |
 
-Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari automatically. Earn vault list → [`src/config/earn.ts`](../src/config/earn.ts). Fee-wrapper routing → [`src/config/earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts).
+Feature gates: [`src/config/features.ts`](../src/config/features.ts). Empty backend URL hides TrackFi and Dinari automatically (`hasAppBackend()`). Earn vault list → [`src/config/earn.ts`](../src/config/earn.ts). Fee-wrapper routing → [`src/config/earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts).
 
-> **Earn fee defaults:** `src/config/earnFeeWrapper.ts` ships Kura-deployed fee-wrapper addresses for the official app. Forks should set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` and `EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT` to their own contracts, or set `EXPO_PUBLIC_MORPHO_EARN_FEE=0` to disable yield fees.
+> **Earn fee defaults:** `OFFICIAL_FEE_WRAPPER_DEFAULTS` in `earnFeeWrapper.ts` / `morphoVaultAddresses.ts` ship official-app fee-wrapper addresses. Forks should set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` and `EXPO_PUBLIC_EARN_FEE_RECIPIENT` to their own contracts, or set `EXPO_PUBLIC_MORPHO_EARN_FEE=0` to disable yield fees.
 
 Store builds: production values in `.env` **before** `prebuild` — [local-release.md](local-release.md).
 
@@ -109,12 +111,14 @@ Host Apple App Site Association (AASA) on your domain before shipping universal 
 
 Auto-read branding + env:
 
-- [`src/lib/walletconnect/kuraWalletListing.ts`](../src/lib/walletconnect/kuraWalletListing.ts)
+- [`src/lib/walletconnect/walletListing.ts`](../src/lib/walletconnect/walletListing.ts)
 - [`src/shared/config/AppKitConfig.ts`](../src/shared/config/AppKitConfig.ts)
 
 Register your wallet in [Reown WalletGuide](https://walletguide.walletconnect.network/) for dApp discovery.
 
-Set `EXPO_PUBLIC_KURA_WALLET_ICON_URL` or rely on `branding.defaultIconUrl`.
+Set `EXPO_PUBLIC_WALLET_ICON_URL` (or legacy `EXPO_PUBLIC_KURA_WALLET_ICON_URL`) or rely on `branding.defaultIconUrl`.
+
+Day-to-day module map: [maintainers.md](maintainers.md). Transfer checklist: [handover.md](handover.md).
 
 ### 5. Verify locally
 
@@ -168,9 +172,9 @@ npx expo prebuild --clean
 
 ### 4. WalletConnect
 
-`kuraWalletListing.ts` 与 `AppKitConfig.ts` 自动使用 branding。可在 Reown WalletGuide 注册钱包。
+`walletListing.ts` 与 `AppKitConfig.ts` 自动使用 branding。可在 Reown WalletGuide 注册钱包。
 
-Earn 收益费默认地址见 `earnFeeWrapper.ts`；换牌请改 env 或设 `EXPO_PUBLIC_MORPHO_EARN_FEE=0`。
+Earn 收益费默认地址见 `OFFICIAL_FEE_WRAPPER_DEFAULTS`；换牌请改 `EXPO_PUBLIC_EARN_FEE_RECIPIENT` / fee-wrapper env，或设 `EXPO_PUBLIC_MORPHO_EARN_FEE=0`。维护地图：[maintainers.md](maintainers.md)。
 
 ### 5. 验证
 

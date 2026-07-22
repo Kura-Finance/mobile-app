@@ -5,7 +5,7 @@ import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import type { WalletKitTypes } from '@reown/walletkit';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
 import type { SessionTypes } from '@walletconnect/types';
-import { getKuraWalletKit } from '../../../lib/walletconnect/kuraWalletKit';
+import { getWalletKit } from '../../../lib/walletconnect/walletKit';
 import {
   pairWalletConnectUri,
   registerWalletConnectSessionHandlers,
@@ -106,7 +106,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
       return;
     }
     try {
-      const kit = await getKuraWalletKit();
+      const kit = await getWalletKit();
       const active = Object.values(kit.getActiveSessions());
       setSessions(active);
       const synced = syncDappSessionHistory(active, dappHistoryRef.current);
@@ -143,7 +143,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
         }
         const history = await loadDappSessionHistory(userId);
         setDappHistory(history);
-        await getKuraWalletKit();
+        await getWalletKit();
         if (mounted) {
           setIsKitReady(true);
           await refreshSessions();
@@ -176,7 +176,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
   }, [walletReady, smartAddress]);
 
   const disconnectSession = useCallback(async (topic: string) => {
-    const kit = await getKuraWalletKit();
+    const kit = await getWalletKit();
     await kit.disconnectSession({ topic, reason: getSdkError('USER_DISCONNECTED') });
     await refreshSessions();
   }, [refreshSessions]);
@@ -201,7 +201,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
     if (!sca) return;
 
     try {
-      const kit = await getKuraWalletKit();
+      const kit = await getWalletKit();
       const requiredChains = pendingProposal.params.requiredNamespaces.eip155?.chains ?? [];
       if (!requiredEip155ChainsSatisfied(requiredChains)) {
         Logger.warn(TAG, 'Rejecting WC proposal — unsupported required chains', {
@@ -225,7 +225,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
       Logger.error(TAG, 'Session approval failed', {
         error: err instanceof Error ? err.message : String(err),
       });
-      const kit = await getKuraWalletKit();
+      const kit = await getWalletKit();
       await kit.rejectSession({
         id: pendingProposal.id,
         reason: getSdkError('USER_REJECTED'),
@@ -238,7 +238,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
   const handleRejectProposal = useCallback(async () => {
     if (!pendingProposal) return;
     try {
-      const kit = await getKuraWalletKit();
+      const kit = await getWalletKit();
       await kit.rejectSession({
         id: pendingProposal.id,
         reason: getSdkError('USER_REJECTED'),
@@ -266,7 +266,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
     setPendingRequest(null);
 
     try {
-      const kit = await getKuraWalletKit();
+      const kit = await getWalletKit();
       const result = await executeWalletConnectRequest(
         getEmbeddedProvider,
         sca,
@@ -284,7 +284,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
         ? t('walletConnect.insufficientUsdcForGas')
         : rawMessage;
       try {
-        const kit = await getKuraWalletKit();
+        const kit = await getWalletKit();
         await kit.respondSessionRequest({
           topic,
           response: formatWcError(id, message),
@@ -309,7 +309,7 @@ export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, c
 
   const handleRejectRequest = useCallback(async () => {
     if (!pendingRequest) return;
-    const kit = await getKuraWalletKit();
+    const kit = await getWalletKit();
     const { topic } = pendingRequest;
     await kit.respondSessionRequest({
       topic: pendingRequest.topic,

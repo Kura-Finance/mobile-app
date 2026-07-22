@@ -2,8 +2,8 @@
  * Morpho fee-wrapper resolution — merges env overrides with API discovery.
  */
 import {
-  hasKuraEarnFee,
-  KURA_EARN_FEE_RECIPIENT,
+  hasEarnFee,
+  EARN_FEE_RECIPIENT,
   MORPHO_EARN_FEE_RATE,
 } from '../../../config/earn';
 import {
@@ -58,7 +58,7 @@ function feeMatches(expected: number, actual: number): boolean {
 async function discoverFeeWrappersFromApi(): Promise<MorphoFeeWrapperMap> {
   const map: MorphoFeeWrapperMap = {};
 
-  if (!hasKuraEarnFee() || !isMorphoFeeWrapperAutoDiscoverEnabled()) {
+  if (!hasEarnFee() || !isMorphoFeeWrapperAutoDiscoverEnabled()) {
     return map;
   }
 
@@ -69,7 +69,7 @@ async function discoverFeeWrappersFromApi(): Promise<MorphoFeeWrapperMap> {
     );
     for (const item of data.vaultV2s?.items ?? []) {
       if (!feeMatches(MORPHO_EARN_FEE_RATE, item.performanceFee)) continue;
-      if (item.performanceFeeRecipient.toLowerCase() !== KURA_EARN_FEE_RECIPIENT.toLowerCase()) {
+      if (item.performanceFeeRecipient.toLowerCase() !== EARN_FEE_RECIPIENT.toLowerCase()) {
         continue;
       }
       for (const adapter of item.adapters?.items ?? []) {

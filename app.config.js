@@ -138,7 +138,15 @@ module.exports = {
       logodevToken: process.env.EXPO_PUBLIC_LOGODEV_TOKEN || "",
       pimlicoApiKey: process.env.EXPO_PUBLIC_PIMLICO_API_KEY || "",
       alchemyApiKey: process.env.EXPO_PUBLIC_ALCHEMY_API_KEY || "",
-      kuraEarnFeeRecipient: process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT || "",
+      earnFeeRecipient:
+        process.env.EXPO_PUBLIC_EARN_FEE_RECIPIENT ||
+        process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT ||
+        "",
+      /** @deprecated Prefer earnFeeRecipient — kept for older release binaries. */
+      kuraEarnFeeRecipient:
+        process.env.EXPO_PUBLIC_EARN_FEE_RECIPIENT ||
+        process.env.EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT ||
+        "",
       morphoEarnFee: process.env.EXPO_PUBLIC_MORPHO_EARN_FEE || "0.1",
       lifiIntegrator: process.env.EXPO_PUBLIC_LIFI_INTEGRATOR || "",
       lifiFee: process.env.EXPO_PUBLIC_LIFI_FEE || "",

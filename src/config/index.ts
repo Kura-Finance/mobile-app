@@ -1,4 +1,12 @@
-export { env, getResolvedApiBaseUrl, hasKuraBackend, assertKuraBackend, hasPimlicoApiKey } from './env';
+export {
+  env,
+  getResolvedApiBaseUrl,
+  hasAppBackend,
+  assertAppBackend,
+  hasKuraBackend,
+  assertKuraBackend,
+  hasPimlicoApiKey,
+} from './env';
 export {
   DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST,
   DEFAULT_EARN_VAULT_STATS_SOURCES,
@@ -6,18 +14,21 @@ export {
   MORPHO_EARN_FEE_RATE,
   MORPHO_EARN_VAULT_ALLOWLIST,
   MORPHO_FEE_WRAPPER_OVERRIDES,
+  EARN_FEE_RECIPIENT,
   KURA_EARN_FEE_RECIPIENT,
   appliesEarnServiceFee,
   effectiveEarnNetApy,
   filterEarnVaultAllowlist,
   formatEarnFeePercent,
   getEarnVaultStatsSource,
+  hasEarnFee,
   hasKuraEarnFee,
   isEarnVaultAllowed,
   isMorphoEarnEnabled,
   morphoEarnConfigSummary,
 } from './earn';
 export {
+  OFFICIAL_FEE_WRAPPER_DEFAULTS,
   DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES,
   hasEarnVaultFeeWrapper,
   isMorphoFeeWrapperAutoDiscoverEnabled,

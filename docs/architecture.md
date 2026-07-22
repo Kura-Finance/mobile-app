@@ -37,8 +37,8 @@ Technical map of the mobile client. The **Kura backend is a separate service** �
 └─────────────────────────────────────────────────────────┘
          │                              │
          ▼                              ▼
-   Kura backend (optional)      Third-party APIs
-   api.kura-finance.com          Privy, Pimlico, Li.Fi, …
+   App backend (optional)       Third-party APIs
+   EXPO_PUBLIC_API_BASE_URL      Privy, Pimlico, Li.Fi, …
 ```
 
 ### Security boundaries
@@ -80,10 +80,13 @@ Flow: Privy EOA → resolve Safe address (SecureStore → backend → compute) �
 
 ### WalletConnect (wallet mode)
 
-- **WalletKit** (`src/lib/walletconnect/kuraWalletKit.ts`) — inbound pairings
+- **WalletKit** (`src/lib/walletconnect/walletKit.ts`) — inbound pairings
+- `walletListing.ts` — AppKit custom wallet + icons (from branding)
 - `sessionRouter.ts` — JSON-RPC → SCA sign/send
 - **Chain:** Base only (`eip155:8453`)
 - Deep links: `deepLink.ts` + universal links from `branding.ts`
+
+UI may still use product-named providers (e.g. `KuraWalletConnectProvider`); kit logic is in the neutral modules above.
 
 Every signing path should pass through user-visible confirmation — see threat model.
 

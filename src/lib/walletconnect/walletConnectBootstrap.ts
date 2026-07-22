@@ -67,8 +67,8 @@ let walletKitWarmup: Promise<void> | null = null;
 /** Initialise WalletKit (wallet-mode SignClient) before AppKit when possible. */
 export function warmWalletConnectWalletMode(): Promise<void> {
   if (!walletKitWarmup) {
-    walletKitWarmup = import('./kuraWalletKit')
-      .then((m) => m.getKuraWalletKit())
+    walletKitWarmup = import('./walletKit')
+      .then((m) => m.getWalletKit())
       .then(() => undefined)
       .catch((err) => {
         walletKitWarmup = null;

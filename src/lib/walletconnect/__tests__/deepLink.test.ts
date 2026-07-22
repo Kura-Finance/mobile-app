@@ -20,7 +20,7 @@ describe('parseWalletConnectDeepLink', () => {
     expect(parseWalletConnectDeepLink(url)).toBe(PAIRING_URI);
   });
 
-  it('parses universal link on kura-finance.com', () => {
+  it('parses universal link on brand host', () => {
     const url = `https://kura-finance.com/dashboard/wc?uri=${encodeURIComponent(PAIRING_URI)}`;
     expect(parseWalletConnectDeepLink(url)).toBe(PAIRING_URI);
   });

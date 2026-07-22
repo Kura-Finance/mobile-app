@@ -11,7 +11,7 @@ import { env, hasPimlicoApiKey } from './env';
 import { hasEarnVaultFeeWrapper, morphoFeeWrapperConfigSummary, MORPHO_FEE_WRAPPER_OVERRIDES, normalizeMorphoVaultAddress } from './earnFeeWrapper';
 import { DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST } from './morphoVaultAddresses';
 
-// ── Defaults (Kura official app) ──────────────────────────────────────────────
+// ── Defaults (official app allowlist — forks may override via env) ────────────
 
 /** Underlying Morpho vaults (Base) — Steakhouse Prime USDC, Gauntlet EURC Balanced, Gauntlet USDC Prime, Gauntlet USDC Frontier. */
 export { DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST };
@@ -98,24 +98,29 @@ export function resolveEarnPositionVaultKey(vaultAddress: string): string | null
 
 export const MORPHO_EARN_FEE_RATE = parseFeeRate(env.morphoEarnFee);
 export const MORPHO_EARN_FEE_BPS = Math.round(MORPHO_EARN_FEE_RATE * 10_000);
-export const KURA_EARN_FEE_RECIPIENT = env.kuraEarnFeeRecipient as `0x${string}` | '';
+export const EARN_FEE_RECIPIENT = env.earnFeeRecipient as `0x${string}` | '';
+/** @deprecated Prefer {@link EARN_FEE_RECIPIENT}. */
+export const KURA_EARN_FEE_RECIPIENT = EARN_FEE_RECIPIENT;
 
-export function hasKuraEarnFee(): boolean {
-  return MORPHO_EARN_FEE_BPS > 0 && KURA_EARN_FEE_RECIPIENT.length > 0;
+export function hasEarnFee(): boolean {
+  return MORPHO_EARN_FEE_BPS > 0 && EARN_FEE_RECIPIENT.length > 0;
 }
+
+/** @deprecated Prefer {@link hasEarnFee}. */
+export const hasKuraEarnFee = hasEarnFee;
 
 export function formatEarnFeePercent(): string {
   return `${(MORPHO_EARN_FEE_RATE * 100).toFixed(0)}%`;
 }
 
 /** Estimated user APY after yield-only service fee (performance fee on earnings). */
-export function effectiveEarnNetApy(grossNetApy: number, appliesServiceFee = hasKuraEarnFee()): number {
+export function effectiveEarnNetApy(grossNetApy: number, appliesServiceFee = hasEarnFee()): number {
   if (!appliesServiceFee || !Number.isFinite(grossNetApy) || grossNetApy <= 0) return grossNetApy;
   return grossNetApy * (1 - MORPHO_EARN_FEE_RATE);
 }
 
 /**
- * Whether to disclose Kura service fee in UI for a vault (sync config check).
+ * Whether to disclose the service fee in UI for a vault (sync config check).
  * Uses fee rate + fee-wrapper map only — recipient env is for on-chain routing / API discovery.
  */
 export function appliesEarnServiceFee(vaultAddress: string): boolean {
@@ -140,7 +145,7 @@ export function morphoEarnConfigSummary() {
     enabled: isMorphoEarnEnabled(),
     vaultCount: MORPHO_EARN_VAULT_ALLOWLIST.length,
     performanceFeeBps: MORPHO_EARN_FEE_BPS,
-    hasFeeRecipient: KURA_EARN_FEE_RECIPIENT.length > 0,
+    hasFeeRecipient: EARN_FEE_RECIPIENT.length > 0,
     feeWrapper: morphoFeeWrapperConfigSummary(),
   };
 }
