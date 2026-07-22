@@ -12,6 +12,8 @@ Where to change what when maintaining this client. Prefer config modules over sc
 
 ### Change brand only
 
+Full visual tokens (colors, logos, icons): [brand-identity.md](brand-identity.md).
+
 Edit **both** (must stay in sync):
 
 | File | Native / Expo | Runtime TS |

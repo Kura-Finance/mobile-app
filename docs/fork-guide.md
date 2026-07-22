@@ -33,7 +33,7 @@ Typical changes:
 | `universalLinkHost` | App Links / Universal Links host |
 | `walletId` | Stable ID for Reown WalletGuide |
 
-Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png` (web favicon reuses `icon.png`).
+Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png`, `card.webp` (web favicon reuses `icon.png`). Full color / logo / icon inventory: [brand-identity.md](brand-identity.md).
 
 Update [`app.config.js`](../app.config.js) `version` when shipping releases.
 

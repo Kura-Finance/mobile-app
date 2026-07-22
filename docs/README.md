@@ -21,6 +21,7 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 
 | Guide | Who it's for |
 |-------|--------------|
+| [Brand identity](brand-identity.md) | Design / rebrand — colors, logos, icons, assets |
 | [Maintainers map](maintainers.md) | Engineers changing brand, env, or modules |
 | [Handover checklist](handover.md) | Buyers / ops transferring the product |
 | [Rebrand guide](fork-guide.md) | Teams white-labeling the client |
@@ -74,6 +75,7 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 
 | 文档 | 适合对象 |
 |------|----------|
+| [品牌识别](brand-identity.md) | 设计 / 换牌 — 色票、Logo、图标、资源 |
 | [维护地图](maintainers.md) | 改品牌 / env / 模块的工程师 |
 | [交接清单](handover.md) | 买家 / 运维交接 |
 | [换牌指南](fork-guide.md) | 换牌 / 白标团队 |
