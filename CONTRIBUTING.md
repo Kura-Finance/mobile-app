@@ -30,7 +30,7 @@ npx tsc --noEmit
 - Do not commit `.env`, keystores, or `android/gradle.properties` / `local.properties`.
 - Match existing TypeScript, i18n (`en` + `zh-TW`), and module layout under `src/`.
 - Update docs when you change env vars, trust boundaries, or public APIs.
-- Brand / trademark: see [NOTICE](NOTICE) and [docs/fork-guide.md](docs/fork-guide.md).
+- Brand / rebrand: see [docs/fork-guide.md](docs/fork-guide.md) and [docs/brand-identity.md](docs/brand-identity.md).
 
 ## License
 

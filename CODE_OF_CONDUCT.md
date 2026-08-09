@@ -33,8 +33,9 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to **security@kura-finance.com**. All complaints will be reviewed and
-investigated promptly and fairly.
+reported to the repository maintainers via
+[GitHub](https://github.com/Kura-Finance/mobile-app). All complaints will be
+reviewed and investigated promptly and fairly.
 
 Maintainers are obligated to respect the privacy and security of the reporter.
 

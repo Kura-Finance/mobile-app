@@ -279,16 +279,16 @@ function SupportContactLink() {
   const { colors } = useTheme();
   const c = useStyles();
 
-  const openSupportEmail = () => {
-    void Linking.openURL(`mailto:${brand.supportEmail}`).catch(() => undefined);
+  const openSupport = () => {
+    void Linking.openURL(brand.supportUrl).catch(() => undefined);
   };
 
   return (
-    <TouchableOpacity style={c.supportLink} onPress={openSupportEmail} activeOpacity={0.7}>
-      <Ionicons name="mail-outline" size={16} color={colors.primary} />
+    <TouchableOpacity style={c.supportLink} onPress={openSupport} activeOpacity={0.7}>
+      <Ionicons name="logo-github" size={16} color={colors.primary} />
       <Text style={c.supportLinkText}>
         {t('card.contactSupport')}{' '}
-        <Text style={c.supportEmailText}>{brand.supportEmail}</Text>
+        <Text style={c.supportEmailText}>{t('card.contactSupportGithub')}</Text>
       </Text>
     </TouchableOpacity>
   );

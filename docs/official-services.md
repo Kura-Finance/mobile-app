@@ -75,7 +75,6 @@ See [local-release.md](local-release.md).
 - Change bundle ID and domains in [`app.config.branding.js`](../app.config.branding.js) + [`src/config/branding.ts`](../src/config/branding.ts).
 - Create your own Privy app and WC project; Pimlico key only if you want USDC gas.
 - Leave backend URL / logo.dev empty for a wallet-only fork.
-- Do not ship Kura trademarks in a public fork without permission.
 - Full guide: [fork-guide.md](fork-guide.md).
 
 ---
@@ -116,4 +115,4 @@ See [local-release.md](local-release.md).
 
 ### Fork
 
-见 [fork-guide.md](fork-guide.md)；勿未授权使用 Kura 商标。
+见 [fork-guide.md](fork-guide.md)。

@@ -8,10 +8,7 @@ Security fixes are applied on the default branch (`main`) of this repository.
 
 Please **do not** open a public GitHub issue for security-sensitive reports.
 
-Prefer one of:
-
-1. [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) (private report), or
-2. Email **security@kura-finance.com** with a clear description, impact, and reproduction steps.
+Use [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) (private report) with a clear description, impact, and reproduction steps.
 
 We aim to acknowledge reports within **7 days** and to keep you updated while we investigate.
 

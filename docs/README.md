@@ -41,7 +41,6 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 | [Secrets rotation](secrets-rotation.md) | What to rotate if credentials leak |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | PR workflow, conventions |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
-| [NOTICE](../NOTICE) | Trademark notice (marks not covered by MIT) |
 
 ### Reference
 
@@ -49,7 +48,7 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |----------|---------|
 | [`.env.example`](../.env.example) | All environment variables with comments |
 | [i18n guide](../src/shared/locales/README.md) | Translation workflow (en / zh-TW) |
-| [LICENSE](../LICENSE) | MIT — © Kura Finance LLC |
+| [LICENSE](../LICENSE) | MIT — © Rick Weng |
 
 ### Design principles
 
@@ -96,7 +95,6 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 | [密钥轮换](secrets-rotation.md) | 凭证泄露后的处理 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | PR 流程与规范 |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | 行为准则 |
-| [NOTICE](../NOTICE) | 商标声明（商标不在 MIT 范围内） |
 
 ### 参考
 
@@ -104,7 +102,7 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |------|------|
 | [`.env.example`](../.env.example) | 环境变量说明 |
 | [国际化指南](../src/shared/locales/README.md) | 翻译流程 |
-| [LICENSE](../LICENSE) | MIT — © Kura Finance LLC |
+| [LICENSE](../LICENSE) | MIT — © Rick Weng |
 
 ### 文档原则
 

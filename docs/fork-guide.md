@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Rebrand or fork the mobile client for an alternate brand build. The **hosted backend is not included**. Kura trademarks are not granted by the MIT license — see [NOTICE](../NOTICE), [official-services.md](official-services.md), and [transparency.md](transparency.md).
+Rebrand or fork the mobile client for an alternate brand build. The **hosted backend is not included**. See [official-services.md](official-services.md) and [transparency.md](transparency.md).
 
 **Hub:** [docs/README.md](README.md) · **Before publishing:** update [SECURITY.md](../SECURITY.md) contact, follow [secrets-rotation.md](secrets-rotation.md), and comply with [LICENSE](../LICENSE).
 

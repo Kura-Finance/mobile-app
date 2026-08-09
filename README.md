@@ -5,7 +5,6 @@
 **Kura** is a non-custodial smart wallet on **Base**. This repository is the **React Native / Expo mobile client** — login, signing, WalletConnect, and optional finance tracking.
 
 > **MIT open source** — see [LICENSE](LICENSE).  
-> **Trademarks** (“Kura”, logo, etc.) are **not** licensed under MIT — see [NOTICE](NOTICE).  
 > The **hosted backend is not in this repository.** Leave `EXPO_PUBLIC_API_BASE_URL` empty for wallet-only builds.
 
 **[Documentation hub →](docs/README.md)** · [Trust model](docs/transparency.md) · [Threat model](docs/threat-model.md) · [Report a vulnerability](SECURITY.md)
@@ -85,7 +84,7 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 
 ### License
 
-[MIT](LICENSE) — © 2026 Kura Finance LLC. Trademarks: [NOTICE](NOTICE).
+[MIT](LICENSE) — © 2026 Rick Weng.
 
 ---
 
@@ -103,7 +102,6 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 | **可选** | Dinari、logo.dev、Li.Fi integrator、Morpho fee-wrapper |
 
 > **MIT 开源** — 见 [LICENSE](LICENSE)。  
-> **商标**（Kura 名称 / Logo 等）**不在** MIT 授权范围内 — 见 [NOTICE](NOTICE)。  
 > 托管后端不在此仓库；留空 `EXPO_PUBLIC_API_BASE_URL` 可仅跑钱包。
 
 **[文档索引 →](docs/README.md)**
@@ -144,4 +142,4 @@ npx expo run:ios
 
 ### 授权
 
-[MIT](LICENSE) — © 2026 Kura Finance LLC。商标见 [NOTICE](NOTICE)。
+[MIT](LICENSE) — © 2026 Rick Weng。

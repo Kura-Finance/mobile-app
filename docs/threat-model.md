@@ -95,7 +95,7 @@ TrackFi (backend required)
 4. `src/lib/api/client.ts` — authenticated HTTP and token attachment  
 5. `src/config/env.ts` + `features.ts` — configuration surface  
 
-Report findings privately: **security@kura-finance.com** ([SECURITY.md](../SECURITY.md)).
+Report findings privately via [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) — see [SECURITY.md](../SECURITY.md).
 
 ---
 
@@ -146,4 +146,4 @@ Privy、Pimlico、Reown、（若启用）Kura 后端、**用户自身对 calldat
 
 `src/lib/wallet/`、`sessionRouter.ts`、`src/lib/crypto/`、`src/lib/api/client.ts`、`env.ts` / `features.ts`。
 
-私下报告：**security@kura-finance.com**。
+私下报告：见 [SECURITY.md](../SECURITY.md)（GitHub Security Advisories）。

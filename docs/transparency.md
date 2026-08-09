@@ -79,7 +79,7 @@ See [threat-model.md](threat-model.md) for adversaries and mitigations.
 
 ### Reporting gaps
 
-If documentation and code disagree, open a [GitHub issue](https://github.com/Kura-Finance/mobile-app/issues). For security-relevant gaps, use [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) or email **security@kura-finance.com** — see [SECURITY.md](../SECURITY.md).
+If documentation and code disagree, open a [GitHub issue](https://github.com/Kura-Finance/mobile-app/issues). For security-relevant gaps, use [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) — see [SECURITY.md](../SECURITY.md).
 
 ---
 
@@ -132,7 +132,7 @@ npm test && npx expo run:ios
 
 Privy、Pimlico（bundler / 可选 paymaster）、Reown、（若启用）Kura 后端，以及**你自己对 UI 中 calldata 的确认**。详见 [threat-model.md](threat-model.md)。
 
-文档与代码不一致时，请开 [GitHub issue](https://github.com/Kura-Finance/mobile-app/issues)。安全相关问题请用 [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) 或邮件 **security@kura-finance.com** — 见 [SECURITY.md](../SECURITY.md)。
+文档与代码不一致时，请开 [GitHub issue](https://github.com/Kura-Finance/mobile-app/issues)。安全相关问题请用 [GitHub Security Advisories](https://github.com/Kura-Finance/mobile-app/security/advisories/new) — 见 [SECURITY.md](../SECURITY.md)。
 
 ### 客户端与后端
 

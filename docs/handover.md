@@ -34,7 +34,7 @@ Leave `EXPO_PUBLIC_API_BASE_URL` empty for **wallet-only**. TrackFi, Dinari, Pla
 ### Minimum path for a new maintainer
 
 1. Read [transparency.md](transparency.md) and [maintainers.md](maintainers.md).
-2. Edit brand in **both** [`app.config.branding.js`](../app.config.branding.js) and [`src/config/branding.ts`](../src/config/branding.ts) (or keep official values). See [NOTICE](../NOTICE) for trademarks.
+2. Edit brand in **both** [`app.config.branding.js`](../app.config.branding.js) and [`src/config/branding.ts`](../src/config/branding.ts) (or keep official values).
 3. `cp .env.example .env` — fill Privy + WalletConnect at minimum (Pimlico optional for USDC gas).
 4. Prefer `EXPO_PUBLIC_WALLET_ICON_URL` (legacy `EXPO_PUBLIC_KURA_WALLET_ICON_URL` still works).
 5. `npx expo prebuild --clean` → run iOS/Android → `npm test && npm run lint && npx tsc --noEmit`.
@@ -63,7 +63,7 @@ No App Store IAP in this client. Optional revenue (integrator fee, Morpho fee-wr
 ### 接手最小步骤
 
 1. 读 [transparency.md](transparency.md)、[maintainers.md](maintainers.md)。
-2. 同步改 branding 两个文件（或沿用官方品牌）；商标见 [NOTICE](../NOTICE)。
+2. 同步改 branding 两个文件（或沿用官方品牌）。
 3. 从 `.env.example` 配置；至少 Privy + WalletConnect。
 4. prebuild → 真机跑通 → lint / test / tsc。
 5. 上架见 [local-release.md](local-release.md)。

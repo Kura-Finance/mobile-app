@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, forking, or auditing UI consistency. Trademarks: [NOTICE](../NOTICE).
+Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, forking, or auditing UI consistency.
 
 **Related:** [fork-guide.md](fork-guide.md) · [maintainers.md](maintainers.md) · [handover.md](handover.md)
 
@@ -33,7 +33,7 @@ Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and pa
 | URL scheme | `kura://` | branding |
 | Tagline | One app to manage all your finances, from tradFi to crypto. | `brand.appDescription` |
 | Homepage | `https://kura-finance.com` | branding → legal WebViews |
-| Support | `support@kura-finance.com` | branding |
+| Support | GitHub Issues (`brand.supportUrl`) | branding |
 | WalletConnect wallet id | `kura-wallet` | branding → AppKit |
 | Public wallet icon URL | `https://kura-finance.com/icon.png` | `brand.defaultIconUrl` (override: `EXPO_PUBLIC_WALLET_ICON_URL`) |
 | Passkey RP name / host | `Kura` / `api.kura-finance.com` | branding |
