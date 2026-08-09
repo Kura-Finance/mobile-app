@@ -14,46 +14,51 @@ What the **mobile client** connects to — the trust boundary between on-device 
 
 | Type | Examples | Config / code |
 |------|----------|---------------|
-| **App backend** | Auth, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
-| **Third-party (your keys)** | Privy, Pimlico, Reown, Li.Fi, logo.dev | `.env` → `src/config/env.ts` |
+| **Required SaaS keys** | Privy, Reown | `.env` → `src/config/env.ts` |
+| **Public endpoints** | Base RPC, Pimlico public bundler, Li.Fi, Morpho, CoinGecko, Blockscout | Built-in defaults — no key |
+| **Optional SaaS keys** | Pimlico (USDC gas), logo.dev, CoinGecko / Li.Fi rate limits | `.env` |
+| **App backend** | Auth JWT, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
-| **Public RPC / CDN** | Base chain, logo images | RPC URL + logo.dev token |
+| **Optional CDN keys** | logo.dev | Unset → glyphs / Clearbit |
 
 ### Feature matrix
 
 | Feature | Needs backend URL | Other requirements | Notes |
 |---------|-------------------|--------------------|-------|
 | Login (Privy) | No* | Privy App ID + Client ID | *JWT profile sync needs backend |
-| Smart wallet (send/receive USDC) | No | Privy, Pimlico, Base RPC | SCA auto-provisioned |
-| Crypto swap / bridge | No | Li.Fi (optional fee keys) | Same-chain + cross-chain via Li.Fi |
+| Smart wallet (send/receive USDC) | No | Privy, Base RPC; Pimlico key optional | No key → public bundler + ETH gas; key + flag → USDC gas |
+| Crypto swap / bridge | No | Li.Fi public API | Optional integrator fee + API key |
 | WalletConnect dApps | No | WC project id, Privy | Base only |
 | TrackFi (Plaid, brokers) | **Yes** | Passkey registration | E2EE snapshots |
 | DeBank DeFi portfolio | **Yes** | Backend proxy | Client normalizes in `debank/normalize.ts` |
-| Dinari stocks | **Yes** | Feature flag `dinariStocks` | On when `hasAppBackend()` (backend URL set) |
-| Morpho Earn | No | `morphoEarn` + Pimlico | Public Morpho GraphQL; vault list in `src/config/earn.ts` |
-| Kura Card (waitlist UI) | No | — | Card manager + waitlist; full GP onboarding is separate |
-| Stock/crypto logos | No | `EXPO_PUBLIC_LOGODEV_TOKEN` | Falls back to glyphs |
+| Dinari stocks | **Yes** | Feature flag `dinariStocks` | On when `hasAppBackend()` |
+| Morpho Earn | No | `morphoEarn` (SCA) | Direct Morpho by default; optional fee-wrapper via env |
+| Kura Card (waitlist UI) | No | — | Card manager + waitlist |
+| Logos | No | Optional `EXPO_PUBLIC_LOGODEV_TOKEN` | Glyphs / Clearbit without token |
 
-### Third-party dashboards
+### Required dashboards (no public substitute)
 
 | Service | Dashboard | Used for |
 |---------|-----------|----------|
 | Privy | [dashboard.privy.io](https://dashboard.privy.io) | Auth, embedded wallet |
 | Reown | [cloud.reown.com](https://cloud.reown.com) | WalletConnect project id |
-| Pimlico | [dashboard.pimlico.io](https://dashboard.pimlico.io) | ERC-4337 bundler / paymaster |
-| logo.dev | [logo.dev](https://logo.dev) | Ticker / crypto / domain logos |
-| Li.Fi | [li.fi](https://li.fi) | Bridge / swap aggregator |
-| Morpho | [docs.morpho.org](https://docs.morpho.org) | Vault listings + APY (public GraphQL) |
 
-### Base RPC
+### Public endpoints (default)
 
-Set `EXPO_PUBLIC_BASE_RPC_URL` to Alchemy, Infura, or another provider. The client automatically retries **`https://mainnet.base.org`** if the primary endpoint fails (`createBaseTransport()` in `cardWalletConfig.ts`).
+| Service | Endpoint | Notes |
+|---------|----------|-------|
+| Base RPC | `https://mainnet.base.org` | Override with `EXPO_PUBLIC_BASE_RPC_URL`; auto-fallback in `createBaseTransport()` |
+| Pimlico public bundler | `https://public.pimlico.io/v2/8453/rpc` | Used when no API key; SCA pays gas in ETH |
+| Li.Fi | `https://li.quest/v1` | Swap + bridge; optional integrator (`LIFI_INTEGRATOR` + `LIFI_FEE`) / API key |
+| Morpho | `https://api.morpho.org/graphql` | Vault listings + APY; optional fee-wrapper via env |
+| CoinGecko | `https://api.coingecko.com/api/v3` | Prices / charts; optional Demo key |
+| Blockscout | `https://base.blockscout.com/api` | Wallet activity |
 
-### logo.dev on mobile
+Optional Pimlico API key ([dashboard.pimlico.io](https://dashboard.pimlico.io)) enables USDC gas via ERC-20 paymaster.
 
-Publishable key (`pk_…`) is embedded at build time. Also copied to `app.config.js` → `extra.logodevToken` for release reads via `Constants.expoConfig.extra`.
+### Optional: logo.dev
 
-If your logo.dev project enables **Allowed Domains Only**, add your app website (e.g. `kura-finance.com`) or disable restrictions — React Native does not send browser Referer by default; the client adds it in `logoDevImageSource()`.
+Publishable key (`pk_…`) improves ticker/crypto logos. When unset, the UI uses glyphs; domain logos can fall back to Clearbit (`src/config/logodev.ts`).
 
 ### Official app defaults
 
@@ -68,7 +73,8 @@ See [local-release.md](local-release.md).
 ### Forking
 
 - Change bundle ID and domains in [`app.config.branding.js`](../app.config.branding.js) + [`src/config/branding.ts`](../src/config/branding.ts).
-- Create your own Privy app, WC project, Pimlico key, logo.dev key.
+- Create your own Privy app and WC project; Pimlico key only if you want USDC gas.
+- Leave backend URL / logo.dev empty for a wallet-only fork.
 - Do not ship Kura trademarks in a public fork without permission.
 - Full guide: [fork-guide.md](fork-guide.md).
 
@@ -80,31 +86,29 @@ See [local-release.md](local-release.md).
 
 | 类型 | 例子 | 配置 |
 |------|------|------|
-| **托管后端** | 登录、Plaid、DeBank、Dinari | `EXPO_PUBLIC_API_BASE_URL` |
-| **第三方（自备 key）** | Privy、Pimlico、WC、Li.Fi、logo.dev | `.env` |
+| **必需 SaaS key** | Privy、WC | `.env` |
+| **公用节点** | Base RPC、Pimlico 公开 bundler、Li.Fi、Morpho、CoinGecko、Blockscout | 内置默认，无需 key |
+| **托管后端** | 登录 JWT、Plaid、DeBank、Dinari | `EXPO_PUBLIC_API_BASE_URL` |
 | **纯客户端** | 签名、WC UI、SecureStore | 钱包与 WC 模块 |
+| **可选** | Pimlico（USDC gas）、logo.dev | 未设置则 ETH gas / 字形 |
 
 ### 功能对照
 
 | 功能 | 需要后端 | 其他 |
 |------|----------|------|
 | Privy 登录 | 否* | Privy 凭证 |
-| 智能钱包 | 否 | Privy + Pimlico + RPC |
-| Swap / Bridge | 否 | Li.Fi（可选） |
+| 智能钱包 | 否 | Privy + 公用 Base RPC；无 Pimlico key 时公开 bundler + ETH gas |
+| Swap / Bridge | 否 | Li.Fi 公用 API |
 | WalletConnect | 否 | WC Project ID |
 | TrackFi / Plaid | **是** | Passkey |
 | DeBank | **是** | 后端代理 |
-| Dinari 股票 | **是** | 有后端 URL 时开启（`hasAppBackend()`） |
-| Kura Card | 否 | 卡片 UI + waitlist |
-| logo.dev 图标 | 否 | `EXPO_PUBLIC_LOGODEV_TOKEN` |
+| Dinari 股票 | **是** | 有后端 URL 时开启 |
+| Morpho Earn | 否 | 公用 Morpho GraphQL + SCA |
+| 图标 | 否 | logo.dev 可选 |
 
 ### Base RPC
 
-主 RPC 失败时自动 fallback 到 `mainnet.base.org`。
-
-### logo.dev
-
-Release 构建需在 `.env` 中配置 token；若开启域名限制，请允许 `kura-finance.com` 或关闭限制。
+默认免费公共节点 `https://mainnet.base.org`；可用 `EXPO_PUBLIC_BASE_RPC_URL` 覆盖，失败时自动 fallback。
 
 ### 官方 App
 

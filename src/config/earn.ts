@@ -1,13 +1,14 @@
 /**
  * Morpho Earn configuration.
  *
- * Vault listings use Morpho's public GraphQL API. Deposits and withdrawals
- * require a Pimlico smart-account key. All env vars are read via {@link env}.
+ * Vault listings use Morpho's public GraphQL API. Deposits go to listed Morpho
+ * vaults by default; optional fee-wrapper routing via env (see earnFeeWrapper.ts).
+ * On-chain actions use the SCA bundler (public + ETH gas, or Pimlico + USDC gas).
  *
  * @see docs/fork-guide.md
  */
 
-import { env, hasPimlicoApiKey } from './env';
+import { env } from './env';
 import { hasEarnVaultFeeWrapper, morphoFeeWrapperConfigSummary, MORPHO_FEE_WRAPPER_OVERRIDES, normalizeMorphoVaultAddress } from './earnFeeWrapper';
 import { DEFAULT_MORPHO_EARN_VAULT_ALLOWLIST } from './morphoVaultAddresses';
 
@@ -33,10 +34,11 @@ function envBool(raw: string, fallback: boolean): boolean {
   return raw.toLowerCase() === 'true' || raw === '1';
 }
 
+/** Performance fee rate 0–1. Unset / empty → 0 (direct Morpho, no service fee). */
 function parseFeeRate(raw: string): number {
-  if (!raw) return 0.1;
+  if (!raw) return 0;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0 || n > 1) return 0.1;
+  if (!Number.isFinite(n) || n < 0 || n > 1) return 0;
   return n;
 }
 
@@ -58,10 +60,10 @@ function parseVaultAllowlist(raw: string): readonly `0x${string}`[] {
 
 /**
  * Whether Morpho Earn UI and vault actions are enabled.
- * Default: on when a Pimlico key is configured (required for on-chain earn txs).
+ * Default: on (SCA txs work via public bundler + ETH gas without a Pimlico key).
  */
 export function isMorphoEarnEnabled(): boolean {
-  return envBool(env.morphoEarnEnabled, hasPimlicoApiKey());
+  return envBool(env.morphoEarnEnabled, true);
 }
 
 // ── Vault allowlist ───────────────────────────────────────────────────────────

@@ -1,11 +1,10 @@
 /**
  * Shared Li.Fi configuration for the bridge + swap clients.
- * Env vars: src/config/env.ts — see .env.example.
+ * Public API by default — see .env.example.
  *
- * Integrator fees require:
- *  1. EXPO_PUBLIC_LIFI_INTEGRATOR + EXPO_PUBLIC_LIFI_FEE in .env before build
- *  2. Fee wallet configured at https://portal.li.fi/ for that integrator id
- * Fees on Base are forwarded to your wallet at tx execution (FeeForwarder).
+ * Optional integrator fees (both required to collect):
+ *  1. EXPO_PUBLIC_LIFI_INTEGRATOR + EXPO_PUBLIC_LIFI_FEE before build
+ *  2. Fee wallet registered at https://portal.li.fi/ for that integrator id
  */
 
 import { env } from '../../../config/env';

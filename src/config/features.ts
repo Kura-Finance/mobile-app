@@ -4,8 +4,8 @@
  * Core wallet + WalletConnect work without a hosted backend.
  * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL.
  *
- * Morpho Earn uses Morpho's public API (no app backend) but needs Pimlico
- * for on-chain deposits — see src/config/earn.ts.
+ * Morpho Earn uses Morpho's public API (no app backend). On-chain deposits use
+ * the SCA bundler (public + ETH, or Pimlico + USDC) — see src/config/earn.ts.
  */
 
 import { isMorphoEarnEnabled } from './earn';
@@ -30,13 +30,10 @@ export const features = {
   /** Dinari dShares in Invest → US Stock tab (on when backend URL is set). */
   dinariStocks: hasAppBackend(),
 
-  /** Li.Fi bridge / swap integrator fee (optional). */
+  /** Li.Fi bridge / swap (public API; optional API key). */
   lifiSwap: true,
 
-  /**
-   * Morpho vault earn on Base (public GraphQL + smart-account deposits).
-   * Disable with EXPO_PUBLIC_MORPHO_EARN_ENABLED=false.
-   */
+  /** Morpho vault earn on Base (public GraphQL + smart-account deposits).*/
   morphoEarn: isMorphoEarnEnabled(),
 } as const;
 

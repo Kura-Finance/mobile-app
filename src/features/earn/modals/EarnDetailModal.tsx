@@ -150,8 +150,7 @@ export default function EarnDetailModal({
     () => resolveMorphoDepositFromMap(v?.address ?? '', MORPHO_FEE_WRAPPER_OVERRIDES),
     [v?.address],
   );
-  const appliesServiceFee =
-    appliesEarnServiceFee(v?.address ?? '') || depositRouting.usesFeeWrapper;
+  const appliesServiceFee = appliesEarnServiceFee(v?.address ?? '');
   const displayNetApy = effectiveEarnNetApy(grossNetApy, appliesServiceFee);
   const balanceUsd = depositedUsd > 0 ? depositedUsd : position.assetsFormatted;
   const tokenBalance = position.assetsFormatted > 0 ? position.assetsFormatted : depositedUsd;
@@ -352,7 +351,7 @@ export default function EarnDetailModal({
             action={actionSheet ?? 'deposit'}
             vault={v}
             depositAddress={position.depositAddress || depositRouting.depositAddress || v.address}
-            usesFeeWrapper={appliesServiceFee || position.usesFeeWrapper}
+            usesFeeWrapper={depositRouting.usesFeeWrapper || position.usesFeeWrapper}
             vaultBalance={position.assetsFormatted}
             scaAddress={scaAddress}
             executeMorphoDeposit={wallet.executeMorphoDeposit}

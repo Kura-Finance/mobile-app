@@ -1,5 +1,5 @@
 /**
- * Morpho GraphQL client — shared by vault listings and fee-wrapper discovery.
+ * Morpho GraphQL client — shared by vault listings.
  */
 export const MORPHO_GRAPHQL_URL = 'https://api.morpho.org/graphql';
 export const MORPHO_BASE_CHAIN_ID = 8453;

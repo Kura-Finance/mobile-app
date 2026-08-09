@@ -214,7 +214,7 @@ export default function SendView({
           </TouchableOpacity>
 
           {!showGas ? (
-            <Text style={s.networkNote}>{t('card.gasSponsoredNote')}</Text>
+            <Text style={s.networkNote}>{t('card.gasEthNote')}</Text>
           ) : null}
         </ScrollView>
 

@@ -154,7 +154,7 @@ export default function EarnActionSheet({
     };
   }, [vault, depositAddress, usesFeeWrapper]);
 
-  const showServiceFee = vault ? appliesEarnServiceFee(vault.address) || usesFeeWrapper : false;
+  const showServiceFee = vault ? appliesEarnServiceFee(vault.address) : false;
 
   useEffect(() => {
     if (visible) {

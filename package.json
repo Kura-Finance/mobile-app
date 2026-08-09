@@ -108,7 +108,7 @@
     "vitest": "^3.2.6"
   },
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "overrides": {
     "valtio": "1.13.2",
     "@walletconnect/core": "2.23.9",

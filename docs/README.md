@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Welcome to the mobile client documentation. These guides explain how the app works, trust boundaries, how to build or ship releases, and how to hand the repo to a new maintainer.
+Welcome to the mobile client documentation. These guides explain how the app works, trust boundaries, how to build or ship releases, and how to onboard maintainers or forks.
 
 ---
 
@@ -23,8 +23,8 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |-------|--------------|
 | [Brand identity](brand-identity.md) | Design / rebrand — colors, logos, icons, assets |
 | [Maintainers map](maintainers.md) | Engineers changing brand, env, or modules |
-| [Handover checklist](handover.md) | Buyers / ops transferring the product |
-| [Rebrand guide](fork-guide.md) | Teams white-labeling the client |
+| [Maintainer checklist](handover.md) | Ops / maintainers onboarding or transferring ownership |
+| [Fork / rebrand guide](fork-guide.md) | Teams forking or rebranding the client |
 | [Official & third-party services](official-services.md) | Anyone mapping API keys and backend dependencies |
 
 ### Build & ship
@@ -39,8 +39,9 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |----------|---------|
 | [SECURITY.md](../SECURITY.md) | Vulnerability reporting, scope, response expectations |
 | [Secrets rotation](secrets-rotation.md) | What to rotate if credentials leak |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | PR workflow, conventions, IP |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | PR workflow, conventions |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
+| [NOTICE](../NOTICE) | Trademark notice (marks not covered by MIT) |
 
 ### Reference
 
@@ -48,15 +49,15 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |----------|---------|
 | [`.env.example`](../.env.example) | All environment variables with comments |
 | [i18n guide](../src/shared/locales/README.md) | Translation workflow (en / zh-TW) |
-| [LICENSE](../LICENSE) | Proprietary — © Kura Finance LLC |
+| [LICENSE](../LICENSE) | MIT — © Kura Finance LLC |
 
 ### Design principles
 
-1. **Honest scope** — clearly label client, proprietary backend, and third-party trust.
+1. **Honest scope** — clearly label client, optional hosted backend, and third-party trust.
 2. **Local verifiability** — instructions to compile and exercise critical security flows.
 3. **Actionable security** — private disclosure path, rotation checklists, and threat-model alignment.
 4. **Operational clarity** — env, branding, and release steps stay in sync with code.
-5. **Buyer-friendly surface** — brand and secrets live in config; prefer neutral maintainer APIs (`hasAppBackend`, `walletKit`).
+5. **Fork-friendly surface** — brand and secrets live in config; prefer neutral maintainer APIs (`hasAppBackend`, `walletKit`).
 
 ---
 
@@ -77,8 +78,8 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |------|----------|
 | [品牌识别](brand-identity.md) | 设计 / 换牌 — 色票、Logo、图标、资源 |
 | [维护地图](maintainers.md) | 改品牌 / env / 模块的工程师 |
-| [交接清单](handover.md) | 买家 / 运维交接 |
-| [换牌指南](fork-guide.md) | 换牌 / 白标团队 |
+| [维护者清单](handover.md) | 运维 / 维护者接手 |
+| [换牌指南](fork-guide.md) | Fork / 换牌团队 |
 | [官方与第三方服务](official-services.md) | 梳理 API Key 与后端依赖 |
 
 ### 构建与发布
@@ -95,6 +96,7 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 | [密钥轮换](secrets-rotation.md) | 凭证泄露后的处理 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | PR 流程与规范 |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | 行为准则 |
+| [NOTICE](../NOTICE) | 商标声明（商标不在 MIT 范围内） |
 
 ### 参考
 
@@ -102,8 +104,8 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |------|------|
 | [`.env.example`](../.env.example) | 环境变量说明 |
 | [国际化指南](../src/shared/locales/README.md) | 翻译流程 |
-| [LICENSE](../LICENSE) | 专有授权 — © Kura Finance LLC |
+| [LICENSE](../LICENSE) | MIT — © Kura Finance LLC |
 
 ### 文档原则
 
-**边界诚实**、**本地可核对**、**安全可行动**、**运维清晰**、**维护面中性**（品牌与密钥集中在 config）。
+**边界诚实**、**本地可核对**、**安全可行动**、**运维清晰**、**Fork 友好**（品牌与密钥集中在 config）。

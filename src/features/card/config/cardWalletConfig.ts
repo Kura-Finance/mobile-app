@@ -4,48 +4,42 @@
  * Wallet key derivation is handled entirely within the app from the user's
  * CryptoSession — no external wallet SDK required.
  *
- * Required env vars:
- *   EXPO_PUBLIC_PIMLICO_API_KEY  — from https://dashboard.pimlico.io
- *   EXPO_PUBLIC_ALCHEMY_API_KEY  — from https://dashboard.alchemy.com (Base RPC)
- *   EXPO_PUBLIC_BASE_RPC_URL     — optional custom RPC if Alchemy key is unset
+ * Optional:
+ *   EXPO_PUBLIC_PIMLICO_API_KEY — enables USDC gas (ERC-20 paymaster)
+ *   Without a key, UserOps use Pimlico's public bundler and pay gas in ETH.
  *
- * Free-tier limits (no subscription):
- *   Pimlico — ~13,000 UserOps/month free, $0.0075/op after
+ * Base RPC (public by default):
+ *   EXPO_PUBLIC_BASE_RPC_URL — defaults to https://mainnet.base.org
  */
 
 import { fallback, http } from 'viem';
 import { env } from '../../../config/env';
 
-/** Pimlico API key — ERC-4337 bundler + Verifying Paymaster on Base */
+/** Pimlico API key — required only for USDC gas (ERC-20 paymaster). */
 export const PIMLICO_API_KEY = env.pimlicoApiKey;
 
 const PIMLICO_SETUP_HINT =
   'Set EXPO_PUBLIC_PIMLICO_API_KEY in .env (get a key at https://dashboard.pimlico.io), then restart the dev server.';
 
-/** Throws when the Pimlico bundler key is missing — avoids opaque 401s from Pimlico. */
+/** @deprecated Public bundler works without a key; kept for callers that still check. */
 export function assertPimlicoConfigured(): void {
   if (!PIMLICO_API_KEY) {
-    throw new Error(`Pimlico API key is not configured. ${PIMLICO_SETUP_HINT}`);
+    throw new Error(
+      `Pimlico API key is required for USDC gas. ${PIMLICO_SETUP_HINT} ` +
+        'Leave the key empty to pay gas in ETH via the public bundler.',
+    );
   }
 }
 
-/** Public Base RPC used when the primary endpoint is unreachable. */
+/** Free public Base mainnet RPC (default + fallback). */
 export const BASE_RPC_FALLBACK_URL = 'https://mainnet.base.org' as const;
-
-/** Alchemy API key — builds the Base mainnet RPC URL when set. */
-export const ALCHEMY_API_KEY = env.alchemyApiKey;
-
-const ALCHEMY_BASE_RPC_URL = ALCHEMY_API_KEY
-  ? (`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}` as const)
-  : '';
 
 /**
  * Base mainnet RPC (primary).
- * Priority: Alchemy key → EXPO_PUBLIC_BASE_RPC_URL → public Base fallback.
- * {@link getBaseRpcUrls} appends {@link BASE_RPC_FALLBACK_URL} when primary differs.
+ * Uses EXPO_PUBLIC_BASE_RPC_URL when set, otherwise the free public node.
+ * {@link getBaseRpcUrls} appends the public fallback when primary differs.
  */
-export const BASE_RPC_URL =
-  ALCHEMY_BASE_RPC_URL || env.baseRpcUrl || BASE_RPC_FALLBACK_URL;
+export const BASE_RPC_URL = env.baseRpcUrl || BASE_RPC_FALLBACK_URL;
 
 /** Ordered RPC endpoints — primary first, public Base fallback last (deduped). */
 export function getBaseRpcUrls(): readonly string[] {
@@ -66,23 +60,31 @@ export const USDC_BASE =
 export const WETH_BASE =
   '0x4200000000000000000000000000000000000006' as const;
 
-/** Pimlico bundler/paymaster URL for Base */
-export const PIMLICO_URL =
-  `https://api.pimlico.io/v2/base/rpc?apikey=${PIMLICO_API_KEY}` as const;
+/** Pimlico public bundler (no API key) — Base chain id 8453. */
+export const PIMLICO_PUBLIC_BUNDLER_URL =
+  'https://public.pimlico.io/v2/8453/rpc' as const;
+
+/**
+ * Bundler RPC for UserOps.
+ * Authenticated Pimlico when a key is set; otherwise the public endpoint.
+ */
+export const PIMLICO_BUNDLER_URL = PIMLICO_API_KEY
+  ? (`https://api.pimlico.io/v2/base/rpc?apikey=${PIMLICO_API_KEY}` as const)
+  : PIMLICO_PUBLIC_BUNDLER_URL;
+
+/** @deprecated Prefer {@link PIMLICO_BUNDLER_URL}. */
+export const PIMLICO_URL = PIMLICO_BUNDLER_URL;
 
 /**
  * Gas payment mode for ERC-4337 UserOperations.
  *
- *   false → Kura sponsors gas via Pimlico's *verifying* paymaster (fully gasless
- *           for the user; Kura pays the bill).
- *   true  → the user pays gas in USDC via Pimlico's *ERC-20* paymaster. The first
- *           UserOp from the SCA batches an unlimited USDC approval to the ERC-20
- *           paymaster contract so it can pull each op's gas cost in USDC.
+ *   true  → USDC via Pimlico ERC-20 paymaster
+ *           (requires EXPO_PUBLIC_PIMLICO_API_KEY + EXPO_PUBLIC_PAY_GAS_IN_USDC=true)
+ *   false → SCA pays gas in ETH on the public (or authenticated) bundler
  *
- * Toggle without a code change via EXPO_PUBLIC_PAY_GAS_IN_USDC=true|false.
- * Defaults to `true` (user pays in USDC).
+ * Without a Pimlico key this is always false (ETH via public bundler).
  */
-export const PAY_GAS_IN_USDC = env.payGasInUsdc;
+export const PAY_GAS_IN_USDC = Boolean(PIMLICO_API_KEY) && env.payGasInUsdc;
 
 /** ERC-20 token the user pays gas in when {@link PAY_GAS_IN_USDC} is enabled. */
 export const GAS_TOKEN = USDC_BASE;

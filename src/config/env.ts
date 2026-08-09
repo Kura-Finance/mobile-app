@@ -72,7 +72,7 @@ export function assertAppBackend(): void {
 /** @deprecated Prefer {@link assertAppBackend}. */
 export const assertKuraBackend = assertAppBackend;
 
-/** True when a Pimlico bundler/paymaster key is available (required for SCA txs). */
+/** True when a Pimlico API key is set (enables USDC gas paymaster). */
 export function hasPimlicoApiKey(): boolean {
   return env.pimlicoApiKey.length > 0;
 }
@@ -127,23 +127,25 @@ export const env = {
 
   pimlicoApiKey:
     trimEnv(process.env.EXPO_PUBLIC_PIMLICO_API_KEY) || readExtra('pimlicoApiKey'),
-  alchemyApiKey:
-    trimEnv(process.env.EXPO_PUBLIC_ALCHEMY_API_KEY) || readExtra('alchemyApiKey'),
+  /** Base JSON-RPC URL — defaults to free public mainnet in cardWalletConfig. */
   baseRpcUrl: trimEnv(process.env.EXPO_PUBLIC_BASE_RPC_URL),
   payGasInUsdc: envBool(trimEnv(process.env.EXPO_PUBLIC_PAY_GAS_IN_USDC), true),
 
+  /** Optional logo.dev publishable key — unset → glyph / Clearbit fallbacks. */
   logodevToken:
     trimEnv(process.env.EXPO_PUBLIC_LOGODEV_TOKEN) || readExtra('logodevToken'),
 
-  lifiIntegrator:
-    trimEnv(process.env.EXPO_PUBLIC_LIFI_INTEGRATOR) || readExtra('lifiIntegrator'),
-  lifiFee: trimEnv(process.env.EXPO_PUBLIC_LIFI_FEE) || readExtra('lifiFee'),
+  /** Optional Li.Fi key — unset → public https://li.quest/v1. */
   lifiApiKey:
     trimEnv(process.env.EXPO_PUBLIC_LIFI_API_KEY) || readExtra('lifiApiKey'),
+  /** Optional Li.Fi integrator id — unset → no integrator fee. */
+  lifiIntegrator:
+    trimEnv(process.env.EXPO_PUBLIC_LIFI_INTEGRATOR) || readExtra('lifiIntegrator'),
+  /** Optional Li.Fi integrator fee fraction (e.g. 0.0025 = 0.25%). */
+  lifiFee: trimEnv(process.env.EXPO_PUBLIC_LIFI_FEE) || readExtra('lifiFee'),
 
-  /** Optional CoinGecko Demo API key — raises rate limits for price/chart calls. */
-  coingeckoApiKey:
-    trimEnv(process.env.EXPO_PUBLIC_COINGECKO_API_KEY) || readExtra('coingeckoApiKey'),
+  /** Optional CoinGecko Demo key — unset → public api.coingecko.com. */
+  coingeckoApiKey: trimEnv(process.env.EXPO_PUBLIC_COINGECKO_API_KEY),
 
   /** Morpho Earn — set to `false` to hide Earn tab (default: on when Pimlico key is set). */
   morphoEarnEnabled: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_ENABLED),
@@ -152,9 +154,9 @@ export const env = {
    * Default: Steakhouse USDC + Gauntlet EURC Balanced + Gauntlet USDC Prime + Gauntlet USDC Frontier when unset.
    */
   morphoEarnVaultAllowlist: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_VAULT_ALLOWLIST),
-  /** Morpho Earn — performance fee rate (0–1 decimal, default 0.1 = 10%). */
-  morphoEarnFee: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_FEE) || '0.1',
-  /** Treasury address that receives Morpho earn performance fee. */
+  /** Optional Morpho Earn performance fee rate (0–1). Unset / 0 → no service fee. */
+  morphoEarnFee: trimEnv(process.env.EXPO_PUBLIC_MORPHO_EARN_FEE),
+  /** Optional treasury that receives Morpho earn performance fee. */
   earnFeeRecipient,
   /** @deprecated Prefer {@link env.earnFeeRecipient}. */
   kuraEarnFeeRecipient: earnFeeRecipient,
@@ -163,6 +165,6 @@ export const env = {
    * Example: {"0xee8f...":"0x002f..."}
    */
   morphoFeeWrapperOverrides: trimEnv(process.env.EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES),
-  /** When false, skip Morpho API fee-wrapper discovery (env overrides only). */
+  /** When true, discover matching FeeWrapper vaults from Morpho API. Default off. */
   morphoFeeWrapperAutoDiscover: trimEnv(process.env.EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER),
 } as const;

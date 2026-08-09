@@ -13,8 +13,8 @@ export function resolveRequestUrl(path: string): string {
   const base = getApiBaseUrl();
   if (!base) {
     throw new Error(
-      'Kura backend URL is not configured. Set EXPO_PUBLIC_API_BASE_URL in .env ' +
-        '(official app uses the hosted Kura API; see docs/official-services.md).',
+      'App backend URL is not configured. Set EXPO_PUBLIC_API_BASE_URL in .env ' +
+        '(leave empty for wallet-only; see docs/official-services.md).',
     );
   }
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;

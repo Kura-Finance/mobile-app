@@ -282,7 +282,9 @@ export default function ConfirmView({
                 ) : null}
                 <Row
                   label={t('card.via')}
-                  value={quote.tools.filter((tool) => tool !== 'feeCollection').join(', ') || 'Li.Fi'}
+                  value={
+                    quote.tools.filter((tool) => tool !== 'feeCollection').join(', ') || 'Li.Fi'
+                  }
                   valueStyle={{ textTransform: 'capitalize' }}
                 />
                 <Row label={t('card.estTime')} value={formatBridgeTime(quote)} />
@@ -347,7 +349,7 @@ export default function ConfirmView({
       <Text style={s.networkNote}>
         {isBridge
           ? t('card.bridgeRateNote')
-          : PAY_GAS_IN_USDC ? t('card.gasUsdcNote') : t('card.gasSponsoredNote')}
+          : PAY_GAS_IN_USDC ? t('card.gasUsdcNote') : t('card.gasEthNote')}
       </Text>
     </ScrollView>
   );

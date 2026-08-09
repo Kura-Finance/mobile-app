@@ -16,11 +16,10 @@ If credentials were ever committed to git, shared in chat, or built into a leake
 |--------|-----------------|----------|
 | WalletConnect / Reown project | [cloud.reown.com](https://cloud.reown.com) | dApp pairing |
 | Privy App ID + Client ID | [dashboard.privy.io](https://dashboard.privy.io) | Login, embedded wallet |
-| Pimlico API key | [dashboard.pimlico.io](https://dashboard.pimlico.io) | ERC-4337 bundler |
-| logo.dev publishable key | [logo.dev](https://logo.dev) | Stock/crypto logos |
-| Li.Fi integrator / API key | [li.fi](https://li.fi) | Swap / bridge fees |
-| Morpho fee recipient / wrappers | Your deployment | Earn yield fees (`EXPO_PUBLIC_EARN_FEE_RECIPIENT`) |
-| Base RPC provider key | Alchemy / Infura dashboard | On-chain reads |
+| Pimlico API key (optional) | [dashboard.pimlico.io](https://dashboard.pimlico.io) | USDC ERC-20 paymaster; without key → public bundler + ETH |
+| logo.dev publishable key (optional) | [logo.dev](https://logo.dev) | Logos; unset → glyphs / Clearbit |
+| Li.Fi / CoinGecko keys (optional) | Provider dashboards | Rate limits; optional Li.Fi integrator fee |
+| Morpho fee recipient / wrappers (optional) | Your deployment | Earn yield fees when fee-wrapper env is set |
 | Android keystore passwords | Generate new keystore if compromised | Play Store signing |
 | Kura backend JWT secret | Kura ops (not in this repo) | If backend leaked |
 
@@ -68,7 +67,7 @@ Production release process: [local-release.md](local-release.md).
 
 - Reown / WalletConnect 项目
 - Privy App ID 与 Client ID
-- Pimlico、logo.dev、Li.Fi、Base RPC
+- Pimlico（若曾配置 USDC gas）；logo.dev / Li.Fi / CoinGecko（若曾配置）
 - Android 签名 keystore（若私钥泄露）
 - Kura 后端 JWT（后端泄露时，不在本 repo）
 

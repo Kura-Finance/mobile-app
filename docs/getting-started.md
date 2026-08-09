@@ -43,24 +43,29 @@ Edit `.env` — all runtime config is read through [`src/config/env.ts`](../src/
 | `EXPO_PUBLIC_PRIVY_APP_ID` | [Privy dashboard](https://dashboard.privy.io) — add your bundle ID |
 | `EXPO_PUBLIC_PRIVY_CLIENT_ID` | Same dashboard (mobile client ID) |
 | `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID` | [Reown Cloud](https://cloud.reown.com) |
-| `EXPO_PUBLIC_PIMLICO_API_KEY` | [Pimlico](https://dashboard.pimlico.io) |
+| `EXPO_PUBLIC_PIMLICO_API_KEY` | Optional — [Pimlico](https://dashboard.pimlico.io); without it, public bundler + ETH gas |
 
-#### Recommended
+#### Public by default (no API key)
+
+| Integration | Default endpoint |
+|-------------|------------------|
+| Base RPC | `https://mainnet.base.org` (`EXPO_PUBLIC_BASE_RPC_URL`) |
+| Li.Fi swap / bridge | `https://li.quest/v1` |
+| Morpho Earn | `https://api.morpho.org/graphql` |
+| CoinGecko prices | `https://api.coingecko.com` |
+| Tx history | Base Blockscout |
+
+#### Optional
 
 | Variable | Purpose |
 |----------|---------|
-| `EXPO_PUBLIC_ALCHEMY_API_KEY` or `EXPO_PUBLIC_BASE_RPC_URL` | Base RPC — see [`cardWalletConfig.ts`](../src/features/card/config/cardWalletConfig.ts) |
-| `EXPO_PUBLIC_LOGODEV_TOKEN` | Stock/crypto/merchant logos ([logo.dev](https://logo.dev) publishable key `pk_…`) |
+| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Plaid, DeBank, Dinari (leave empty for wallet-only) |
+| `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Optional Li.Fi integrator fee |
+| `EXPO_PUBLIC_MORPHO_EARN_FEE` + fee-wrapper env | Optional Morpho yield fee (default: direct Morpho) |
+| `EXPO_PUBLIC_LOGODEV_TOKEN` | Richer logos; unset → glyphs / Clearbit |
+| `EXPO_PUBLIC_COINGECKO_API_KEY` / `EXPO_PUBLIC_LIFI_API_KEY` | Higher rate limits only |
 
-#### Official Kura features (optional for forks)
-
-| Variable | Enables |
-|----------|---------|
-| `EXPO_PUBLIC_API_BASE_URL` | Privy→Kura JWT exchange, TrackFi, Plaid, DeBank, Dinari |
-
-Leave `EXPO_PUBLIC_API_BASE_URL` **empty** to hide TrackFi and Dinari — see [`features.ts`](../src/config/features.ts).
-
-Other optional keys: Li.Fi integrator fee, Morpho Earn — see [`.env.example`](../.env.example) and [official-services.md](official-services.md).
+See [`.env.example`](../.env.example) and [official-services.md](official-services.md).
 
 ### 2. Install and prebuild
 
@@ -115,8 +120,8 @@ Compare with [threat-model.md](threat-model.md) review paths if auditing.
 
 | Symptom | Fix |
 |---------|-----|
-| Wallet RPC errors / zero balances | Set Base RPC env; restart with `npx expo start -c` |
-| All logo.dev icons missing | Set `EXPO_PUBLIC_LOGODEV_TOKEN`; for release builds ensure token is in `.env` **before** compile |
+| Wallet RPC errors / zero balances | Confirm `EXPO_PUBLIC_BASE_RPC_URL=https://mainnet.base.org` (or another public RPC); restart with `npx expo start -c` |
+| Rich logos missing | Optional: set `EXPO_PUBLIC_LOGODEV_TOKEN`; without it the app uses glyphs / Clearbit |
 | `SDK location not found` (Android) | Create `android/local.properties` with `sdk.dir=…` |
 | Invalid `org.gradle.java.home` | Remove stale path from `android/gradle.properties`; use system JDK 17 |
 | Xcode `Sandbox: find deny` / script errors | Plugin `withIosDisableScriptSandbox`; re-run prebuild |
@@ -146,11 +151,11 @@ cd mobile-app
 cp .env.example .env
 ```
 
-**核心钱包最低配置：** Privy App ID / Client ID、WalletConnect Project ID、Pimlico API Key。
+**核心钱包最低配置：** Privy App ID / Client ID、WalletConnect Project ID。Pimlico key 可选（无 key 时公用 bundler + ETH gas）。
 
-**建议：** Base RPC、`EXPO_PUBLIC_LOGODEV_TOKEN`。
+**公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Blockscout — 无需额外 key。
 
-**官方功能：** `EXPO_PUBLIC_API_BASE_URL`；留空则隐藏 TrackFi、Dinari。
+**可选：** `EXPO_PUBLIC_API_BASE_URL`（TrackFi / Dinari）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
 
 修改 `.env` 后请 `npx expo start -c`。
 
@@ -186,7 +191,7 @@ npm run lint && npm test && npx tsc --noEmit
 | 现象 | 处理 |
 |------|------|
 | 链上余额失败 | 配置 RPC，清缓存重启 |
-| logo 不显示 | 配置 logo.dev token |
+| logo 不显示 | 可选配置 logo.dev；未配置则用字形 / Clearbit |
 | Android SDK | `local.properties` |
 | Xcode Sandbox | 重新 prebuild |
 

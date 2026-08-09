@@ -143,12 +143,12 @@ npm run release:android:apk
 
 ### 5. Pre-release checklist
 
-- [ ] `.env` has production `EXPO_PUBLIC_*` (Privy, WC, Pimlico, API URL, logo.dev, …)
+- [ ] `.env` has production `EXPO_PUBLIC_*` (Privy, WC; optional Pimlico for USDC gas / API URL / logo.dev)
 - [ ] Version bumped in `app.config.js` + native version codes
 - [ ] Privy dashboard allows this bundle ID / SHA fingerprints
 - [ ] WalletConnect project id is production
 - [ ] iOS associated domains + Android App Links live on your host
-- [ ] logo.dev token valid; domain restrictions allow your site (if enabled)
+- [ ] If using logo.dev: token valid; domain restrictions allow your site (if enabled)
 - [ ] No secrets committed (`.env`, `gradle.properties`, keystores, `local.properties`)
 - [ ] Smoke test Release build on real devices
 

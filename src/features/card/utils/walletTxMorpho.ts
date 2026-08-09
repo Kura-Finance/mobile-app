@@ -19,14 +19,14 @@ function sym(token: string): string {
   return tokenSymbolUpper(token);
 }
 
-/** Kura Morpho fee-wrapper vault share tokens (on-chain ERC-20 symbol). */
+/** Legacy Kura Morpho fee-wrapper share tokens (historical activity only). */
 export function isMorphoEarnShareSymbol(symbol: string): boolean {
   const s = sym(symbol);
-  // e.g. KGTUSDCF — Kura Gauntlet USDC fee-wrapper shares
+  // e.g. KGTUSDCF — former Kura Gauntlet USDC fee-wrapper shares
   return /^KGT[A-Z0-9]+F$/i.test(s);
 }
 
-/** Underlying asset ticker embedded in a fee-wrapper share symbol, when present. */
+/** Underlying asset ticker embedded in a legacy fee-wrapper share symbol, when present. */
 export function morphoEarnShareUnderlyingSymbol(symbol: string): string | null {
   const s = sym(symbol);
   const match = s.match(/^KGT(.+)F$/i);

@@ -23,13 +23,12 @@ import { toSafeSmartAccount } from 'permissionless/accounts';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import { IMPORTED_KEY_SECURE_STORE } from '../security/secureStoreOptions';
 import {
-  assertPimlicoConfigured,
   createBaseTransport,
   GAS_RESERVE_BUFFER,
   GAS_RESERVE_FALLBACK_USDC,
   GAS_TOKEN,
   PAY_GAS_IN_USDC,
-  PIMLICO_URL,
+  PIMLICO_BUNDLER_URL,
   USDC_BASE,
   WETH_BASE,
   WALLET_IMPORTED_KEY,
@@ -84,11 +83,33 @@ export function privateKeyFromMnemonic(phrase: string, type: ImportMnemonicType)
   return (account.privateKey as string).replace(/^0x/, '');
 }
 
+function buildSmartAccountBundle(account: AnyClient): SmartAccountBundle {
+  const entryPoint = getEntryPoint();
+  const bundlerTransport = http(PIMLICO_BUNDLER_URL);
+  const pimlicoClient = createPimlicoClient({ transport: bundlerTransport, entryPoint });
+
+  return {
+    smartAccountClient: createSmartAccountClient({
+      account,
+      chain: base,
+      bundlerTransport,
+      // USDC (needs API key) → ERC-20 paymaster; otherwise SCA pays gas in ETH.
+      ...(PAY_GAS_IN_USDC
+        ? { paymaster: pimlicoClient, paymasterContext: { token: GAS_TOKEN } }
+        : {}),
+      userOperation: {
+        estimateFeesPerGas: async () =>
+          (await pimlicoClient.getUserOperationGasPrice()).fast,
+      },
+    }),
+    smartAddress: account.address as `0x${string}`,
+    pimlicoClient,
+  };
+}
+
 async function buildSmartAccountClientFromProvider(
   eip1193Provider: any,  
 ): Promise<SmartAccountBundle> {
-  assertPimlicoConfigured();
-
   const entryPoint = getEntryPoint();
   const publicClient = getPublicClient();
 
@@ -110,28 +131,10 @@ async function buildSmartAccountClientFromProvider(
     version: '1.4.1',
   });
 
-  const pimlicoClient = createPimlicoClient({ transport: http(PIMLICO_URL), entryPoint });
-
-  return {
-    smartAccountClient: createSmartAccountClient({
-      account,
-      chain: base,
-      bundlerTransport: http(PIMLICO_URL),
-      paymaster: pimlicoClient,
-      ...(PAY_GAS_IN_USDC ? { paymasterContext: { token: GAS_TOKEN } } : {}),
-      userOperation: {
-        estimateFeesPerGas: async () =>
-          (await pimlicoClient.getUserOperationGasPrice()).fast,
-      },
-    }),
-    smartAddress: account.address as `0x${string}`,
-    pimlicoClient,
-  };
+  return buildSmartAccountBundle(account);
 }
 
 export async function buildSmartAccountClientFromPrivKey(ethPrivKey: string): Promise<SmartAccountBundle> {
-  assertPimlicoConfigured();
-
   const entryPoint = getEntryPoint();
   const owner = privateKeyToAccount(`0x${ethPrivKey}` as `0x${string}`);
 
@@ -142,23 +145,7 @@ export async function buildSmartAccountClientFromPrivKey(ethPrivKey: string): Pr
     version: '1.4.1',
   });
 
-  const pimlicoClient = createPimlicoClient({ transport: http(PIMLICO_URL), entryPoint });
-
-  return {
-    smartAccountClient: createSmartAccountClient({
-      account,
-      chain: base,
-      bundlerTransport: http(PIMLICO_URL),
-      paymaster: pimlicoClient,
-      ...(PAY_GAS_IN_USDC ? { paymasterContext: { token: GAS_TOKEN } } : {}),
-      userOperation: {
-        estimateFeesPerGas: async () =>
-          (await pimlicoClient.getUserOperationGasPrice()).fast,
-      },
-    }),
-    smartAddress: account.address as `0x${string}`,
-    pimlicoClient,
-  };
+  return buildSmartAccountBundle(account);
 }
 
 export async function resolveKuraSmartAccountClient(

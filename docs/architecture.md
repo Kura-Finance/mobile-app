@@ -37,8 +37,8 @@ Technical map of the mobile client. The **Kura backend is a separate service** �
 └─────────────────────────────────────────────────────────┘
          │                              │
          ▼                              ▼
-   App backend (optional)       Third-party APIs
-   EXPO_PUBLIC_API_BASE_URL      Privy, Pimlico, Li.Fi, …
+   App backend (optional)       Keys + public APIs
+   EXPO_PUBLIC_API_BASE_URL      Privy/Pimlico/WC · Base/Li.Fi/Morpho (public)
 ```
 
 ### Security boundaries
@@ -59,7 +59,7 @@ Trust assumptions: [threat-model.md](threat-model.md).
 2. With backend configured: app exchanges Privy token → **Kura JWT** via `POST /api/auth/login` (`src/lib/api/auth/`).
 3. JWT attached by `src/lib/api/client.ts` on authenticated routes.
 
-Without `EXPO_PUBLIC_API_BASE_URL`, Privy login still works but profile / TrackFi APIs fail. **Core wallet** (SCA on Base) operates once Pimlico + Privy are configured.
+Without `EXPO_PUBLIC_API_BASE_URL`, Privy login still works but profile / TrackFi APIs fail. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
 
 ### Smart wallet (Base SCA)
 
@@ -67,8 +67,8 @@ Without `EXPO_PUBLIC_API_BASE_URL`, Privy login still works but profile / TrackF
 |-------|------------|
 | Owner | Privy embedded EOA (lowest-index wallet) or imported key in SecureStore |
 | Account | Safe 1.4.1 smart account, EntryPoint 0.7 |
-| Bundler / paymaster | Pimlico on Base |
-| RPC | Configured Base RPC with fallback to `mainnet.base.org` |
+| Bundler / paymaster | Public Pimlico bundler + ETH gas by default; optional Pimlico API key for USDC paymaster |
+| RPC | Free public Base RPC (`mainnet.base.org`) by default |
 
 Key files:
 
@@ -115,7 +115,7 @@ Plaintext finance data should not persist unencrypted on device beyond active se
 | `wallet`, `walletConnect`, `lifiSwap` | On (with keys) |
 | `trackFi`, `plaid`, `debank` | Off |
 | `dinariStocks` | Off |
-| `morphoEarn` | Off without Pimlico key |
+| `morphoEarn` | On by default (public Morpho API + SCA deposits) |
 
 ### Crypto primitives (client)
 
@@ -157,14 +157,14 @@ Applied on every `expo prebuild`.
 
 | 边界 | 客户端 | 外部 |
 |------|--------|------|
-| 签名 | 展示 calldata | Pimlico + 链上执行 |
+| 签名 | 展示 calldata | 公用 bundler（或可选 Pimlico paymaster）+ 链上执行 |
 | 登录 | Privy SDK | Privy / 可选 Kura JWT |
 | TrackFi | Passkey 后解密 | 后端存密文 |
 | WC | 用户确认 | Reown 中继 |
 
 ### 登录与钱包
 
-Privy →（可选）Kura JWT → Safe + Pimlico on Base。无后端时核心钱包仍可用。
+Privy →（可选）Kura JWT → Safe on Base（默认公用 bundler + ETH gas；可选 Pimlico key 做 USDC gas）。无后端时核心钱包仍可用。
 
 ### WalletConnect
 

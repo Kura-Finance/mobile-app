@@ -1,11 +1,14 @@
 /**
- * Morpho V2 fee-wrapper address routing.
+ * Morpho V2 fee-wrapper address routing (optional).
  *
- * Deposits can go through a fee-wrapper vault that skims performance fee on
- * yield. Map inner (listed) vault addresses → wrapper deposit addresses via:
+ * By default deposits go to the listed Morpho vault. Enable a fee-wrapper via:
  *
- *   1. `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` — explicit JSON map (always wins)
- *   2. Morpho API auto-discovery — optional, when fee + recipient are configured
+ *   1. `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` — JSON map inner → wrapper
+ *   2. Morpho API auto-discovery — when fee rate + recipient are set and
+ *      `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER` is not `false`
+ *
+ * See EXAMPLE_MORPHO_FEE_WRAPPER_OVERRIDES in morphoVaultAddresses.ts for a
+ * sample map to paste into env.
  *
  * @see docs/fork-guide.md
  */
@@ -24,16 +27,13 @@ function envBool(raw: string, fallback: boolean): boolean {
 export type MorphoFeeWrapperMap = Record<string, `0x${string}`>;
 
 /**
- * Official-app fee-wrapper vaults on Base (inner Morpho vault → FeeWrapper).
- * Forks / buyers should set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES` to their
- * own contracts, or set `EXPO_PUBLIC_MORPHO_EARN_FEE=0` to disable yield fees.
- * Env overrides matching keys.
+ * Baked-in defaults (empty). Active routing comes from env overrides only.
  */
 export const OFFICIAL_FEE_WRAPPER_DEFAULTS: MorphoFeeWrapperMap = {
   ...OFFICIAL_FEE_WRAPPER_DEFAULTS_SOURCE,
 };
 
-/** @deprecated Prefer {@link OFFICIAL_FEE_WRAPPER_DEFAULTS}. */
+/** @deprecated Prefer env `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_OVERRIDES`. */
 export const DEFAULT_MORPHO_FEE_WRAPPER_OVERRIDES = OFFICIAL_FEE_WRAPPER_DEFAULTS;
 
 export function normalizeMorphoVaultAddress(address: string): string {
@@ -65,7 +65,7 @@ export function parseMorphoFeeWrapperOverrides(raw: string): MorphoFeeWrapperMap
   }
 }
 
-/** Static inner → wrapper map: defaults merged with env (env wins per key). Keys are lowercase. */
+/** Static inner → wrapper map: baked-in defaults + env (env wins per key). */
 function mergeFeeWrapperMaps(...maps: MorphoFeeWrapperMap[]): MorphoFeeWrapperMap {
   const out: MorphoFeeWrapperMap = {};
   for (const map of maps) {
@@ -83,11 +83,11 @@ export const MORPHO_FEE_WRAPPER_OVERRIDES: MorphoFeeWrapperMap = mergeFeeWrapper
 
 /**
  * When true, query Morpho for FeeWrapper vaults matching fee rate + recipient.
- * Default: enabled. Set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER=false` to
- * use env overrides only.
+ * Default: off. Set `EXPO_PUBLIC_MORPHO_FEE_WRAPPER_AUTO_DISCOVER=true` (and
+ * configure fee + recipient) to enable.
  */
 export function isMorphoFeeWrapperAutoDiscoverEnabled(): boolean {
-  return envBool(env.morphoFeeWrapperAutoDiscover, true);
+  return envBool(env.morphoFeeWrapperAutoDiscover, false);
 }
 
 /** Resolve deposit target from a pre-built map (sync — tests / previews). */
@@ -107,7 +107,6 @@ export function resolveMorphoDepositFromMap(
 export function hasEarnVaultFeeWrapper(vaultAddress: string): boolean {
   const normalized = normalizeMorphoVaultAddress(vaultAddress);
   if (MORPHO_FEE_WRAPPER_OVERRIDES[normalized]) return true;
-  // Listed/detail address may be the wrapper vault itself (e.g. after Morpho V2 refresh).
   for (const wrapper of Object.values(MORPHO_FEE_WRAPPER_OVERRIDES)) {
     if (normalizeMorphoVaultAddress(wrapper) === normalized) return true;
   }

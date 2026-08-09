@@ -2,7 +2,7 @@
 
 **English** | [中文](#中文)
 
-Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, selling, or auditing UI consistency.
+Source-of-truth inventory of **app name, colors, logos, icons, SVG usage, and packaging assets** for this mobile client. Use this when rebranding, forking, or auditing UI consistency. Trademarks: [NOTICE](../NOTICE).
 
 **Related:** [fork-guide.md](fork-guide.md) · [maintainers.md](maintainers.md) · [handover.md](handover.md)
 

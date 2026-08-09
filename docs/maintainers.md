@@ -29,7 +29,7 @@ Also replace `assets/` icons. Then `npx expo prebuild --clean`.
 |---------|--------|
 | All `EXPO_PUBLIC_*` reads | [`src/config/env.ts`](../src/config/env.ts) |
 | Feature gates | [`src/config/features.ts`](../src/config/features.ts) — uses `hasAppBackend()` |
-| Morpho Earn allowlist / fee | [`src/config/earn.ts`](../src/config/earn.ts), [`earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts) |
+| Morpho Earn allowlist / optional fee-wrapper | [`src/config/earn.ts`](../src/config/earn.ts), [`earnFeeWrapper.ts`](../src/config/earnFeeWrapper.ts) |
 | Template | [`.env.example`](../.env.example) |
 | Release `extra` embedding | [`app.config.js`](../app.config.js) |
 
@@ -39,8 +39,6 @@ Primary helpers (legacy aliases still exported):
 |--------|--------------|
 | `hasAppBackend` / `assertAppBackend` | `hasKuraBackend` / `assertKuraBackend` |
 | `env.walletIconUrl` / `EXPO_PUBLIC_WALLET_ICON_URL` | `EXPO_PUBLIC_KURA_WALLET_ICON_URL` |
-| `env.earnFeeRecipient` / `EXPO_PUBLIC_EARN_FEE_RECIPIENT` | `EXPO_PUBLIC_KURA_EARN_FEE_RECIPIENT` |
-| `hasEarnFee` / `EARN_FEE_RECIPIENT` | `hasKuraEarnFee` / `KURA_EARN_FEE_RECIPIENT` |
 
 ### Module map
 
@@ -68,7 +66,7 @@ UI providers such as `KuraWalletConnectProvider` keep product-oriented names; ki
 
 | Mode | Config | Visible product |
 |------|--------|-----------------|
-| Wallet-only | Empty `EXPO_PUBLIC_API_BASE_URL` | Login, SCA, swap/bridge, WC, Morpho Earn (if Pimlico) |
+| Wallet-only | Empty `EXPO_PUBLIC_API_BASE_URL` | Login, SCA, swap/bridge, WC, Morpho Earn (default on) |
 | Full | Backend URL set | + TrackFi, Plaid, DeBank, Dinari (`features.*` all gate on `hasAppBackend()`) |
 
 Dinari is **on whenever the backend URL is set** (`features.dinariStocks`), not hard-off.
@@ -96,7 +94,7 @@ Store release: [local-release.md](local-release.md). Secrets leak: [secrets-rota
 
 ### 配置入口
 
-所有环境变量经 `env.ts`；功能开关在 `features.ts`（`hasAppBackend()`）；Earn 见 `earn.ts` / `earnFeeWrapper.ts`。优先使用新 API 名，旧 `Kura*` / `EXPO_PUBLIC_KURA_*` 仍兼容。
+所有环境变量经 `env.ts`；功能开关在 `features.ts`（`hasAppBackend()`）；Earn 见 `earn.ts`（直接存入官方 Morpho vault）。优先使用新 API 名，旧 `Kura*` / `EXPO_PUBLIC_KURA_*` 仍兼容。
 
 ### 模块
 
