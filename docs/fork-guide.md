@@ -4,7 +4,7 @@
 
 Rebrand or fork the mobile client for an alternate brand build. The **hosted backend is not included**. See [official-services.md](official-services.md) and [transparency.md](transparency.md).
 
-**Hub:** [docs/README.md](README.md) · **Before publishing:** update [SECURITY.md](../SECURITY.md) contact, follow [secrets-rotation.md](secrets-rotation.md), and comply with [LICENSE](../LICENSE).
+**Hub:** [docs/README.md](README.md) · **Before publishing:** update [SECURITY.md](../SECURITY.md) contact, follow [secrets-rotation.md](secrets-rotation.md), and comply with [LICENSE](../LICENSE) and [NOTICE](../NOTICE).
 
 ---
 
@@ -33,7 +33,7 @@ Typical changes:
 | `universalLinkHost` | App Links / Universal Links host |
 | `walletId` | Stable ID for Reown WalletGuide |
 
-Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png`, `card.webp` (web favicon reuses `icon.png`). Full color / logo / icon inventory: [brand-identity.md](brand-identity.md).
+Replace assets: `assets/icon.png`, `splash-icon.png`, `adaptive-icon.png`, `card.webp` (web favicon reuses `icon.png`). Remove or replace partner rasters (`gnosis-icon.png`, `gnosis-pay-icon.png`) — they are not MIT; see [NOTICE](../NOTICE). Full color / logo / icon inventory: [brand-identity.md](brand-identity.md).
 
 Update [`app.config.js`](../app.config.js) `version` when shipping releases.
 
@@ -137,7 +137,7 @@ npx expo run:ios    # or run:android
 - [ ] Rotate any keys ever committed — [secrets-rotation.md](secrets-rotation.md)
 - [ ] Never commit `.env`, keystores, `android/gradle.properties`, `android/local.properties`
 - [ ] Update [SECURITY.md](../SECURITY.md) contact email
-- [ ] Confirm distribution rights under [LICENSE](../LICENSE)
+- [ ] Confirm distribution rights under [LICENSE](../LICENSE) and third-party marks in [NOTICE](../NOTICE)
 
 ---
 
@@ -150,7 +150,7 @@ npx expo run:ios    # or run:android
 - [`app.config.branding.js`](../app.config.branding.js) — 原生 bundle ID、scheme、关联域名
 - [`src/config/branding.ts`](../src/config/branding.ts) — WC / AppKit 元数据
 
-替换 `assets/` 图标，更新 `app.config.js` 版本号。
+替换 `assets/` 图标，更新 `app.config.js` 版本号。合作方图示见 [NOTICE](../NOTICE)，fork 时请删除或替换。
 
 ### 2. 环境变量
 
@@ -187,4 +187,4 @@ npm run lint && npm test && npx tsc --noEmit
 
 ### 6. 发布前
 
-轮换泄露密钥、勿提交敏感文件、更新 SECURITY 联系邮箱、确认符合 [LICENSE](../LICENSE)。
+轮换泄露密钥、勿提交敏感文件、更新 SECURITY 联系邮箱、确认符合 [LICENSE](../LICENSE) 与 [NOTICE](../NOTICE)。

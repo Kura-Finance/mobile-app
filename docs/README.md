@@ -48,7 +48,8 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |----------|---------|
 | [`.env.example`](../.env.example) | All environment variables with comments |
 | [i18n guide](../src/shared/locales/README.md) | Translation workflow (en / zh-TW) |
-| [LICENSE](../LICENSE) | MIT — © Rick Weng |
+| [LICENSE](../LICENSE) | MIT — © Prism Capital LLC (operator: Kura Finance LLC) |
+| [NOTICE](../NOTICE) | Third-party trademarks and partner assets |
 
 ### Design principles
 
@@ -102,7 +103,8 @@ Welcome to the mobile client documentation. These guides explain how the app wor
 |------|------|
 | [`.env.example`](../.env.example) | 环境变量说明 |
 | [国际化指南](../src/shared/locales/README.md) | 翻译流程 |
-| [LICENSE](../LICENSE) | MIT — © Rick Weng |
+| [LICENSE](../LICENSE) | MIT — © Prism Capital LLC（运营主体：Kura Finance LLC） |
+| [NOTICE](../NOTICE) | 第三方商标与合作方素材 |
 
 ### 文档原则
 

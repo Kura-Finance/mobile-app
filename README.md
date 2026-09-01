@@ -4,7 +4,8 @@
 
 **Kura** is a non-custodial smart wallet on **Base**. This repository is the **React Native / Expo mobile client** — login, signing, WalletConnect, and optional finance tracking.
 
-> **MIT open source** — see [LICENSE](LICENSE).  
+> **MIT open source** — copyright [Prism Capital LLC](LICENSE); operated by **Kura Finance LLC**.  
+> Third-party marks and partner assets: [NOTICE](NOTICE).  
 > The **hosted backend is not in this repository.** Leave `EXPO_PUBLIC_API_BASE_URL` empty for wallet-only builds.
 
 **[Documentation hub →](docs/README.md)** · [Trust model](docs/transparency.md) · [Threat model](docs/threat-model.md) · [Report a vulnerability](SECURITY.md)
@@ -50,6 +51,7 @@ Full guide: [docs/getting-started.md](docs/getting-started.md) · Trust boundari
 | **Fork / rebrand** | [Fork guide](docs/fork-guide.md) · [Services & API keys](docs/official-services.md) |
 | **Security** | [SECURITY.md](SECURITY.md) · [Secrets rotation](docs/secrets-rotation.md) |
 | **Contribute** | [CONTRIBUTING.md](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) |
+| **Legal** | [LICENSE](LICENSE) (© Prism Capital LLC) · [NOTICE](NOTICE) (operator + trademarks) |
 
 ### Repository layout
 
@@ -84,7 +86,8 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 
 ### License
 
-[MIT](LICENSE) — © 2026 Rick Weng.
+[MIT](LICENSE) — © 2026 Prism Capital LLC. Operated by Kura Finance LLC.  
+Third-party trademarks and partner assets: [NOTICE](NOTICE).
 
 ---
 
@@ -101,7 +104,8 @@ Local Xcode / Gradle builds and manual upload — **no EAS Build**. See [docs/lo
 | **Gnosis Pay** | 虚拟借记卡（完整开卡流程另计） |
 | **可选** | Dinari、logo.dev、Li.Fi integrator、Morpho fee-wrapper |
 
-> **MIT 开源** — 见 [LICENSE](LICENSE)。  
+> **MIT 开源** — 著作权 [Prism Capital LLC](LICENSE)；由 **Kura Finance LLC** 运营。  
+> 第三方商标与合作方素材：[NOTICE](NOTICE)。  
 > 托管后端不在此仓库；留空 `EXPO_PUBLIC_API_BASE_URL` 可仅跑钱包。
 
 **[文档索引 →](docs/README.md)**
@@ -127,6 +131,7 @@ npx expo run:ios
 | **Fork / 换牌** | [换牌指南](docs/fork-guide.md) · [服务与 API](docs/official-services.md) |
 | **安全** | [SECURITY.md](SECURITY.md) · [密钥轮换](docs/secrets-rotation.md) |
 | **贡献** | [CONTRIBUTING.md](CONTRIBUTING.md) · [行为准则](CODE_OF_CONDUCT.md) |
+| **法律** | [LICENSE](LICENSE)（© Prism Capital LLC）· [NOTICE](NOTICE)（运营主体与商标） |
 
 ### 信任一览
 
@@ -142,4 +147,5 @@ npx expo run:ios
 
 ### 授权
 
-[MIT](LICENSE) — © 2026 Rick Weng。
+[MIT](LICENSE) — © 2026 Prism Capital LLC。由 Kura Finance LLC 运营。  
+第三方商标与合作方素材：[NOTICE](NOTICE)。

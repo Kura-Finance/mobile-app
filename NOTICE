@@ -1,0 +1,113 @@
+NOTICE
+======
+
+Copyright (c) 2026 Prism Capital LLC
+
+This software is licensed under the MIT License. See LICENSE.
+
+This NOTICE is for identification and attribution only. It does not
+modify the MIT License.
+
+Operator
+--------
+
+The Kura mobile client in this repository is operated by
+Kura Finance LLC. Prism Capital LLC holds the copyright in the
+software and documentation as distributed here.
+
+Kura product names, logos, and related brand assets in this
+repository (for example assets/icon.png, assets/card.webp, and
+the iOS / Android icon packs) identify the Kura product. They
+are not a grant of trademark rights. Forks must rebrand before
+shipping a public or store build — see docs/fork-guide.md and
+docs/brand-identity.md.
+
+Third-party trademarks
+----------------------
+
+Names, logos, and product identifiers of other companies appear
+in the client (copy, UI, optional bundled rasters, and runtime
+logo URLs) solely to describe integrations or to identify those
+parties' products. They remain the property of their respective
+owners. Use here does not imply affiliation, sponsorship, or
+endorsement.
+
+Marks referenced in this client include, without limitation:
+
+  Visa                  Visa International Service Association
+  Gnosis, Gnosis Pay    Gnosis Ltd. / Gnosis Pay
+  Plaid                 Plaid Inc.
+  Dinari                Dinari, Inc. (and broker-dealer partners)
+  Privy                 Privy, Inc.
+  Reown, WalletConnect  WalletConnect, Inc. / Reown
+  Morpho                Morpho Association / Morpho Labs
+  Li.Fi                 LI.FI
+  Bridge                Bridge.xyz / affiliated licensed partners
+  CoinGecko             Gecko Labs Pte. Ltd.
+  Pimlico               Umbrella Research Limited (Pimlico)
+  Base                  Coinbase, Inc. / Base
+  DeBank                DeBank Global Pte. Ltd.
+  logo.dev              logo.dev
+  Clearbit              Clearbit (Clearbit logos may be fetched
+                        at runtime as a fallback; they are not
+                        copied into this repository)
+  Apple, Face ID        Apple Inc.
+  Google                Google LLC
+  Safe                  Safe{Wallet} / Safe Ecosystem Foundation
+
+Bundled partner rasters
+-----------------------
+
+These files are packaged with the app for partner identification.
+They are not licensed under MIT. Redistribute or modify them only
+if you have rights from the trademark owner; otherwise replace or
+remove them when forking.
+
+  assets/gnosis-icon.png       Gnosis mark (owl)
+  assets/gnosis-pay-icon.png   Gnosis Pay mark (owl)
+
+Neither file is currently referenced from application TypeScript
+(`require`). They remain in assets/ for packaging / future UI.
+
+Runtime logos (not in this repo)
+--------------------------------
+
+Token, ticker, chain, and domain artwork may be loaded at runtime
+from logo.dev (img.logo.dev) or, if no logo.dev token is set,
+from Clearbit-style domain URLs. Those images are served by the
+third party and are not part of this source tree.
+
+Open-source dependencies
+------------------------
+
+npm packages are listed in package.json / package-lock.json and
+keep their own licenses.
+
+patches/ contains local bugfixes applied with patch-package:
+
+  patches/plist+3.1.0.patch
+  patches/@expo+plist+0.4.9.patch
+
+Those patches do not change the upstream license of the patched
+packages.
+
+中文
+====
+
+著作权由 Prism Capital LLC 持有。本仓库中的 Kura 行动客户端由
+Kura Finance LLC 运营。MIT 许可见 LICENSE。本 NOTICE 仅作来源
+与商标识别，不修改 MIT 条款。
+
+Kura 名称与本仓库中的品牌图示不构成商标授权；公开或上架前请依
+docs/fork-guide.md 换牌。
+
+Visa、Gnosis / Gnosis Pay、Plaid、Dinari、Privy、Reown /
+WalletConnect、Morpho、Li.Fi、Bridge、CoinGecko、Pimlico、
+Base、DeBank、logo.dev、Clearbit、Apple、Google、Safe 等名称
+与标识为各自权利人所有，仅用于说明集成或识别产品，不表示背书
+或关联。
+
+assets/gnosis-icon.png 与 assets/gnosis-pay-icon.png 为合作方
+标识，不适用 MIT；fork 时请自行取得授权或删除／替换。
+
+依赖许可证以 package-lock.json 为准；patches/ 仅为上游缺陷修复。
