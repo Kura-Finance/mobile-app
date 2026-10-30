@@ -19,7 +19,7 @@ Checklist for onboarding or transferring maintainers of **this mobile client rep
 | WalletConnect wallet mode, SCA on Base | Plaid / DeBank / Dinari server keys |
 | Client docs under `docs/` | Website ToS / Privacy HTML (loaded from `brand.homepage`) |
 
-Copyright in this repository is **Prism Capital LLC**. The Kura product is operated by **Kura Finance LLC**. Third-party marks: [NOTICE](../NOTICE).
+Copyright in this repository is **Rick Weng**. The Kura product is operated by **Kura Finance LLC**. Third-party marks: [NOTICE](../NOTICE).
 
 Leave `EXPO_PUBLIC_API_BASE_URL` empty for **wallet-only**. TrackFi, Dinari, Plaid, and JWT profile sync need a backend URL.
 
@@ -56,7 +56,7 @@ No App Store IAP in this client. Optional revenue (integrator fee, Morpho fee-wr
 
 本仓库是 **Expo 手机客户端**。托管后端、商店账号、域名与第三方控制台需单独交接。
 
-著作权：**Prism Capital LLC**。运营主体：**Kura Finance LLC**。第三方商标见 [NOTICE](../NOTICE)。
+著作权：**Rick Weng**。运营主体：**Kura Finance LLC**。第三方商标见 [NOTICE](../NOTICE)。
 
 留空 `EXPO_PUBLIC_API_BASE_URL` = 仅钱包；TrackFi / Dinari / Plaid 需要后端。
 

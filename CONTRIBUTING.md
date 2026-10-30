@@ -34,4 +34,4 @@ npx tsc --noEmit
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the MIT License to **Prism Capital LLC** (see [LICENSE](LICENSE)). Third-party marks: [NOTICE](NOTICE).
+By contributing, you agree that your contributions are licensed under the MIT License to **Rick Weng** (see [LICENSE](LICENSE)). Third-party marks: [NOTICE](NOTICE).
