@@ -38,7 +38,11 @@ Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend int
 | Threat | Mitigation | Code / behaviour |
 |--------|------------|------------------|
 | Unauthorized signing | User must confirm each WC request and send | WC confirm UI, send modals |
-| Key persistence after logout | Clear local wallet cache | `clearLocalWalletCache()` |
+| Key persistence after logout (backend mode) | Clear local wallet cache | `clearLocalWalletCache()` |
+| Owner key theft from the device (default mode) | Key and recovery phrase in the OS keystore, device-only, behind OS authentication where the device supports it; reveal gated by app lock | `src/lib/wallet/localWallet.ts`, `RecoveryPhraseScreen` |
+| Weak or predictable key (default mode) | 128-bit entropy from the OS CSPRNG → BIP-39; derivation covered by reference-vector tests | `src/lib/wallet/localWalletCore.ts` |
+| Losing the only key by accident (default mode) | Removal needs an explicit destructive confirmation; clearing the session never deletes the key; a keystore read error blocks onboarding instead of offering "create wallet" | `src/lib/auth/authSession.ts`, `App.tsx` |
+| Forgotten App PIN used to bypass the lock (default mode) | "Forgot PIN" can only remove the wallet; it never resets the PIN while keeping the key | `SessionLockOverlay` |
 | Background snooping | Optional biometric app lock | `src/lib/security/appLock.ts` |
 | Screenshot leakage (sensitive screens) | Screenshot guard on key flows | `src/lib/security/screenshotGuard.ts` |
 | TrackFi plaintext at rest on server | Client-side E2EE; decrypt after passkey | `src/lib/crypto/envelope.ts` |
@@ -49,10 +53,12 @@ Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend int
 
 | Dependency | Residual risk |
 |------------|---------------|
-| **Privy** | MPC / embedded wallet implementation and availability |
+| **Privy** (backend mode only) | MPC / embedded wallet implementation and availability |
+| **Device and OS keystore** (default mode) | The owner key exists only on the phone. A rooted / jailbroken or malware-infected device can expose it; the recovery phrase is on screen during backup and can reach the clipboard if the user copies it |
+| **The user's backup** (default mode) | No server holds a copy and nobody can reset it. Losing both the device and the recovery phrase loses the funds permanently |
 | **Pimlico** | Bundler could censor or reorder UserOps (user sees effect on-chain) |
 | **Reown relay** | Pairing phishing if user scans malicious QR |
-| **Kura backend** | Stores ciphertext + orchestrates Plaid; must not serve malicious decrypt instructions |
+| **App backend** (only if self-hosted) | Stores ciphertext + orchestrates Plaid; must not serve malicious decrypt instructions |
 | **User** | Social engineering, approving malicious transactions |
 | **Build pipeline** | Maintainer machine compromise before signing |
 
@@ -60,7 +66,7 @@ Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend int
 
 | Goal | Non-goal |
 |------|----------|
-| Non-custodial signing UX with explicit approval | Hiding that Privy provisions the owner EOA |
+| Non-custodial signing UX with explicit approval | Hiding that Privy provisions the owner EOA when a backend is configured |
 | E2EE for TrackFi snapshots **after** passkey unlock | Zero-knowledge backend for Plaid aggregation |
 | On-chain operation with no app backend (default) | Replacing Base chain trust |
 | Clear client crypto and WC routing responsibilities | Exposing Kura server internals in this repo |
@@ -68,8 +74,13 @@ Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend int
 ### Data flow summary
 
 ```
-Login (Privy)
-    → optional JWT (Kura backend)
+Default (no backend)
+    Create / import wallet on device → key in OS keystore
+    → SCA address derived (Base RPC)
+
+With a self-hosted backend
+    Login (Privy)
+    → JWT (app backend)
     → SCA provision (Pimlico + Base RPC)
 
 Send / Swap / Bridge

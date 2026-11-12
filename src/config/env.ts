@@ -29,11 +29,6 @@ function envBool(raw: string | undefined, fallback: boolean): boolean {
   return raw.toLowerCase() === 'true' || raw === '1';
 }
 
-/** Accept only `https://` and `mailto:` links; anything else resolves to empty. */
-function normalizeExternalLink(raw: string): string {
-  return /^(https:\/\/|mailto:)\S+$/i.test(raw) ? raw : '';
-}
-
 /** Resolved app backend base URL (no trailing slash), or empty when unset. */
 export function getResolvedApiBaseUrl(): string {
   const fromEnv =
@@ -135,15 +130,6 @@ export const env = {
   /** Base JSON-RPC URL — defaults to free public mainnet in cardWalletConfig. */
   baseRpcUrl: trimEnv(process.env.EXPO_PUBLIC_BASE_RPC_URL),
   payGasInUsdc: envBool(trimEnv(process.env.EXPO_PUBLIC_PAY_GAS_IN_USDC), true),
-
-  /**
-   * Where "Delete account" sends the user when there is no app backend.
-   * Privy has no client-side deletion: the operator of the Privy app removes
-   * the user (dashboard or server API). HTTPS or mailto only.
-   */
-  accountDeletionUrl: normalizeExternalLink(
-    trimEnv(process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL) || readExtra('accountDeletionUrl'),
-  ),
 
   /** Optional logo.dev publishable key — unset → glyph / Clearbit fallbacks. */
   logodevToken:

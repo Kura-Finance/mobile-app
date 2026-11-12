@@ -21,16 +21,15 @@ Checklist for onboarding or transferring maintainers of **this mobile client rep
 
 Copyright in this repository is **Rick Weng**. The Kura product is operated by **Kura Finance LLC**. Third-party marks: [NOTICE](../NOTICE).
 
-`EXPO_PUBLIC_API_BASE_URL` is empty by default: the app is **on-chain only** and login is Privy alone. TrackFi, Dinari, Plaid, the fiat ramp and JWT profile sync need a self-hosted backend URL.
+`EXPO_PUBLIC_API_BASE_URL` is empty by default: the app is **on-chain only**, with no accounts: the wallet key is created or imported on the device and Privy is not used. TrackFi, Dinari, Plaid, the fiat ramp and JWT profile sync need a self-hosted backend URL.
 
 ### Assets to transfer (off-repo)
 
 - [ ] Apple Developer + Google Play apps / signing
 - [ ] Android release keystore + passwords (never in git)
-- [ ] Privy, Reown dashboards (required); optional Pimlico (USDC gas) / logo.dev / Li.Fi / CoinGecko
+- [ ] Reown dashboard (required); Privy dashboard (only with a backend — and keep the Privy app alive while former users still need to export their keys at home.privy.io); optional Pimlico (USDC gas) / logo.dev / Li.Fi / CoinGecko
 - [ ] Domains + AASA / App Links / passkey RP ID (`brand.webCredentialsHost`)
 - [ ] Self-hosted backend repo / ops (only if you run one — the hosted Kura backend is retired)
-- [ ] Account-deletion request channel (`EXPO_PUBLIC_ACCOUNT_DELETION_URL`) and access to delete users in the Privy dashboard
 - [ ] Legal pages on `brand.homepage` (`/tos`, `/privacy`, …)
 - [ ] Production `.env` values — then **rotate** per [secrets-rotation.md](secrets-rotation.md)
 
@@ -59,7 +58,7 @@ No App Store IAP in this client. Optional revenue (integrator fee, Morpho fee-wr
 
 著作权：**Rick Weng**。运营主体：**Kura Finance LLC**。第三方商标见 [NOTICE](../NOTICE)。
 
-`EXPO_PUBLIC_API_BASE_URL` 默认留空 = 纯链上（仅 Privy 登录）；TrackFi / Dinari / Plaid / 法币出入金需要自建后端。
+`EXPO_PUBLIC_API_BASE_URL` 默认留空 = 纯链上（无账户，密钥在设备本地，不使用 Privy）；TrackFi / Dinari / Plaid / 法币出入金需要自建后端。
 
 ### 必交资产（不在 git）
 

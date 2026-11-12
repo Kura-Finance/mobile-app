@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useSignerWallets } from '../../../lib/auth/authSession';
 import { useKuraCardWallet } from '../../card/context/KuraCardWalletContext';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -87,7 +87,7 @@ export default function ExportWalletKeyScreen({ onClose }: Props) {
   const { colors } = useTheme();
   const s = useStyles();
   const { smartAddress } = useKuraCardWallet();
-  const { wallets: embeddedWallets } = useEmbeddedEthereumWallet();
+  const { wallets: embeddedWallets } = useSignerWallets();
   const eoaAddress = selectCanonicalEmbeddedWallet(embeddedWallets)?.address ?? null;
 
   return (

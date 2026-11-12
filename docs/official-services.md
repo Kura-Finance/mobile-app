@@ -14,7 +14,7 @@ What the **mobile client** connects to — the trust boundary between on-device 
 
 | Type | Examples | Config / code |
 |------|----------|---------------|
-| **Required SaaS keys** | Privy, Reown | `.env` → `src/config/env.ts` |
+| **Required SaaS keys** | Reown; Privy only when a backend is configured | `.env` → `src/config/env.ts` |
 | **Public endpoints** | Base RPC, Pimlico public bundler, Li.Fi, Morpho, CoinGecko, Blockscout | Built-in defaults — no key |
 | **Optional SaaS keys** | Pimlico (USDC gas), logo.dev, CoinGecko / Li.Fi rate limits | `.env` |
 | **App backend (optional, self-hosted)** | Auth JWT, Plaid, DeBank, Dinari, fiat ramp, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` — empty by default |
@@ -74,7 +74,7 @@ The hosted Kura backend is retired; its source is archived at [Kura-Finance/Back
 
 - Change bundle ID and domains in [`app.config.branding.js`](../app.config.branding.js) + [`src/config/branding.ts`](../src/config/branding.ts).
 - Create your own Privy app and WC project; Pimlico key only if you want USDC gas.
-- Leave backend URL / logo.dev empty for a wallet-only fork (the default). Set `EXPO_PUBLIC_ACCOUNT_DELETION_URL` to your account-deletion request page or mailbox.
+- Leave backend URL / logo.dev empty for a wallet-only fork (the default). No Privy app is needed in that mode — the wallet key is created on the device.
 - Full guide: [fork-guide.md](fork-guide.md).
 
 ---
@@ -85,7 +85,7 @@ The hosted Kura backend is retired; its source is archived at [Kura-Finance/Back
 
 | 类型 | 例子 | 配置 |
 |------|------|------|
-| **必需 SaaS key** | Privy、WC | `.env` |
+| **必需 SaaS key** | WC；Privy 仅在接后端时需要 | `.env` |
 | **公用节点** | Base RPC、Pimlico 公开 bundler、Li.Fi、Morpho、CoinGecko、Blockscout | 内置默认，无需 key |
 | **应用后端（可选，自建）** | 登录 JWT、Plaid、DeBank、Dinari、法币出入金 | `EXPO_PUBLIC_API_BASE_URL`，默认留空 |
 | **纯客户端** | 签名、WC UI、SecureStore | 钱包与 WC 模块 |

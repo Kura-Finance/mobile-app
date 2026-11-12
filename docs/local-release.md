@@ -50,7 +50,7 @@ EXPO_PUBLIC_API_BASE_URL=          # empty = on-chain only (default)
 # … all production EXPO_PUBLIC_* keys
 ```
 
-The official app ships without a backend (the hosted Kura backend is retired). Set `EXPO_PUBLIC_API_BASE_URL` only if you run your own backend. Without one, set `EXPO_PUBLIC_ACCOUNT_DELETION_URL` so Settings → Delete account has somewhere to send the user — app stores require an account-deletion path.
+The official app ships without a backend (the hosted Kura backend is retired). Set `EXPO_PUBLIC_API_BASE_URL` only if you run your own backend. Without one there are no accounts and no Privy keys are needed: the wallet key lives on the device.
 
 Bump version in [`app.config.js`](../app.config.js) (`version`), then after prebuild sync native codes:
 
@@ -183,7 +183,7 @@ cp .env.example .env
 # 填写全部生产 EXPO_PUBLIC_* 
 ```
 
-官方 App 不接后端（Kura 托管后端已停止运营）：`EXPO_PUBLIC_API_BASE_URL` 留空；仅在自建后端时填写。无后端时请设置 `EXPO_PUBLIC_ACCOUNT_DELETION_URL`，供「删除账户」跳转（商店要求提供删除账户途径）。
+官方 App 不接后端（Kura 托管后端已停止运营）：`EXPO_PUBLIC_API_BASE_URL` 留空；仅在自建后端时填写。无后端时没有账户，也不需要 Privy 密钥：钱包密钥保存在设备本地。
 
 ### Prebuild
 

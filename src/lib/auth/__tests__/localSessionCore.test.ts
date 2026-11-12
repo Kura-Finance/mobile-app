@@ -1,56 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { userProfileV1Schema } from '../../api/auth/schemas';
-import {
-  buildLocalProfile,
-  parseLocalProfileOverlay,
-  resolvePrivyEmail,
-} from '../localSessionCore';
+import { buildLocalProfile, localUserId, parseLocalProfileOverlay } from '../localSessionCore';
 
-describe('resolvePrivyEmail', () => {
-  it('prefers the email login over OAuth emails', () => {
-    expect(
-      resolvePrivyEmail({
-        id: 'did:privy:1',
-        linked_accounts: [
-          { type: 'google_oauth', email: 'g@example.com' },
-          { type: 'email', address: 'Me@Example.com ' },
-        ],
-      }),
-    ).toBe('me@example.com');
-  });
+const EOA = '0x9858EfFD232B4033E47d90003D41EC34EcaEda94';
 
-  it('falls back to Google, then Apple', () => {
-    expect(
-      resolvePrivyEmail({
-        id: 'did:privy:1',
-        linked_accounts: [
-          { type: 'apple_oauth', email: 'a@example.com' },
-          { type: 'google_oauth', email: 'g@example.com' },
-        ],
-      }),
-    ).toBe('g@example.com');
-    expect(
-      resolvePrivyEmail({
-        id: 'did:privy:1',
-        linked_accounts: [{ type: 'apple_oauth', email: 'a@example.com' }],
-      }),
-    ).toBe('a@example.com');
-  });
-
-  it('returns null when no account carries an email', () => {
-    expect(
-      resolvePrivyEmail({ id: 'did:privy:1', linked_accounts: [{ type: 'wallet' }] }),
-    ).toBeNull();
-    expect(resolvePrivyEmail({ id: 'did:privy:1' })).toBeNull();
+describe('localUserId', () => {
+  it('is stable regardless of address casing', () => {
+    expect(localUserId(EOA)).toBe('local:0x9858effd232b4033e47d90003d41ec34ecaeda94');
+    expect(localUserId(EOA.toLowerCase())).toBe(localUserId(EOA));
   });
 });
 
 describe('buildLocalProfile', () => {
-  it('produces a profile the app schema accepts when nothing is linked', () => {
-    const profile = buildLocalProfile({ id: 'did:privy:1', linked_accounts: [] });
+  it('produces a profile the app schema accepts, with no account data', () => {
+    const profile = buildLocalProfile(localUserId(EOA));
     expect(() => userProfileV1Schema.parse(profile)).not.toThrow();
     expect(profile).toMatchObject({
-      id: 'did:privy:1',
+      id: localUserId(EOA),
       emailIsPlaceholder: true,
       displayName: '',
       hasName: false,
@@ -59,22 +25,20 @@ describe('buildLocalProfile', () => {
     });
   });
 
-  it('uses the Google name until the user sets one on the device', () => {
-    const user = {
-      id: 'did:privy:1',
-      linked_accounts: [{ type: 'google_oauth', email: 'g@example.com', name: 'Ada Lovelace' }],
-    };
-    expect(buildLocalProfile(user)).toMatchObject({
-      email: 'g@example.com',
-      emailIsPlaceholder: false,
-      displayName: 'Ada Lovelace',
-      hasName: true,
+  it('applies the name and avatar kept on the device', () => {
+    const profile = buildLocalProfile(localUserId(EOA), {
+      displayName: ' Ada ',
+      avatarUrl: 'data:image/jpeg;base64,AA',
     });
-    expect(buildLocalProfile(user, { displayName: 'Ada' }).displayName).toBe('Ada');
+    expect(profile).toMatchObject({
+      displayName: 'Ada',
+      hasName: true,
+      avatarUrl: 'data:image/jpeg;base64,AA',
+    });
   });
 
   it('caps the display name at 50 characters', () => {
-    const profile = buildLocalProfile({ id: 'did:privy:1' }, { displayName: 'x'.repeat(80) });
+    const profile = buildLocalProfile(localUserId(EOA), { displayName: 'x'.repeat(80) });
     expect(profile.displayName).toHaveLength(50);
   });
 });

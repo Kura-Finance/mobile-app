@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthSession } from '../../lib/auth/authSession';
+import { isLocalSessionMode } from '../../lib/auth/localSession';
 import { useAppStore } from '../store/useAppStore';
 import FaceIDScreen from '../../features/auth/screens/FaceIDScreen';
 import EnterAppPinScreen from '../../features/auth/screens/EnterAppPinScreen';
@@ -19,7 +20,7 @@ let sessionLockAutoBiometricIssued = false;
 
 export default function SessionLockOverlay() {
   const { t } = useTranslation();
-  const { logout } = usePrivy();
+  const { logout } = useAuthSession();
   const sessionLockStatus = useAppStore((s) => s.sessionLockStatus);
   const appPinEnabled = useAppStore((s) => s.appPinEnabled);
   const biometricUnlockEnabled = useAppStore((s) => s.preferences.biometricUnlockEnabled);
@@ -94,6 +95,13 @@ export default function SessionLockOverlay() {
   );
 
   const handleForgotPin = useCallback(async () => {
+    if (isLocalSessionMode()) {
+      // No account to sign back into: the only way past a forgotten PIN is to
+      // remove the wallet (confirmed in logout) and restore it from its backup.
+      // The PIN is cleared with the session only if the user goes through with it.
+      await logout();
+      return;
+    }
     await clearAppPin();
     await refreshAppPinStatus();
     void logout();

@@ -46,7 +46,7 @@ TrackFi and Dinari features **require** a backend URL. Core wallet features do n
 1. **Transaction approval** — WalletConnect and send flows show calldata before signing (`src/features/walletconnect/`, send modals).
 2. **Key storage** — Private material uses `expo-secure-store`; logout clears local wallet cache (`clearLocalWalletCache()`).
 3. **TrackFi decryption** — Ciphertext is decrypted only after passkey unlock (`src/lib/crypto/envelope.ts`).
-4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, every backend feature is hidden (TrackFi, Dinari, fiat ramp, card, referrals) and login is Privy alone — see `src/config/features.ts`. Morpho Earn is gated separately via `features.morphoEarn` (`src/config/earn.ts`).
+4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, every backend feature is hidden (TrackFi, Dinari, fiat ramp, card, referrals) and there is no login at all: the wallet key is created or imported on the device and Privy is not loaded — see `src/config/features.ts`. Morpho Earn is gated separately via `features.morphoEarn` (`src/config/earn.ts`).
 5. **Env isolation** — Secrets are read only through [`src/config/env.ts`](../src/config/env.ts), not scattered in features.
 
 ```bash
@@ -73,8 +73,10 @@ See [threat-model.md](threat-model.md) for adversaries and mitigations.
 
 | Question | Answer |
 |----------|--------|
-| Does the app need a backend? | **No.** `EXPO_PUBLIC_API_BASE_URL` is empty by default; the Privy session is the app session. |
-| How is an account deleted without a backend? | The app opens `EXPO_PUBLIC_ACCOUNT_DELETION_URL`; the operator removes the user in Privy. On-chain funds are unaffected — export the wallet key first. |
+| Does the app need a backend? | **No.** `EXPO_PUBLIC_API_BASE_URL` is empty by default. |
+| Who holds the key without a backend? | **Only the device.** A 12-word phrase is generated locally and stored in the OS keystore; it is never sent anywhere. Lose the phrase and the device and the funds are unrecoverable — nobody can reset it. |
+| Is there an account to delete without a backend? | **No.** Nothing is registered anywhere. "Remove wallet from this device" deletes the key locally; on-chain funds are unaffected. |
+| I used the hosted app with an email / Google / Apple login. How do I get my wallet back? | Export the private key at home.privy.io, then use Import → Private key. The same key gives the same Safe address. |
 | Does TrackFi imply zero backend access? | **No.** Snapshots are encrypted for the client, but the backend stores ciphertext and orchestrates Plaid/DeBank. |
 | Where are store signing keys? | **Never in git** — local release process only ([local-release.md](local-release.md)). |
 
@@ -112,7 +114,7 @@ If documentation and code disagree, open a [GitHub issue](https://github.com/Kur
 | Privy / Pimlico / Reown 基础设施 | 第三方 |
 | 商店签名密钥 | 永不进 git |
 
-未配置 `EXPO_PUBLIC_API_BASE_URL`（默认）时，所有后端功能自动隐藏，登录仅使用 Privy，不向任何应用后端发送请求。
+未配置 `EXPO_PUBLIC_API_BASE_URL`（默认）时，所有后端功能自动隐藏；没有登录，也不加载 Privy——钱包密钥在设备本地生成或导入，不向任何应用后端发送请求。原先用邮箱 / Google / Apple 登录的用户，可在 home.privy.io 导出私钥后用「导入 → 私钥」取回同一钱包。
 
 ### 本地构建可核对
 

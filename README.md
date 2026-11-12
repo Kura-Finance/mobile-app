@@ -18,7 +18,7 @@
 
 | Module | Description |
 |--------|-------------|
-| **Smart wallet** | Safe smart account on Base — Privy EOA owner; public bundler + ETH gas, or Pimlico + USDC gas |
+| **Smart wallet** | Safe smart account on Base — owner key on the device (or a Privy EOA with a backend); public bundler + ETH gas, or Pimlico + USDC gas |
 | **Crypto** | USDC / blue-chip balances, send, swap, bridge (Li.Fi) |
 | **WalletConnect** | Wallet mode for Base dApps (Reown WalletKit) |
 | **Morpho** | Earn vaults and borrow markets on Base (public Morpho API + on-chain) |
@@ -34,7 +34,16 @@
 | **Stocks** | Dinari tokenized stocks |
 | **Account** | Referrals, connected accounts, in-app account deletion |
 
-Flags live in [`src/config/features.ts`](src/config/features.ts). With the URL empty, login is Privy alone and no request is sent to an app backend.
+Flags live in [`src/config/features.ts`](src/config/features.ts).
+
+**Two modes, one switch (`EXPO_PUBLIC_API_BASE_URL`):**
+
+| | Empty (default) | Set (self-hosted backend) |
+|---|---|---|
+| Sign-in | None — no account. Create a wallet (12-word recovery phrase) or import one | Privy (email, Google, Apple) |
+| Safe owner key | Generated and stored on the device (Keychain / Keystore) | Privy embedded wallet |
+| Backup | The recovery phrase, held by the user. Nobody can restore it | Privy key export |
+| Third parties needed | Reown (WalletConnect); public RPC / bundler / Li.Fi / Morpho | + Privy and the backend's partners |
 
 ### Local development
 
@@ -106,7 +115,7 @@ Third-party trademarks and partner assets: [NOTICE](NOTICE).
 
 | 模块 | 说明 |
 |------|------|
-| **智能钱包** | Base 链 Safe 智能账户（Privy EOA；公开 bundler + ETH，或 Pimlico + USDC） |
+| **智能钱包** | Base 链 Safe 智能账户（默认：密钥在设备本地生成与保存，无账户；接后端时为 Privy EOA；公开 bundler + ETH，或 Pimlico + USDC） |
 | **Crypto** | USDC / 主流代币、转账、Swap、跨链桥 |
 | **WalletConnect** | Base dApp 钱包模式 |
 | **Morpho** | Base 上的 Earn 金库与借贷市场（公开 Morpho API + 链上） |

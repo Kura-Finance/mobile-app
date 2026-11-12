@@ -472,9 +472,14 @@ export const useAppStore = create<AppState>((set, get) => {
       const userId = get().userProfile.id;
       void clearWalletConnectUserData(userId || undefined);
       void clearAllCache();
-      void clearLocalWalletCache().catch((err) =>
-        Logger.warn('AppStore', 'Failed to clear local wallet cache', { err }),
-      );
+      // Without a backend the wallet key on this device IS the account: it is
+      // removed only by the explicit, confirmed "remove wallet" action
+      // (removeLocalWallet), never as a side effect of clearing the session.
+      if (!isLocalSessionMode()) {
+        void clearLocalWalletCache().catch((err) =>
+          Logger.warn('AppStore', 'Failed to clear local wallet cache', { err }),
+        );
+      }
       resetKuraCardWalletSession();
       useFinanceStore.getState().clearPlaidFinanceData();
       useFinanceStore.getState().clearAssetHistory();

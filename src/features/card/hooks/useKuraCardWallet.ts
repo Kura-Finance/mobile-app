@@ -27,7 +27,8 @@ import {
   IMPORTED_KEY_SECURE_STORE,
   STANDARD_SECURE_STORE,
 } from '../../../lib/security/secureStoreOptions';
-import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
+import { useAuthSession, useSignerWallets } from '../../../lib/auth/authSession';
+import { isLocalSessionMode } from '../../../lib/auth/localSession';
 import {
   getGlobalProvisionedSca,
   getGlobalProvisionPromise,
@@ -107,6 +108,10 @@ export type {
 
 export { buildSmartAccountClientFromPrivKey, privateKeyFromMnemonic };
 
+/** Used where an embedded (Privy) provider would be: there is none without a backend. */
+const noEmbeddedProvider = (): Promise<never> =>
+  Promise.reject(new Error(i18n.t('localWallet.keyMissing')));
+
 export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const sessionUsable = useSessionUsable();
   const [status, setStatus] = useState<WalletStatus>('loading');
@@ -122,8 +127,8 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const provisioningRef = useRef(false);
   const provisionedScaRef = useRef<string | null>(null);
 
-  const { wallets: embeddedWallets, create: createEmbeddedWallet } = useEmbeddedEthereumWallet();
-  const { user } = usePrivy();
+  const { wallets: embeddedWallets, create: createEmbeddedWallet } = useSignerWallets();
+  const { user } = useAuthSession();
   const embeddedWallet = selectCanonicalEmbeddedWallet(embeddedWallets);
   const embeddedWalletRef = useRef(embeddedWallet);
   embeddedWalletRef.current = embeddedWallet;
@@ -146,6 +151,10 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
   const refreshBalance = refreshBalances;
 
   const resolveSmartAccountClient = useCallback<ResolveSmartAccountClient>(async () => {
+    if (isLocalSessionMode()) {
+      // No Privy: the owner key is stored on this device.
+      return resolveKuraSmartAccountClient(noEmbeddedProvider);
+    }
     const wallet = embeddedWalletRef.current;
     if (!wallet) {
       throw new Error('Embedded wallet not available.');
@@ -238,6 +247,33 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       return await provisionPromise;
     }
 
+    async function provisionLocal() {
+      try {
+        const cachedSca =
+          getGlobalProvisionedSca() ?? (await SecureStore.getItemAsync(WALLET_ADDRESS_STORE_KEY));
+        if (cachedSca) {
+          await applyReady(cachedSca, provisionedScaRef.current !== cachedSca);
+          return;
+        }
+
+        Logger.info('KuraCardWallet', 'Computing Safe SCA for the on-device key...');
+        setStatus('provisioning');
+        const { smartAddress: addr } = await resolveKuraSmartAccountClient(noEmbeddedProvider);
+        if (cancelRef.current) return;
+        await SecureStore.setItemAsync(WALLET_ADDRESS_STORE_KEY, addr, STANDARD_SECURE_STORE);
+        setGlobalProvisionedSca(addr);
+        await applyReady(addr, true);
+      } catch (err) {
+        if (cancelRef.current) return;
+        const msg = err instanceof Error ? err.message : i18n.t('card.walletSetupFailed');
+        Logger.error('KuraCardWallet', 'Local provision failed', { err: msg });
+        setErrorMessage(msg);
+        setStatus('error');
+      } finally {
+        provisioningRef.current = false;
+      }
+    }
+
     async function provision() {
       try {
         const wallet = embeddedWalletRef.current;
@@ -281,7 +317,11 @@ export function useKuraCardWalletState(): UseKuraCardWalletReturn {
       }
     }
 
-    provision();
+    if (isLocalSessionMode()) {
+      void provisionLocal();
+    } else {
+      provision();
+    }
     return () => {
       cancelRef.current = true;
       provisioningRef.current = false;

@@ -3,7 +3,8 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
-import { Mnemonic, HDNodeWallet } from 'ethers';
+import { Mnemonic } from 'ethers';
+import { privateKeyFromBip44Mnemonic } from './localWalletCore';
 import {
   createPublicClient,
   createWalletClient,
@@ -78,9 +79,9 @@ export function privateKeyFromMnemonic(phrase: string, type: ImportMnemonicType)
     const entropy = Mnemonic.phraseToEntropy(cleaned) as string;
     return entropy.replace(/^0x/, '');
   }
-  const root = HDNodeWallet.fromPhrase(cleaned);
-  const account = root.derivePath("m/44'/60'/0'/0/0");
-  return (account.privateKey as string).replace(/^0x/, '');
+  // HDNodeWallet.fromPhrase() already returns the m/44'/60'/0'/0/0 node in
+  // ethers v6, so deriving that path again from it throws.
+  return privateKeyFromBip44Mnemonic(cleaned);
 }
 
 function buildSmartAccountBundle(account: AnyClient): SmartAccountBundle {

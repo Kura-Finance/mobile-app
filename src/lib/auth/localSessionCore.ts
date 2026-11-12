@@ -1,9 +1,9 @@
 /**
  * Local (no-backend) session — pure helpers.
  *
- * When EXPO_PUBLIC_API_BASE_URL is empty the app runs without an app backend:
- * the Privy session IS the app session, and the user profile is derived from
- * the Privy user plus a small on-device overlay (display name / avatar).
+ * When EXPO_PUBLIC_API_BASE_URL is empty the app runs without an app backend
+ * and without Privy: having a wallet on this device IS the session, and the
+ * profile is just a small on-device overlay (display name / avatar).
  *
  * This file has no React Native imports so it can be unit-tested in Node.
  */
@@ -17,7 +17,7 @@ import type { UserProfileV1 } from '../api/auth/schemas';
  */
 export const LOCAL_SESSION_TOKEN = 'local-session';
 
-/** Mirrors the backend convention: users without a linked email get a placeholder. */
+/** The profile schema requires an email; a local wallet has none. */
 const PLACEHOLDER_EMAIL = 'not-linked@placeholder.invalid';
 
 const MAX_DISPLAY_NAME_LENGTH = 50;
@@ -28,64 +28,34 @@ export interface LocalProfileOverlay {
   avatarUrl?: string;
 }
 
-interface LinkedAccountLike {
-  type: string;
-  address?: unknown;
-  email?: unknown;
-  name?: unknown;
-}
-
-/** Structural subset of the Privy `User` this module reads. */
-export interface PrivyUserLike {
-  id: string;
-  linked_accounts?: readonly LinkedAccountLike[] | null;
-}
-
 function nonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** Linked email address: email login first, then Google / Apple OAuth. */
-export function resolvePrivyEmail(user: PrivyUserLike): string | null {
-  const accounts = user.linked_accounts ?? [];
-  const emailAccount = accounts.find((a) => a.type === 'email');
-  const fromEmail = nonEmptyString(emailAccount?.address);
-  if (fromEmail) return fromEmail.toLowerCase();
-
-  for (const type of ['google_oauth', 'apple_oauth']) {
-    const account = accounts.find((a) => a.type === type);
-    const fromOAuth = nonEmptyString(account?.email);
-    if (fromOAuth) return fromOAuth.toLowerCase();
-  }
-  return null;
-}
-
-function resolvePrivyDisplayName(user: PrivyUserLike): string | null {
-  const google = (user.linked_accounts ?? []).find((a) => a.type === 'google_oauth');
-  return nonEmptyString(google?.name);
+/** Stable app user id for the wallet on this device. */
+export function localUserId(eoaAddress: string): string {
+  return `local:${eoaAddress.toLowerCase()}`;
 }
 
 /**
- * Build the app profile from a Privy user. Backend-only fields (membership,
- * referrals, cashback) are left empty.
+ * Build the app profile for an on-device wallet. There is no account: no
+ * email, and backend-only fields (membership, referrals, cashback) stay empty.
  */
 export function buildLocalProfile(
-  user: PrivyUserLike,
+  userId: string,
   overlay: LocalProfileOverlay = {},
 ): UserProfileV1 {
-  const email = resolvePrivyEmail(user);
-  const displayName = (
-    nonEmptyString(overlay.displayName) ??
-    resolvePrivyDisplayName(user) ??
-    ''
-  ).slice(0, MAX_DISPLAY_NAME_LENGTH);
+  const displayName = (nonEmptyString(overlay.displayName) ?? '').slice(
+    0,
+    MAX_DISPLAY_NAME_LENGTH,
+  );
 
   return {
-    id: user.id,
-    email: email ?? PLACEHOLDER_EMAIL,
-    emailIsPlaceholder: email === null,
+    id: userId,
+    email: PLACEHOLDER_EMAIL,
+    emailIsPlaceholder: true,
     walletAddress: null,
     displayName,
     hasName: displayName.length > 0,

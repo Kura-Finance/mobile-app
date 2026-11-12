@@ -4,7 +4,8 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthSession } from '../../../lib/auth/authSession';
+import { features } from '../../../config/features';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -45,7 +46,7 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
   const setLanguage = useAppStore((state) => state.setLanguage);
   const setThemeMode = useAppStore((state) => state.setThemeMode);
   const updateAvatar = useAppStore((state) => state.updateAvatar);
-  const { logout } = usePrivy();
+  const { logout } = useAuthSession();
 
   // 頭像上傳處理
   const handleAvatarPress = async () => {
@@ -165,8 +166,9 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
   const handleSignOut = () => {
     // Close drawer first, then logout so navigation transition is smooth
     handleClose();
-    // Calling Privy logout() sets user → null, which triggers PrivyBridgeProvider
-    // to call clearDataKey() + clearAuthSession(), and App.tsx then shows the Auth screen.
+    // logout() clears the session source (Privy user, or — without a backend —
+    // the wallet on this device after a confirmation), which makes the bridge in
+    // App.tsx call clearDataKey() + clearAuthSession() and show the Auth screen.
     void logout();
   };
 
@@ -256,7 +258,11 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
 
             <UserProfile 
               displayName={userProfile.displayName}
-              email={displayEmail(userProfile, t('settings.emailNotLinked'))}
+              email={
+                features.backend
+                  ? displayEmail(userProfile, t('settings.emailNotLinked'))
+                  : t('localWallet.profileSubtitle')
+              }
               avatarUrl={userProfile.avatarUrl}
               onAvatarPress={handleAvatarPress}
               isLoadingAvatar={isLoadingAvatar}
@@ -300,7 +306,9 @@ export default function UserSettingsModal({ isVisible, onClose }: UserSettingsMo
                 onReferralsPress={() => setShowReferrals(true)}
                 onAgreementsPress={() => setShowAgreements(true)}
                 onSignOutPress={handleSignOut}
-                showSignOut={authStatus === 'authenticated'}
+                // Without a backend "sign out" would mean deleting the key: that lives
+                // under Profile & Security → Remove wallet from this device.
+                showSignOut={features.backend && authStatus === 'authenticated'}
               />
             </View>
           </ScrollView>

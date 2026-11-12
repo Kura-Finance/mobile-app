@@ -135,7 +135,6 @@ module.exports = {
       environment: process.env.APP_ENV || process.env.NODE_ENV || "development",
       privyAppId: process.env.EXPO_PUBLIC_PRIVY_APP_ID || "",
       privyClientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || "",
-      accountDeletionUrl: process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL || "",
       logodevToken: process.env.EXPO_PUBLIC_LOGODEV_TOKEN || "",
       pimlicoApiKey: process.env.EXPO_PUBLIC_PIMLICO_API_KEY || "",
       lifiApiKey: process.env.EXPO_PUBLIC_LIFI_API_KEY || "",

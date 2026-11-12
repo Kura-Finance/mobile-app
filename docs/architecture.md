@@ -59,7 +59,7 @@ Trust assumptions: [threat-model.md](threat-model.md).
 2. With backend configured: app exchanges Privy token → **Kura JWT** via `POST /api/auth/login` (`src/lib/api/auth/`).
 3. JWT attached by `src/lib/api/client.ts` on authenticated routes.
 
-Without `EXPO_PUBLIC_API_BASE_URL` there is no token exchange: the Privy session is the app session (`src/lib/auth/localSession.ts`). The profile is built from the Privy user (email, Google name); display name and avatar edits are stored on the device. No request is sent to an app backend. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
+Without `EXPO_PUBLIC_API_BASE_URL` (the default) none of the steps above run and **Privy is not used at all** — `<PrivyProvider>` is never mounted. The user creates a wallet (a 12-word BIP-39 phrase from the OS CSPRNG) or imports a phrase / private key in `LocalWalletOnboardingScreen`; the key is stored in SecureStore (`src/lib/wallet/localWallet.ts`) and its presence is the session (`LocalSessionBridge` in `App.tsx`). The profile is only a display name and avatar kept on the device. No request is sent to an app backend. Feature code reads the session through `src/lib/auth/authSession.ts` (`useAuthSession`, `useSignerWallets`), never through `@privy-io/expo` directly, because Privy hooks throw without a provider. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
 
 ### Smart wallet (Base SCA)
 

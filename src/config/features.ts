@@ -2,10 +2,12 @@
  * Feature flags for the mobile client.
  *
  * The switch is EXPO_PUBLIC_API_BASE_URL:
- *   - empty (default) → on-chain only. Login, wallet, swap/bridge, WalletConnect
- *     and Morpho talk to Privy, the chain and public APIs directly.
- *   - set → the self-hosted app backend is used and every `backend`-derived
- *     flag below turns on (TrackFi, fiat ramp, card, stocks, referrals, …).
+ *   - empty (default) → on-chain only, no accounts. The wallet key is created
+ *     or imported on the device (no Privy); wallet, swap/bridge, WalletConnect
+ *     and Morpho talk to the chain and public APIs directly.
+ *   - set → the self-hosted app backend is used: login goes through Privy and
+ *     every `backend`-derived flag below turns on (TrackFi, fiat ramp, card,
+ *     stocks, referrals, …).
  *
  * Gate UI on these flags instead of calling `hasAppBackend()` in feature code.
  *
@@ -14,7 +16,7 @@
  */
 
 import { isMorphoEarnEnabled } from './earn';
-import { env, hasAppBackend, hasValidWalletConnectProjectId } from './env';
+import { hasAppBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
   /** App backend configured — session, profile and partner features go through it. */
@@ -51,11 +53,11 @@ export const features = {
   connectedAccounts: hasAppBackend(),
 
   /**
-   * Settings → Delete account. With a backend it is deleted in-app
-   * (DELETE /api/auth/me also removes the Privy user). Without one the row
-   * opens EXPO_PUBLIC_ACCOUNT_DELETION_URL and is hidden when that is unset.
+   * Settings → Delete account (DELETE /api/auth/me also removes the Privy
+   * user). Without a backend there is no account — the equivalent is
+   * "Remove wallet from this device".
    */
-  accountDeletion: hasAppBackend() || env.accountDeletionUrl.length > 0,
+  accountDeletion: hasAppBackend(),
 
   /** Li.Fi bridge / swap (public API; optional API key). */
   lifiSwap: true,

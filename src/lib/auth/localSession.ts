@@ -1,8 +1,8 @@
 /**
  * Local (no-backend) session state.
  *
- * Holds the current Privy user and the on-device profile overlay so the app
- * store can build a profile without calling `/api/auth/me`. Only used when
+ * Holds the id of the wallet on this device and its on-device profile overlay
+ * so the app store can build a profile without a backend. Only used when
  * EXPO_PUBLIC_API_BASE_URL is empty — see {@link isLocalSessionMode}.
  */
 
@@ -14,19 +14,21 @@ import {
   buildLocalProfile,
   parseLocalProfileOverlay,
   type LocalProfileOverlay,
-  type PrivyUserLike,
 } from './localSessionCore';
 
-export { LOCAL_SESSION_TOKEN } from './localSessionCore';
+export { LOCAL_SESSION_TOKEN, localUserId } from './localSessionCore';
 
 const OVERLAY_KEY_PREFIX = '@kura/localProfile/';
 
-let currentUser: PrivyUserLike | null = null;
+let currentUserId: string | null = null;
 let currentOverlay: LocalProfileOverlay = {};
-/** Resolves once the overlay for {@link currentUser} has been read from disk. */
+/** Resolves once the overlay for {@link currentUserId} has been read from disk. */
 let overlayLoaded: Promise<void> = Promise.resolve();
 
-/** True when no app backend is configured: the Privy session is the app session. */
+/**
+ * True when no app backend is configured. The app then runs without Privy:
+ * the wallet key lives on this device and its presence is the session.
+ */
 export function isLocalSessionMode(): boolean {
   return !hasAppBackend();
 }
@@ -36,26 +38,25 @@ function overlayKey(userId: string): string {
 }
 
 /**
- * Point the local session at the signed-in Privy user (or `null` on sign-out).
- * The user is bound synchronously; its on-device overlay loads in the
+ * Point the local session at the wallet on this device (or `null` once it is
+ * removed). The id is bound synchronously; its on-device overlay loads in the
  * background — read the result with {@link loadLocalProfile}.
  */
-export function bindLocalSessionUser(user: PrivyUserLike | null): void {
-  if (!user) {
-    currentUser = null;
+export function bindLocalSessionUser(userId: string | null): void {
+  if (!userId) {
+    currentUserId = null;
     currentOverlay = {};
     overlayLoaded = Promise.resolve();
     return;
   }
 
-  const userChanged = currentUser?.id !== user.id;
-  currentUser = user;
-  if (!userChanged) return;
+  if (currentUserId === userId) return;
+  currentUserId = userId;
 
   currentOverlay = {};
-  overlayLoaded = AsyncStorage.getItem(overlayKey(user.id))
+  overlayLoaded = AsyncStorage.getItem(overlayKey(userId))
     .then((raw) => {
-      if (currentUser?.id === user.id) {
+      if (currentUserId === userId) {
         currentOverlay = parseLocalProfileOverlay(raw);
       }
     })
@@ -67,12 +68,12 @@ export function bindLocalSessionUser(user: PrivyUserLike | null): void {
 }
 
 /**
- * Profile for the bound Privy user once its overlay has loaded, or `null`
- * when nobody is signed in.
+ * Profile for the bound wallet once its overlay has loaded, or `null` when
+ * there is no wallet on this device.
  */
 export async function loadLocalProfile(): Promise<UserProfileV1 | null> {
   await overlayLoaded;
-  return currentUser ? buildLocalProfile(currentUser, currentOverlay) : null;
+  return currentUserId ? buildLocalProfile(currentUserId, currentOverlay) : null;
 }
 
 /** Persist display name / avatar on this device and return the updated profile. */
@@ -80,13 +81,13 @@ export async function updateLocalProfileOverlay(
   patch: LocalProfileOverlay,
 ): Promise<UserProfileV1> {
   await overlayLoaded;
-  const user = currentUser;
-  if (!user) throw new Error('Not signed in');
+  const userId = currentUserId;
+  if (!userId) throw new Error('No wallet on this device');
 
   const next: LocalProfileOverlay = { ...currentOverlay, ...patch };
-  await AsyncStorage.setItem(overlayKey(user.id), JSON.stringify(next));
-  if (currentUser?.id === user.id) {
+  await AsyncStorage.setItem(overlayKey(userId), JSON.stringify(next));
+  if (currentUserId === userId) {
     currentOverlay = next;
   }
-  return buildLocalProfile(user, next);
+  return buildLocalProfile(userId, next);
 }

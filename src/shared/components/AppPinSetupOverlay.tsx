@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthSession } from '../../lib/auth/authSession';
 import { useAppStore } from '../store/useAppStore';
 import { useSessionUsable } from '../../lib/security/sessionAccess';
 import SetAppPinScreen from '../../features/auth/screens/SetAppPinScreen';
@@ -13,7 +13,7 @@ import { appPinSetupFailureMessage } from '../../lib/security/authErrorMessages'
  */
 export default function AppPinSetupOverlay() {
   const { t } = useTranslation();
-  const { logout } = usePrivy();
+  const { logout } = useAuthSession();
   const sessionUsable = useSessionUsable();
   const appPinEnabled = useAppStore((s) => s.appPinEnabled);
   const saveAppPin = useAppStore((s) => s.saveAppPin);

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useSignerWallets } from '../../../lib/auth/authSession';
 import type { WalletKitTypes } from '@reown/walletkit';
 import { buildApprovedNamespaces, getSdkError } from '@walletconnect/utils';
 import type { SessionTypes } from '@walletconnect/types';
@@ -73,7 +73,7 @@ interface Props {
 
 export function KuraWalletConnectProvider({ smartAddress, walletReady, userId, children }: Props) {
   const { t } = useTranslation();
-  const { wallets: embeddedWallets } = useEmbeddedEthereumWallet();
+  const { wallets: embeddedWallets } = useSignerWallets();
   const embeddedWallet = selectCanonicalEmbeddedWallet(embeddedWallets);
 
   const [showScanner, setShowScanner] = useState(false);

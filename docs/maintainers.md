@@ -66,10 +66,10 @@ UI providers such as `KuraWalletConnectProvider` keep product-oriented names; ki
 
 | Mode | Config | Visible product |
 |------|--------|-----------------|
-| Wallet-only (default) | Empty `EXPO_PUBLIC_API_BASE_URL` | Privy login (local session, no token exchange), SCA, send/receive USDC, swap/bridge, WC, Morpho Earn/Borrow |
+| Wallet-only (default) | Empty `EXPO_PUBLIC_API_BASE_URL` | No account and no Privy: create / import a wallet on the device, SCA, send/receive USDC, swap/bridge, WC, Morpho Earn/Borrow |
 | Full | Backend URL set | + TrackFi, Plaid, DeBank, Dinari, fiat on/off-ramp, card waitlist, referrals, connected accounts, in-app account deletion |
 
-Without a backend, Settings → Delete account opens `EXPO_PUBLIC_ACCOUNT_DELETION_URL` (hidden when unset): Privy offers no client-side deletion, so the operator removes the user in the Privy dashboard.
+Without a backend the owner key is on the device (`src/lib/wallet/localWallet.ts`; pure derivation in `localWalletCore.ts`). There is no account to delete — Settings → Profile & Security has "Recovery phrase" (backup) and "Remove wallet from this device" instead. Never delete the key as a side effect: `removeLocalWallet()` runs only after the confirmation in `authSession.ts`, and `clearAuthSession()` leaves the key alone in this mode.
 
 Every backend-only entry point is gated by a flag in `src/config/features.ts` (`backend`, `trackFi`, `fiatRamp`, `card`, `referrals`, `connectedAccounts`, `accountDeletion`, …), all derived from `hasAppBackend()`. Gate new backend-dependent UI on a flag there; never call the backend from a code path that is reachable when the flag is off.
 
