@@ -62,7 +62,7 @@ Scope: **Kura mobile client** on iOS and Android. Out of scope: Kura backend int
 |------|----------|
 | Non-custodial signing UX with explicit approval | Hiding that Privy provisions the owner EOA |
 | E2EE for TrackFi snapshots **after** passkey unlock | Zero-knowledge backend for Plaid aggregation |
-| Wallet-only mode without Kura API | Replacing Base chain trust |
+| On-chain operation with no app backend (default) | Replacing Base chain trust |
 | Clear client crypto and WC routing responsibilities | Exposing Kura server internals in this repo |
 
 ### Data flow summary

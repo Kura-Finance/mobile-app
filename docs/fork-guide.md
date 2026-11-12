@@ -64,7 +64,8 @@ Critical vars also mirrored in `app.config.js` → `extra` for release builds:
 | `EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect | [Reown Cloud](https://cloud.reown.com) |
 | `EXPO_PUBLIC_PIMLICO_API_KEY` | USDC gas paymaster | Optional — without key: public bundler + ETH gas |
 | `EXPO_PUBLIC_BASE_RPC_URL` | On-chain reads | Defaults to free `https://mainnet.base.org` |
-| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, auth JWT | Optional; empty = wallet-only |
+| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Dinari, fiat ramp, card, referrals | Optional; empty (default) = on-chain only, Privy-only login |
+| `EXPO_PUBLIC_ACCOUNT_DELETION_URL` | Settings → Delete account without a backend | `https://` or `mailto:` link; unset hides the row. Privy has no client-side deletion — you remove the user in the Privy dashboard |
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Logos | Optional — glyphs / Clearbit if unset |
 | `EXPO_PUBLIC_LIFI_API_KEY` | Li.Fi rate limits | Optional — public API works without key |
 | `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Li.Fi integrator fee | Optional — both required to collect |
@@ -162,7 +163,8 @@ cp .env.example .env
 
 必填（核心钱包）：Privy、WalletConnect Project ID。  
 Pimlico API key：可选（无 key 时公用 bundler + ETH gas；有 key 且开启 flag 时 USDC gas）。  
-TrackFi / Dinari：需 `EXPO_PUBLIC_API_BASE_URL`。  
+TrackFi / Dinari / 法币出入金：需自建后端并设置 `EXPO_PUBLIC_API_BASE_URL`（默认留空 = 纯链上）。  
+无后端时用 `EXPO_PUBLIC_ACCOUNT_DELETION_URL` 指定「删除账户」跳转链接（Privy 无客户端删除，需由运营方在 Privy 后台删除）。  
 logo.dev：可选，见 [official-services.md](official-services.md) 移动端说明。
 
 ### 3. 原生工程

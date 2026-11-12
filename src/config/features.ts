@@ -14,7 +14,7 @@
  */
 
 import { isMorphoEarnEnabled } from './earn';
-import { hasAppBackend, hasValidWalletConnectProjectId } from './env';
+import { env, hasAppBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
   /** App backend configured — session, profile and partner features go through it. */
@@ -50,8 +50,12 @@ export const features = {
   /** Settings → Connected accounts (Plaid banks, exchanges, tracked wallets). */
   connectedAccounts: hasAppBackend(),
 
-  /** In-app account deletion (DELETE /api/auth/me also removes the Privy user). */
-  accountDeletion: hasAppBackend(),
+  /**
+   * Settings → Delete account. With a backend it is deleted in-app
+   * (DELETE /api/auth/me also removes the Privy user). Without one the row
+   * opens EXPO_PUBLIC_ACCOUNT_DELETION_URL and is hidden when that is unset.
+   */
+  accountDeletion: hasAppBackend() || env.accountDeletionUrl.length > 0,
 
   /** Li.Fi bridge / swap (public API; optional API key). */
   lifiSwap: true,

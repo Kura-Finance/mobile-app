@@ -14,7 +14,7 @@ This document describes trust boundaries for the **Kura mobile client**: what th
 |-----------|------------------------|
 | **Clear boundaries** | Client logic, hosted backend, and third-party SaaS are labeled separately. |
 | **Informed consent** | Users see when the app sends a transaction, decrypts finance data, or talks to a backend. |
-| **Wallet-only mode** | Core wallet features run without `EXPO_PUBLIC_API_BASE_URL`. |
+| **On-chain by default** | With `EXPO_PUBLIC_API_BASE_URL` empty (the default) the app sends nothing to an app backend. |
 | **Accountable security** | Researchers have a clear scope and reporting channel ([SECURITY.md](../SECURITY.md)). |
 
 ### What is in this repository
@@ -34,7 +34,7 @@ Local setup: [Getting started](getting-started.md).
 
 | Component | Status | Implication |
 |-----------|--------|-------------|
-| Kura hosted backend | Separate service | Auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
+| App backend | Retired as a hosted service; source archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) | Optional and self-hosted: auth JWT exchange, Plaid/DeBank proxies, encrypted snapshot storage |
 | Privy, Pimlico, Reown infrastructure | Third-party | Auth, bundling, and WC relay |
 | Base chain & smart contracts | Public chain | On-chain behaviour is verifiable separately |
 | Store signing keys | Never in git | Keystores and `.env` stay on maintainer machines |
@@ -46,7 +46,7 @@ TrackFi and Dinari features **require** a backend URL. Core wallet features do n
 1. **Transaction approval** — WalletConnect and send flows show calldata before signing (`src/features/walletconnect/`, send modals).
 2. **Key storage** — Private material uses `expo-secure-store`; logout clears local wallet cache (`clearLocalWalletCache()`).
 3. **TrackFi decryption** — Ciphertext is decrypted only after passkey unlock (`src/lib/crypto/envelope.ts`).
-4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, TrackFi and Dinari UI is hidden. Morpho Earn is gated separately via `features.morphoEarn` (`src/config/earn.ts`).
+4. **Feature gating** — Without `EXPO_PUBLIC_API_BASE_URL`, every backend feature is hidden (TrackFi, Dinari, fiat ramp, card, referrals) and login is Privy alone — see `src/config/features.ts`. Morpho Earn is gated separately via `features.morphoEarn` (`src/config/earn.ts`).
 5. **Env isolation** — Secrets are read only through [`src/config/env.ts`](../src/config/env.ts), not scattered in features.
 
 ```bash
@@ -73,7 +73,8 @@ See [threat-model.md](threat-model.md) for adversaries and mitigations.
 
 | Question | Answer |
 |----------|--------|
-| Does wallet-only mode need the Kura API? | **No.** Leave `EXPO_PUBLIC_API_BASE_URL` empty. |
+| Does the app need a backend? | **No.** `EXPO_PUBLIC_API_BASE_URL` is empty by default; the Privy session is the app session. |
+| How is an account deleted without a backend? | The app opens `EXPO_PUBLIC_ACCOUNT_DELETION_URL`; the operator removes the user in Privy. On-chain funds are unaffected — export the wallet key first. |
 | Does TrackFi imply zero backend access? | **No.** Snapshots are encrypted for the client, but the backend stores ciphertext and orchestrates Plaid/DeBank. |
 | Where are store signing keys? | **Never in git** — local release process only ([local-release.md](local-release.md)). |
 
@@ -107,11 +108,11 @@ If documentation and code disagree, open a [GitHub issue](https://github.com/Kur
 
 | 组件 | 状态 |
 |------|------|
-| Kura 托管后端 | 独立服务 |
+| 应用后端 | 托管服务已停止运营；源码封存，可自建（可选） |
 | Privy / Pimlico / Reown 基础设施 | 第三方 |
 | 商店签名密钥 | 永不进 git |
 
-未配置 `EXPO_PUBLIC_API_BASE_URL` 时，TrackFi / Dinari 自动隐藏。
+未配置 `EXPO_PUBLIC_API_BASE_URL`（默认）时，所有后端功能自动隐藏，登录仅使用 Privy，不向任何应用后端发送请求。
 
 ### 本地构建可核对
 

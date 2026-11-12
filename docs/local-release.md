@@ -46,11 +46,11 @@ Set at minimum:
 ```
 APP_ENV=production
 NODE_ENV=production
-EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com   # official app
+EXPO_PUBLIC_API_BASE_URL=          # empty = on-chain only (default)
 # … all production EXPO_PUBLIC_* keys
 ```
 
-Official Kura app uses `https://api.kura-finance.com`. Forks use their backend or leave empty for wallet-only.
+The official app ships without a backend (the hosted Kura backend is retired). Set `EXPO_PUBLIC_API_BASE_URL` only if you run your own backend. Without one, set `EXPO_PUBLIC_ACCOUNT_DELETION_URL` so Settings → Delete account has somewhere to send the user — app stores require an account-deletion path.
 
 Bump version in [`app.config.js`](../app.config.js) (`version`), then after prebuild sync native codes:
 
@@ -183,7 +183,7 @@ cp .env.example .env
 # 填写全部生产 EXPO_PUBLIC_* 
 ```
 
-官方 App：`EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com`
+官方 App 不接后端（Kura 托管后端已停止运营）：`EXPO_PUBLIC_API_BASE_URL` 留空；仅在自建后端时填写。无后端时请设置 `EXPO_PUBLIC_ACCOUNT_DELETION_URL`，供「删除账户」跳转（商店要求提供删除账户途径）。
 
 ### Prebuild
 

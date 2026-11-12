@@ -333,6 +333,8 @@
     "dangerZone": "危險區域",
     "deleteAccount": "刪除帳戶",
     "permanentlyDelete": "永久刪除您的帳戶",
+    "deleteAccountRequestDesc": "開啟帳戶刪除申請頁面",
+    "deleteAccountLinkFailed": "無法開啟帳戶刪除頁面",
     "noConnectedAccounts": "沒有已連結的帳戶",
     "connectNewAccount": "連結新帳戶",
     "connectAccount": "連結帳戶",

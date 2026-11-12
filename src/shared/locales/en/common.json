@@ -333,6 +333,8 @@
     "dangerZone": "Danger Zone",
     "deleteAccount": "Delete Account",
     "permanentlyDelete": "Permanently delete your account",
+    "deleteAccountRequestDesc": "Opens the account deletion request page",
+    "deleteAccountLinkFailed": "Could not open the account deletion page",
     "noConnectedAccounts": "No connected accounts",
     "connectNewAccount": "Connect a New Account",
     "connectAccount": "Connect Account",

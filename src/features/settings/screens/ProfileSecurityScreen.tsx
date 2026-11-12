@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePrivy } from '@privy-io/expo';
 import { useAppStore } from '../../../shared/store/useAppStore';
@@ -17,6 +17,7 @@ import { DeleteAccountConfirmModal } from '../../../shared/components/DeleteAcco
 import { clearAppPin } from '../../../lib/security/appPin';
 import { appPinSetupFailureMessage } from '../../../lib/security/authErrorMessages';
 import { features } from '../../../config/features';
+import { env } from '../../../config/env';
 
 interface ProfileSecurityScreenProps {
   onClose: () => void;
@@ -132,6 +133,16 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
       />
     );
   }
+
+  const handleDeleteAccountPress = () => {
+    if (features.backend) {
+      setShowDeleteConfirm(true);
+      return;
+    }
+    void Linking.openURL(env.accountDeletionUrl).catch(() => {
+      Alert.alert(t('common.error'), t('settings.deleteAccountLinkFailed'));
+    });
+  };
 
   const handleDeleteSuccess = () => {
     onClose();
@@ -252,7 +263,8 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         </TouchableOpacity>
 
-        {/* Deleting the account (and its Privy user) is done by the app backend. */}
+        {/* With a backend the account is deleted in-app; without one the row opens the
+            operator's deletion-request link (Privy has no client-side deletion). */}
         {features.accountDeletion ? (
           <>
             <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 16 }}>
@@ -260,16 +272,22 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
             </Text>
 
             <TouchableOpacity
-              onPress={() => setShowDeleteConfirm(true)}
+              onPress={handleDeleteAccountPress}
               style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
             >
               <View>
                 <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('settings.deleteAccount')}</Text>
                 <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                  {t('settings.permanentlyDelete')}
+                  {features.backend
+                    ? t('settings.permanentlyDelete')
+                    : t('settings.deleteAccountRequestDesc')}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+              <Ionicons
+                name={features.backend ? 'chevron-forward' : 'open-outline'}
+                size={20}
+                color={colors.danger}
+              />
             </TouchableOpacity>
           </>
         ) : null}
