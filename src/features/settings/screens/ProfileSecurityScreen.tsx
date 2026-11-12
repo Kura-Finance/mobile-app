@@ -16,6 +16,7 @@ import PreferenceToggle from '../components/PreferenceToggle';
 import { DeleteAccountConfirmModal } from '../../../shared/components/DeleteAccountConfirmModal';
 import { clearAppPin } from '../../../lib/security/appPin';
 import { appPinSetupFailureMessage } from '../../../lib/security/authErrorMessages';
+import { features } from '../../../config/features';
 
 interface ProfileSecurityScreenProps {
   onClose: () => void;
@@ -251,22 +252,27 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 16 }}>
-          {t('settings.dangerZone')}
-        </Text>
-
-        <TouchableOpacity
-          onPress={() => setShowDeleteConfirm(true)}
-          style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
-        >
-          <View>
-            <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('settings.deleteAccount')}</Text>
-            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-              {t('settings.permanentlyDelete')}
+        {/* Deleting the account (and its Privy user) is done by the app backend. */}
+        {features.accountDeletion ? (
+          <>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 16 }}>
+              {t('settings.dangerZone')}
             </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.danger} />
-        </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowDeleteConfirm(true)}
+              style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+            >
+              <View>
+                <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('settings.deleteAccount')}</Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {t('settings.permanentlyDelete')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+            </TouchableOpacity>
+          </>
+        ) : null}
       </ScrollView>
 
       <DeleteAccountConfirmModal

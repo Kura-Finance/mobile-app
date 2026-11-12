@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LiFiBridgeQuote } from '../../../../lib/api/bridge/lifiClient';
 import { useTheme } from '../../../../shared/theme/ThemeContext';
 import type { ThemeColors } from '../../../../shared/theme/theme';
+import { features } from '../../../../config/features';
 import { useCryptoContacts, CryptoContact, ChainOption, BASE_CHAIN } from '../../hooks/useCryptoContacts';
 import PickerView from './PickerView';
 import SendMethodPicker from './SendMethodPicker';
@@ -33,6 +34,12 @@ type Screen =
   | 'send'
   | 'confirm'
   | 'withdraw';
+
+/**
+ * Bank payouts go through the Bridge.xyz ramp on the app backend. Without it
+ * the modal opens straight on the crypto recipient list.
+ */
+const ROOT_SCREEN: Screen = features.fiatRamp ? 'method' : 'cryptoPick';
 
 const DEFAULT_WITHDRAW_NAV: WithdrawNavState = {
   titleKey: 'card.enterAmount',
@@ -77,7 +84,7 @@ export default function SendModal({
   const st = useMemo(() => makeStyles(colors), [colors]);
   const { contacts, isLoading, addContact, removeContact, getChain } = useCryptoContacts();
 
-  const [screen, setScreen] = useState<Screen>('method');
+  const [screen, setScreen] = useState<Screen>(ROOT_SCREEN);
   const [selectedContact, setSelectedContact] = useState<CryptoContact | null>(null);
   const [selectedChain, setSelectedChain] = useState<ChainOption>(BASE_CHAIN);
   const [confirmParams, setConfirmParams] = useState<ConfirmParams | null>(null);
@@ -123,13 +130,13 @@ export default function SendModal({
       withdrawNav.onBack();
       return;
     }
-    const prev = historyRef.current.pop() ?? 'method';
+    const prev = historyRef.current.pop() ?? ROOT_SCREEN;
     navigate(prev, 'back');
   }, [navigate, screen, withdrawNav]);
 
   const reset = useCallback(() => {
     historyRef.current = [];
-    setScreen('method');
+    setScreen(ROOT_SCREEN);
     setSelectedContact(null);
     setSelectedChain(BASE_CHAIN);
     setConfirmParams(null);
@@ -143,7 +150,7 @@ export default function SendModal({
 
   const dismissWithdraw = useCallback(() => {
     setBankRefreshKey((k) => k + 1);
-    const prev = historyRef.current.pop() ?? 'method';
+    const prev = historyRef.current.pop() ?? ROOT_SCREEN;
     navigate(prev, 'back');
   }, [navigate]);
 
@@ -200,7 +207,9 @@ export default function SendModal({
 
   const nav = screen === 'withdraw'
     ? { titleKey: withdrawNav.titleKey, showBack: withdrawNav.showBack }
-    : NAV[screen];
+    : screen === ROOT_SCREEN
+      ? { titleKey: 'card.send', showBack: false }
+      : NAV[screen];
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>

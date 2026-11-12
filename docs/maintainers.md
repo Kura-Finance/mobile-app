@@ -66,8 +66,10 @@ UI providers such as `KuraWalletConnectProvider` keep product-oriented names; ki
 
 | Mode | Config | Visible product |
 |------|--------|-----------------|
-| Wallet-only | Empty `EXPO_PUBLIC_API_BASE_URL` | Login, SCA, swap/bridge, WC, Morpho Earn (default on) |
-| Full | Backend URL set | + TrackFi, Plaid, DeBank, Dinari (`features.*` all gate on `hasAppBackend()`) |
+| Wallet-only (default) | Empty `EXPO_PUBLIC_API_BASE_URL` | Privy login (local session, no token exchange), SCA, send/receive USDC, swap/bridge, WC, Morpho Earn/Borrow |
+| Full | Backend URL set | + TrackFi, Plaid, DeBank, Dinari, fiat on/off-ramp, card waitlist, referrals, connected accounts, account deletion |
+
+Every backend-only entry point is gated by a flag in `src/config/features.ts` (`backend`, `trackFi`, `fiatRamp`, `card`, `referrals`, `connectedAccounts`, `accountDeletion`, …), all derived from `hasAppBackend()`. Gate new backend-dependent UI on a flag there; never call the backend from a code path that is reachable when the flag is off.
 
 Dinari is **on whenever the backend URL is set** (`features.dinariStocks`), not hard-off.
 

@@ -59,7 +59,7 @@ Trust assumptions: [threat-model.md](threat-model.md).
 2. With backend configured: app exchanges Privy token → **Kura JWT** via `POST /api/auth/login` (`src/lib/api/auth/`).
 3. JWT attached by `src/lib/api/client.ts` on authenticated routes.
 
-Without `EXPO_PUBLIC_API_BASE_URL`, Privy login still works but profile / TrackFi APIs fail. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
+Without `EXPO_PUBLIC_API_BASE_URL` there is no token exchange: the Privy session is the app session (`src/lib/auth/localSession.ts`). The profile is built from the Privy user (email, Google name); display name and avatar edits are stored on the device. No request is sent to an app backend. **Core wallet** (SCA on Base) operates once Privy is configured (public bundler + ETH gas by default; optional Pimlico key for USDC gas).
 
 ### Smart wallet (Base SCA)
 

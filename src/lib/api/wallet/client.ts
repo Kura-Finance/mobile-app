@@ -6,8 +6,12 @@
  *   GET  /api/wallet        → { walletAddress, scaAddress }
  *   PUT  /api/wallet/sca    → { scaAddress: "0x..." }
  *   PUT  /api/wallet/eoa    → { walletAddress: "0x..." }
+ *
+ * The backend copy is only a convenience mirror: the Safe address is derived
+ * from the Privy EOA on the device. Without an app backend these calls no-op.
  */
 
+import { hasAppBackend } from '../../../config/env';
 import { requestJson, requestJsonAllowing } from '../client';
 import { KuraApiError } from '../errors';
 
@@ -25,6 +29,7 @@ export interface WalletRecord {
  * Returns nulls if not registered yet (404 → empty record).
  */
 export async function fetchWalletRecord(): Promise<WalletRecord> {
+  if (!hasAppBackend()) return { walletAddress: null, scaAddress: null };
   try {
     return await requestJsonAllowing<WalletRecord>(
       '/api/wallet',
@@ -42,6 +47,7 @@ export async function fetchWalletRecord(): Promise<WalletRecord> {
  * Idempotent — safe to call on every provisioning.
  */
 export async function saveScaAddress(scaAddress: string): Promise<void> {
+  if (!hasAppBackend()) return;
   await requestJson<WalletRecord>('/api/wallet/sca', {
     method: 'PUT',
     body: JSON.stringify({ scaAddress }),
@@ -54,6 +60,7 @@ export async function saveScaAddress(scaAddress: string): Promise<void> {
  * Called once after the EOA is confirmed to exist.
  */
 export async function saveEoaAddress(walletAddress: string): Promise<void> {
+  if (!hasAppBackend()) return;
   await requestJson<WalletRecord>('/api/wallet/eoa', {
     method: 'PUT',
     body: JSON.stringify({ walletAddress }),

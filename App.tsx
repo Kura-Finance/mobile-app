@@ -18,9 +18,17 @@ import { PrivyProvider, usePrivy, useIdentityToken, usePrivyClient } from '@priv
 import { exchangePrivyToken } from './src/lib/api/auth/privyExchange';
 import { applyPendingOAuthDisplayName } from './src/lib/auth/applyPendingOAuthName';
 import { fetchIdentityTokenWithRetry } from './src/lib/auth/privyTokens';
+import {
+  LOCAL_SESSION_TOKEN,
+  bindLocalSessionUser,
+  isLocalSessionMode,
+  loadLocalProfile,
+  updateLocalProfileOverlay,
+} from './src/lib/auth/localSession';
+import { consumePendingAppleDisplayName } from './src/lib/auth/oauthDisplayName';
 import { KuraApiError } from './src/lib/api/errors';
 import { clearDataKey } from './src/lib/crypto/dataKeySession';
-import { env, hasValidWalletConnectProjectId } from './src/config/env';
+import { env, hasAppBackend, hasValidWalletConnectProjectId } from './src/config/env';
 import { useAppStore } from './src/shared/store/useAppStore';
 import { ThemeProvider, useTheme } from './src/shared/theme/ThemeContext';
 import Logger from './src/shared/utils/Logger';
@@ -65,7 +73,7 @@ const PRIVY_CLIENT_ID = env.privyClientId || undefined;
 if (!PRIVY_CLIENT_ID) {
   Logger.warn(
     'App',
-    'EXPO_PUBLIC_PRIVY_CLIENT_ID is missing — identity tokens may be unavailable and backend email binding can fail',
+    'EXPO_PUBLIC_PRIVY_CLIENT_ID is missing — Privy login may fail; with an app backend, identity tokens and email binding can fail too',
   );
 }
 
@@ -148,6 +156,11 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     if (user) {
+      // No-backend mode: keep the local profile source in sync with Privy even
+      // while locked, so unlock can rebuild the profile without a network call.
+      const localSession = isLocalSessionMode();
+      if (localSession) bindLocalSessionUser(user);
+
       if (sessionLockStatus === 'checking') {
         return;
       }
@@ -181,6 +194,33 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
         privyUserId: user.id,
         linkedAccounts: user.linked_accounts?.map((a) => a.type),
       });
+
+      if (localSession) {
+        // No app backend: the Privy session is the app session — nothing to exchange.
+        void (async () => {
+          let profile = await loadLocalProfile();
+          if (cancelled || !profile) return;
+          // Apple only returns the name on first authorization — keep it on the device.
+          const appleName = consumePendingAppleDisplayName();
+          if (appleName && !profile.hasName) {
+            try {
+              profile = await updateLocalProfileOverlay({ displayName: appleName });
+            } catch (err) {
+              Logger.warn('PrivyBridge', 'Failed to store Apple display name', {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+            if (cancelled) return;
+          }
+          setPrivySession(LOCAL_SESSION_TOKEN, profile);
+          setExchangeStatus('idle');
+          Logger.info('PrivyBridge', 'Local session established (no app backend)');
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }
+
       setExchangeStatus('pending');
 
       void (async () => {
@@ -337,6 +377,7 @@ function PrivyBridgeProvider({ children }: { children: React.ReactNode }) {
       // Privy user gone (logout / session expired / account deleted) → wipe crypto + auth
       Logger.info('PrivyBridge', '[logout] Privy user cleared → wiping session', { prevAuthStatus: authStatus });
       activePrivyUserIdRef.current = null;
+      bindLocalSessionUser(null);
       setExchangeStatus('idle');
       clearDataKey();
       if (authStatus !== 'unauthenticated') {
@@ -467,17 +508,19 @@ function AppInner() {
     const uninstallLock = installAppLock();
     const uninstallScreenshotGuard = installScreenshotGuard();
 
-    void pingHealth(5_000).then((result) => {
-      if (!result.ok) {
-        Logger.warn('App', 'Backend health ping failed', {
-          latencyMs: result.latencyMs,
-          error: result.error,
-        });
-        setBackendOffline(true);
-      } else {
-        setBackendOffline(false);
-      }
-    });
+    if (hasAppBackend()) {
+      void pingHealth(5_000).then((result) => {
+        if (!result.ok) {
+          Logger.warn('App', 'Backend health ping failed', {
+            latencyMs: result.latencyMs,
+            error: result.error,
+          });
+          setBackendOffline(true);
+        } else {
+          setBackendOffline(false);
+        }
+      });
+    }
 
     return () => {
       uninstallLock();

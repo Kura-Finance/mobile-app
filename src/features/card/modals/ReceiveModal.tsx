@@ -22,6 +22,7 @@ import type { FiatCurrency } from '../../../lib/api/ramp/client';
 import TokenLogo from '../../crypto/components/TokenLogo';
 import { BLUE_CHIPS, USDT_DISPLAY } from '../../crypto/config/blueChips';
 import { useTheme } from '../../../shared/theme/ThemeContext';
+import { features } from '../../../config/features';
 import type { ThemeColors } from '../../../shared/theme/theme';
 
 const USDC_TOKEN = BLUE_CHIPS.find((tk) => tk.symbol === 'USDC') ?? BLUE_CHIPS[0];
@@ -37,12 +38,18 @@ interface ReceiveModalProps {
 
 type Screen = 'method' | 'fiatPick' | 'cryptoPick' | 'crypto' | 'usdtTron' | 'fiat';
 
+/**
+ * Bank transfer and USDT (Tron) deposits go through the Bridge.xyz ramp on the
+ * app backend. Without it the only way in is USDC on Base, so open on that.
+ */
+const ROOT_SCREEN: Screen = features.fiatRamp ? 'method' : 'crypto';
+
 export default function ReceiveModal({ visible, onClose, smartAddress, mode }: ReceiveModalProps) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const s = useMemo(() => makeModalStyles(colors), [colors]);
   const rs = useMemo(() => makeReceiveStyles(colors), [colors]);
-  const [screen, setScreen] = useState<Screen>('method');
+  const [screen, setScreen] = useState<Screen>(ROOT_SCREEN);
   const [selectedFiat, setSelectedFiat] = useState<FiatCurrency>('usd');
   const [copied, setCopied] = useState(false);
 
@@ -70,13 +77,13 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
   );
 
   const goBack = useCallback(() => {
-    const prev = historyRef.current.pop() ?? 'method';
+    const prev = historyRef.current.pop() ?? ROOT_SCREEN;
     navigate(prev, 'back');
   }, [navigate]);
 
   const reset = useCallback(() => {
     historyRef.current = [];
-    setScreen('method');
+    setScreen(ROOT_SCREEN);
     setCopied(false);
     slideAnim.setValue(0);
   }, [slideAnim]);
@@ -266,7 +273,7 @@ export default function ReceiveModal({ visible, onClose, smartAddress, mode }: R
         <View style={rs.navBar}>
           <View style={rs.handle} />
           <View style={rs.titleRow}>
-            {screen !== 'method' ? (
+            {screen !== ROOT_SCREEN ? (
               <TouchableOpacity onPress={goBack} style={rs.navBtn} activeOpacity={0.7}>
                 <Ionicons name="chevron-back" size={24} color={colors.text} />
               </TouchableOpacity>

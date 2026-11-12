@@ -2,12 +2,15 @@ import type Privy from '@privy-io/js-sdk-core';
 import { fetchCurrentUserProfile } from '../api/auth/me';
 import { exchangePrivyToken } from '../api/auth/privyExchange';
 import { fetchIdentityTokenWithRetry } from './privyTokens';
+import { bindLocalSessionUser, isLocalSessionMode, loadLocalProfile } from './localSession';
 import { useAppStore } from '../../shared/store/useAppStore';
 import Logger from '../../shared/utils/Logger';
 
 /**
  * Re-exchange Privy tokens with the Kura backend after a Privy-side profile
  * change (e.g. linking or updating email), then refresh from `/api/auth/me`.
+ *
+ * Without an app backend the profile is rebuilt from the refreshed Privy user.
  */
 export async function syncBackendSessionAfterPrivyChange(params: {
   getAccessToken: () => Promise<string | null>;
@@ -15,6 +18,14 @@ export async function syncBackendSessionAfterPrivyChange(params: {
   privyClient: Privy;
 }): Promise<void> {
   const { getAccessToken, getIdentityToken, privyClient } = params;
+
+  if (isLocalSessionMode()) {
+    const refreshed = await privyClient.user.get();
+    bindLocalSessionUser(refreshed.user);
+    const profile = await loadLocalProfile();
+    if (profile) useAppStore.getState().refreshUserProfile(profile);
+    return;
+  }
 
   const accessToken = await getAccessToken();
   if (!accessToken) {
