@@ -35,6 +35,8 @@
 
 ## 4. 發佈
 
+- [ ] GitHub → Settings → Code security → CodeQL analysis（Default setup）→ Edit：把 **JavaScript/TypeScript** 加進語言。目前預設掃描只涵蓋 `actions`；repo 裡的自訂 CodeQL workflow 因為和預設掃描衝突，從九月底起每次上傳結果都被拒，已在這個分支移除
+
 - [ ] 打包時 `EXPO_PUBLIC_API_BASE_URL` 留空；Privy 金鑰不需要
 - [ ] 更新商店的隱私與資料收集聲明（不再有帳戶、不再收集 email）
 - [ ] 上架說明／App 內公告：舊用戶更新前先到 home.privy.io 匯出私鑰；助記詞遺失無法找回
