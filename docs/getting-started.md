@@ -59,7 +59,7 @@ Edit `.env` — all runtime config is read through [`src/config/env.ts`](../src/
 
 | Variable | Purpose |
 |----------|---------|
-| `EXPO_PUBLIC_API_BASE_URL` | TrackFi, Plaid, DeBank, Dinari (leave empty for wallet-only) |
+| `EXPO_PUBLIC_API_BASE_URL` | Self-hosted backend: TrackFi, Plaid, DeBank, Dinari, fiat ramp (empty by default = on-chain only) |
 | `EXPO_PUBLIC_LIFI_INTEGRATOR` + `EXPO_PUBLIC_LIFI_FEE` | Optional Li.Fi integrator fee |
 | `EXPO_PUBLIC_MORPHO_EARN_FEE` + fee-wrapper env | Optional Morpho yield fee (default: direct Morpho) |
 | `EXPO_PUBLIC_LOGODEV_TOKEN` | Richer logos; unset → glyphs / Clearbit |
@@ -155,7 +155,7 @@ cp .env.example .env
 
 **公用默认：** Base RPC（`mainnet.base.org`）、Li.Fi、Morpho、CoinGecko、Blockscout — 无需额外 key。
 
-**可选：** `EXPO_PUBLIC_API_BASE_URL`（TrackFi / Dinari）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
+**可选：** `EXPO_PUBLIC_API_BASE_URL`（自建后端：TrackFi / Dinari / 法币出入金，默认留空）；`EXPO_PUBLIC_LOGODEV_TOKEN`（更好图标）。
 
 修改 `.env` 后请 `npx expo start -c`。
 

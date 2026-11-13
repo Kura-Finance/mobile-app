@@ -73,6 +73,12 @@ import {
 } from '../../lib/security/appPin';
 import { cancelLocalAuthForSessionLock } from '../../lib/security/localAuthGate';
 import { resolveUsableAuthToken } from '../../lib/security/sessionAccessCore';
+import {
+  LOCAL_SESSION_TOKEN,
+  isLocalSessionMode,
+  loadLocalProfile,
+  updateLocalProfileOverlay,
+} from '../../lib/auth/localSession';
 
 export type BaseCurrency = Currency;
 export type Language = 'en' | 'zh-TW';
@@ -323,6 +329,20 @@ async function finalizeSessionUnlock(
     return { ok: false, reason: 'failed' };
   }
 
+  // A no-backend build left its stand-in token behind and this build now has a
+  // backend: drop it so PrivyBridgeProvider exchanges for a real JWT.
+  if (token === LOCAL_SESSION_TOKEN && !isLocalSessionMode()) {
+    Logger.info('AppStore', 'Discarding local session token — backend is configured');
+    await clearSecureSession();
+    set({
+      authToken: null,
+      authStatus: 'loading',
+      sessionLockStatus: 'unlocked',
+      authError: null,
+    });
+    return { ok: true };
+  }
+
   Logger.info('AppStore', 'Session unlocked from SecureStore');
   set({
     authToken: token,
@@ -452,9 +472,14 @@ export const useAppStore = create<AppState>((set, get) => {
       const userId = get().userProfile.id;
       void clearWalletConnectUserData(userId || undefined);
       void clearAllCache();
-      void clearLocalWalletCache().catch((err) =>
-        Logger.warn('AppStore', 'Failed to clear local wallet cache', { err }),
-      );
+      // Without a backend the wallet key on this device IS the account: it is
+      // removed only by the explicit, confirmed "remove wallet" action
+      // (removeLocalWallet), never as a side effect of clearing the session.
+      if (!isLocalSessionMode()) {
+        void clearLocalWalletCache().catch((err) =>
+          Logger.warn('AppStore', 'Failed to clear local wallet cache', { err }),
+        );
+      }
       resetKuraCardWalletSession();
       useFinanceStore.getState().clearPlaidFinanceData();
       useFinanceStore.getState().clearAssetHistory();
@@ -605,16 +630,22 @@ export const useAppStore = create<AppState>((set, get) => {
 
     logout: async () => {
       Logger.info('AppStore', 'Logging out');
-      try {
-        await logoutCurrentSession();
-      } catch {
-        // best-effort backend logout
+      if (!isLocalSessionMode()) {
+        try {
+          await logoutCurrentSession();
+        } catch {
+          // best-effort backend logout
+        }
       }
       get().clearAuthSession();
       Logger.info('AppStore', 'Logout complete');
     },
 
     deleteAccount: async () => {
+      if (isLocalSessionMode()) {
+        // Removing the Privy user needs the Privy app secret, which only a backend holds.
+        throw new Error('Account deletion requires the app backend');
+      }
       if (!resolveUsableAuthToken(get())) throw new Error('Not authenticated');
       Logger.info('AppStore', 'Deleting account');
       await deleteCurrentAccount();
@@ -630,6 +661,17 @@ export const useAppStore = create<AppState>((set, get) => {
         if (!authToken) {
           set({ authStatus: 'unauthenticated' });
         }
+        return;
+      }
+      if (isLocalSessionMode()) {
+        // No backend: the profile comes from the Privy user bound by PrivyBridgeProvider.
+        const localProfile = await loadLocalProfile();
+        if (!localProfile || get().authToken !== authToken) return;
+        set({
+          authStatus: 'authenticated',
+          userProfile: toLocalProfile(localProfile),
+        });
+        void get().loadExchangeRates();
         return;
       }
       try {
@@ -661,6 +703,11 @@ export const useAppStore = create<AppState>((set, get) => {
     // ── Profile mutations ─────────────────────────────────────────────────
 
     setDisplayName: async (displayName) => {
+      if (isLocalSessionMode()) {
+        const localProfile = await updateLocalProfileOverlay({ displayName });
+        set({ userProfile: toLocalProfile(localProfile) });
+        return;
+      }
       const profile = await updateDisplayNameApi(displayName);
       set({ userProfile: toLocalProfile(profile) });
     },
@@ -688,6 +735,13 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     updateAvatar: async (avatarUrl) => {
+      if (isLocalSessionMode()) {
+        const localProfile = await updateLocalProfileOverlay({ avatarUrl });
+        set((state) => ({
+          userProfile: { ...state.userProfile, avatarUrl: localProfile.avatarUrl },
+        }));
+        return;
+      }
       const profile = await updateAvatarApi(avatarUrl);
       set((state) => ({
         userProfile: { ...state.userProfile, avatarUrl: profile.avatarUrl },

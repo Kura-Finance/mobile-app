@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
+import { features } from '../../../config/features';
 
 interface SettingsListProps {
   onProfileSecurityPress?: () => void;
@@ -31,10 +32,12 @@ export default function SettingsList({ onProfileSecurityPress, onConnectedAccoun
         <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.profileSecurity')}</Text>
         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onConnectedAccountsPress} style={rowStyle}>
-        <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.connectedAccounts')}</Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </TouchableOpacity>
+      {features.connectedAccounts ? (
+        <TouchableOpacity onPress={onConnectedAccountsPress} style={rowStyle}>
+          <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.connectedAccounts')}</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

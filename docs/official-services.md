@@ -14,10 +14,10 @@ What the **mobile client** connects to — the trust boundary between on-device 
 
 | Type | Examples | Config / code |
 |------|----------|---------------|
-| **Required SaaS keys** | Privy, Reown | `.env` → `src/config/env.ts` |
+| **Required SaaS keys** | Reown; Privy only when a backend is configured | `.env` → `src/config/env.ts` |
 | **Public endpoints** | Base RPC, Pimlico public bundler, Li.Fi, Morpho, CoinGecko, Blockscout | Built-in defaults — no key |
 | **Optional SaaS keys** | Pimlico (USDC gas), logo.dev, CoinGecko / Li.Fi rate limits | `.env` |
-| **App backend** | Auth JWT, Plaid, DeBank, Dinari, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` |
+| **App backend (optional, self-hosted)** | Auth JWT, Plaid, DeBank, Dinari, fiat ramp, passkeys | `EXPO_PUBLIC_API_BASE_URL` → `src/lib/api/` — empty by default |
 | **On-device only** | SCA signing, WC approval UI, SecureStore | `src/lib/wallet/`, `src/features/walletconnect/` |
 | **Optional CDN keys** | logo.dev | Unset → glyphs / Clearbit |
 
@@ -62,19 +62,19 @@ Publishable key (`pk_…`) improves ticker/crypto logos. When unset, the UI uses
 
 ### Official app defaults
 
-Production store builds set in local `.env` before compile:
+Production store builds leave the backend URL empty — the app is on-chain only:
 
 ```
-EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com
+EXPO_PUBLIC_API_BASE_URL=
 ```
 
-See [local-release.md](local-release.md).
+The hosted Kura backend is retired; its source is archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer) for anyone who wants to self-host. See [local-release.md](local-release.md).
 
 ### Forking
 
 - Change bundle ID and domains in [`app.config.branding.js`](../app.config.branding.js) + [`src/config/branding.ts`](../src/config/branding.ts).
 - Create your own Privy app and WC project; Pimlico key only if you want USDC gas.
-- Leave backend URL / logo.dev empty for a wallet-only fork.
+- Leave backend URL / logo.dev empty for a wallet-only fork (the default). No Privy app is needed in that mode — the wallet key is created on the device.
 - Full guide: [fork-guide.md](fork-guide.md).
 
 ---
@@ -85,9 +85,9 @@ See [local-release.md](local-release.md).
 
 | 类型 | 例子 | 配置 |
 |------|------|------|
-| **必需 SaaS key** | Privy、WC | `.env` |
+| **必需 SaaS key** | WC；Privy 仅在接后端时需要 | `.env` |
 | **公用节点** | Base RPC、Pimlico 公开 bundler、Li.Fi、Morpho、CoinGecko、Blockscout | 内置默认，无需 key |
-| **托管后端** | 登录 JWT、Plaid、DeBank、Dinari | `EXPO_PUBLIC_API_BASE_URL` |
+| **应用后端（可选，自建）** | 登录 JWT、Plaid、DeBank、Dinari、法币出入金 | `EXPO_PUBLIC_API_BASE_URL`，默认留空 |
 | **纯客户端** | 签名、WC UI、SecureStore | 钱包与 WC 模块 |
 | **可选** | Pimlico（USDC gas）、logo.dev | 未设置则 ETH gas / 字形 |
 
@@ -111,7 +111,7 @@ See [local-release.md](local-release.md).
 
 ### 官方 App
 
-生产环境：`EXPO_PUBLIC_API_BASE_URL=https://api.kura-finance.com`，见 [local-release.md](local-release.md)。
+生产环境 `EXPO_PUBLIC_API_BASE_URL` 留空（纯链上）。Kura 托管后端已停止运营，源码封存于 [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer)，可自建。见 [local-release.md](local-release.md)。
 
 ### Fork
 

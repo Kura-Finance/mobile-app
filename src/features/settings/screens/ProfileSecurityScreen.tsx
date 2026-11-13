@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthSession } from '../../../lib/auth/authSession';
 import { useAppStore } from '../../../shared/store/useAppStore';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
@@ -16,6 +16,8 @@ import PreferenceToggle from '../components/PreferenceToggle';
 import { DeleteAccountConfirmModal } from '../../../shared/components/DeleteAccountConfirmModal';
 import { clearAppPin } from '../../../lib/security/appPin';
 import { appPinSetupFailureMessage } from '../../../lib/security/authErrorMessages';
+import { features } from '../../../config/features';
+import RecoveryPhraseScreen from './RecoveryPhraseScreen';
 
 interface ProfileSecurityScreenProps {
   onClose: () => void;
@@ -65,7 +67,7 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
   const saveAppPin = useAppStore((state) => state.saveAppPin);
   const changeAppPin = useAppStore((state) => state.changeAppPin);
   const refreshAppPinStatus = useAppStore((state) => state.refreshAppPinStatus);
-  const { logout: privyLogout } = usePrivy();
+  const { logout: privyLogout } = useAuthSession();
   const disableScreenshot = useAppStore((state) => state.preferences.disableScreenshot);
   const hideBalance = useAppStore((state) => state.preferences.hideBalance);
   const biometricUnlockEnabled = useAppStore((state) => state.preferences.biometricUnlockEnabled);
@@ -87,7 +89,11 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
   }
 
   if (showExportWallet) {
-    return <ExportWalletKeyScreen onClose={() => setShowExportWallet(false)} />;
+    return features.backend ? (
+      <ExportWalletKeyScreen onClose={() => setShowExportWallet(false)} />
+    ) : (
+      <RecoveryPhraseScreen onClose={() => setShowExportWallet(false)} />
+    );
   }
 
   if (showSetPin) {
@@ -131,6 +137,11 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
       />
     );
   }
+
+  /** No backend: there is no account, only the key on this device. logout() confirms first. */
+  const handleRemoveWallet = async () => {
+    if (await privyLogout()) onClose();
+  };
 
   const handleDeleteSuccess = () => {
     onClose();
@@ -182,18 +193,23 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setShowEditEmail(true)}
-          style={{ ...ROW_STYLE, marginBottom: 32 }}
-        >
-          <View>
-            <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.emailAddress')}</Text>
-            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-              {displayEmail(userProfile, t('settings.emailNotLinked'))}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
+        {/* Email belongs to the Privy account — there is none without a backend. */}
+        {features.backend ? (
+          <TouchableOpacity
+            onPress={() => setShowEditEmail(true)}
+            style={{ ...ROW_STYLE, marginBottom: 32 }}
+          >
+            <View>
+              <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.emailAddress')}</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                {displayEmail(userProfile, t('settings.emailNotLinked'))}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ height: 20 }} />
+        )}
 
         <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 16 }}>
           {t('settings.securitySettings')}
@@ -242,9 +258,11 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
               <Ionicons name="key-outline" size={20} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: '500' }}>{t('exportWallet.title')}</Text>
+              <Text style={{ color: colors.text, fontWeight: '500' }}>
+                {features.backend ? t('exportWallet.title') : t('localWallet.backupTitle')}
+              </Text>
               <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                {t('exportWallet.settingsDesc')}
+                {features.backend ? t('exportWallet.settingsDesc') : t('localWallet.backupDesc')}
               </Text>
             </View>
           </View>
@@ -255,18 +273,33 @@ export default function ProfileSecurityScreen({ onClose }: ProfileSecurityScreen
           {t('settings.dangerZone')}
         </Text>
 
-        <TouchableOpacity
-          onPress={() => setShowDeleteConfirm(true)}
-          style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
-        >
-          <View>
-            <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('settings.deleteAccount')}</Text>
-            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-              {t('settings.permanentlyDelete')}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.danger} />
-        </TouchableOpacity>
+        {features.accountDeletion ? (
+          <TouchableOpacity
+            onPress={() => setShowDeleteConfirm(true)}
+            style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+          >
+            <View>
+              <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('settings.deleteAccount')}</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                {t('settings.permanentlyDelete')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={() => void handleRemoveWallet()}
+            style={{ ...ROW_STYLE, marginBottom: 0, borderColor: 'rgba(239, 68, 68, 0.2)' }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.danger, fontWeight: '500' }}>{t('localWallet.removeTitle')}</Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                {t('localWallet.removeDesc')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.danger} />
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <DeleteAccountConfirmModal

@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTranslation } from '../../../shared/hooks/useAppTranslation';
 import { useTheme } from '../../../shared/theme/ThemeContext';
+import { features } from '../../../config/features';
 import SignOutButton from './SignOutButton';
 
 interface Props {
@@ -35,10 +36,12 @@ export default function ActionsAgreementsList({
 
   return (
     <View style={{ flexDirection: 'column', gap: 8, marginTop: 4 }}>
-      <TouchableOpacity onPress={onReferralsPress} style={rowStyle} activeOpacity={0.7}>
-        <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.referrals')}</Text>
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </TouchableOpacity>
+      {features.referrals ? (
+        <TouchableOpacity onPress={onReferralsPress} style={rowStyle} activeOpacity={0.7}>
+          <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.referrals')}</Text>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity onPress={onAgreementsPress} style={rowStyle} activeOpacity={0.7}>
         <Text style={{ color: colors.text, fontWeight: '500' }}>{t('settings.ourAgreements')}</Text>
         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />

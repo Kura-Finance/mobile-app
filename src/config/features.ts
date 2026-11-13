@@ -1,8 +1,15 @@
 /**
  * Feature flags for the mobile client.
  *
- * Core wallet + WalletConnect work without a hosted backend.
- * TrackFi, Plaid, DeBank, and Dinari require EXPO_PUBLIC_API_BASE_URL.
+ * The switch is EXPO_PUBLIC_API_BASE_URL:
+ *   - empty (default) → on-chain only, no accounts. The wallet key is created
+ *     or imported on the device (no Privy); wallet, swap/bridge, WalletConnect
+ *     and Morpho talk to the chain and public APIs directly.
+ *   - set → the self-hosted app backend is used: login goes through Privy and
+ *     every `backend`-derived flag below turns on (TrackFi, fiat ramp, card,
+ *     stocks, referrals, …).
+ *
+ * Gate UI on these flags instead of calling `hasAppBackend()` in feature code.
  *
  * Morpho Earn uses Morpho's public API (no app backend). On-chain deposits use
  * the SCA bundler (public + ETH, or Pimlico + USDC) — see src/config/earn.ts.
@@ -12,6 +19,9 @@ import { isMorphoEarnEnabled } from './earn';
 import { hasAppBackend, hasValidWalletConnectProjectId } from './env';
 
 export const features = {
+  /** App backend configured — session, profile and partner features go through it. */
+  backend: hasAppBackend(),
+
   /** Base smart account: send, receive, swap (with third-party keys). */
   wallet: true,
 
@@ -29,6 +39,25 @@ export const features = {
 
   /** Dinari dShares in Invest → US Stock tab (on when backend URL is set). */
   dinariStocks: hasAppBackend(),
+
+  /** Bridge.xyz fiat on/off-ramp and USDT (Tron) deposits (/api/bridge/*). */
+  fiatRamp: hasAppBackend(),
+
+  /** Card entry on Home + card waitlist (/api/waitlist/*). */
+  card: hasAppBackend(),
+
+  /** Referral codes and cashback (/api/auth/me/referral-code, cashback). */
+  referrals: hasAppBackend(),
+
+  /** Settings → Connected accounts (Plaid banks, exchanges, tracked wallets). */
+  connectedAccounts: hasAppBackend(),
+
+  /**
+   * Settings → Delete account (DELETE /api/auth/me also removes the Privy
+   * user). Without a backend there is no account — the equivalent is
+   * "Remove wallet from this device".
+   */
+  accountDeletion: hasAppBackend(),
 
   /** Li.Fi bridge / swap (public API; optional API key). */
   lifiSwap: true,

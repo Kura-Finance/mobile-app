@@ -2,11 +2,11 @@
 
 **English** | [中文](#中文)
 
-**Kura** is a non-custodial smart wallet on **Base**. This repository is the **React Native / Expo mobile client** — login, signing, WalletConnect, and optional finance tracking.
+**Kura** is a non-custodial smart wallet on **Base**. This repository is the **React Native / Expo mobile client** — login, signing, WalletConnect, swap/bridge and Morpho. It is a community edition: by default it talks to the chain and public APIs directly, with no app backend.
 
 > **MIT open source** — copyright [Rick Weng](LICENSE); operated by **Kura Finance LLC**.  
 > Third-party marks and partner assets: [NOTICE](NOTICE).  
-> The **hosted backend is not in this repository.** Leave `EXPO_PUBLIC_API_BASE_URL` empty for wallet-only builds.
+> **No backend needed.** The hosted Kura backend has been retired; its source is archived at [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer). Self-host it and set `EXPO_PUBLIC_API_BASE_URL` to turn the backend features back on.
 
 **[Documentation hub →](docs/README.md)** · [Trust model](docs/transparency.md) · [Threat model](docs/threat-model.md) · [Report a vulnerability](SECURITY.md)
 
@@ -18,14 +18,32 @@
 
 | Module | Description |
 |--------|-------------|
-| **Smart wallet** | Safe smart account on Base — Privy EOA owner; public bundler + ETH gas, or Pimlico + USDC gas |
+| **Smart wallet** | Safe smart account on Base — owner key on the device (or a Privy EOA with a backend); public bundler + ETH gas, or Pimlico + USDC gas |
 | **Crypto** | USDC / blue-chip balances, send, swap, bridge (Li.Fi) |
 | **WalletConnect** | Wallet mode for Base dApps (Reown WalletKit) |
-| **TrackFi** | Plaid, exchange APIs, DeBank DeFi — requires app backend + passkey E2EE |
-| **Gnosis Pay** | Kura Card UI + waitlist (full card onboarding is separate) |
-| **Optional** | Dinari stocks (feature-flagged), logo.dev icons, Li.Fi integrator fee, Morpho fee-wrapper |
+| **Morpho** | Earn vaults and borrow markets on Base (public Morpho API + on-chain) |
+| **Optional** | logo.dev icons, Li.Fi integrator fee, Morpho fee-wrapper |
 
-Leave `EXPO_PUBLIC_API_BASE_URL` empty to run **wallet-only** — TrackFi and Dinari tabs hide automatically.
+**Backend features (off by default).** These need a self-hosted app backend and appear only when `EXPO_PUBLIC_API_BASE_URL` is set:
+
+| Module | Description |
+|--------|-------------|
+| **TrackFi** | Plaid, exchange APIs, DeBank DeFi — with passkey E2EE |
+| **Fiat ramp** | Bank transfer in/out and USDT (Tron) deposits via Bridge.xyz |
+| **Card** | Kura Card UI + waitlist (Gnosis Pay; full card onboarding is separate) |
+| **Stocks** | Dinari tokenized stocks |
+| **Account** | Referrals, connected accounts, in-app account deletion |
+
+Flags live in [`src/config/features.ts`](src/config/features.ts).
+
+**Two modes, one switch (`EXPO_PUBLIC_API_BASE_URL`):**
+
+| | Empty (default) | Set (self-hosted backend) |
+|---|---|---|
+| Sign-in | None — no account. Create a wallet (12-word recovery phrase) or import one | Privy (email, Google, Apple) |
+| Safe owner key | Generated and stored on the device (Keychain / Keystore) | Privy embedded wallet |
+| Backup | The recovery phrase, held by the user. Nobody can restore it | Privy key export |
+| Third parties needed | Reown (WalletConnect); public RPC / bundler / Li.Fi / Morpho | + Privy and the backend's partners |
 
 ### Local development
 
@@ -97,16 +115,17 @@ Third-party trademarks and partner assets: [NOTICE](NOTICE).
 
 | 模块 | 说明 |
 |------|------|
-| **智能钱包** | Base 链 Safe 智能账户（Privy EOA；公开 bundler + ETH，或 Pimlico + USDC） |
+| **智能钱包** | Base 链 Safe 智能账户（默认：密钥在设备本地生成与保存，无账户；接后端时为 Privy EOA；公开 bundler + ETH，或 Pimlico + USDC） |
 | **Crypto** | USDC / 主流代币、转账、Swap、跨链桥 |
 | **WalletConnect** | Base dApp 钱包模式 |
-| **TrackFi** | Plaid、交易所、DeBank（需应用后端 + Passkey E2EE） |
-| **Gnosis Pay** | 虚拟借记卡（完整开卡流程另计） |
-| **可选** | Dinari、logo.dev、Li.Fi integrator、Morpho fee-wrapper |
+| **Morpho** | Base 上的 Earn 金库与借贷市场（公开 Morpho API + 链上） |
+| **可选** | logo.dev、Li.Fi integrator、Morpho fee-wrapper |
+
+**后端功能（默认关闭）：** 需自建应用后端，设置 `EXPO_PUBLIC_API_BASE_URL` 后才出现 —— TrackFi（Plaid、交易所、DeBank）、法币出入金（Bridge.xyz）、卡片候补、Dinari 股票、推荐、已连接账户、App 内删除账户。开关见 [`src/config/features.ts`](src/config/features.ts)。
 
 > **MIT 开源** — 著作权 [Rick Weng](LICENSE)；由 **Kura Finance LLC** 运营。  
 > 第三方商标与合作方素材：[NOTICE](NOTICE)。  
-> 托管后端不在此仓库；留空 `EXPO_PUBLIC_API_BASE_URL` 可仅跑钱包。
+> **无需后端。** Kura 托管后端已停止运营，源码封存于 [Kura-Finance/BackendServer](https://github.com/Kura-Finance/BackendServer)；自建并设置 `EXPO_PUBLIC_API_BASE_URL` 即可重新启用后端功能。
 
 **[文档索引 →](docs/README.md)**
 

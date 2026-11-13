@@ -35,6 +35,7 @@ import SendModal from '../modals/send';
 import { CardApplyBanner } from '../components/StatusBanner';
 import LoadingDots from '../../../shared/components/LoadingDots';
 import { useMoneyFormat } from '../../../shared/hooks/useMoneyFormat';
+import { features } from '../../../config/features';
 function KuraCardScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -167,8 +168,8 @@ function KuraCardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── 3. Kura Card entry ─────────────────────────────────────────── */}
-          <CardApplyBanner onPress={openCardManager} />
+          {/* ── 3. Kura Card entry (waitlist lives on the app backend) ─────── */}
+          {features.card ? <CardApplyBanner onPress={openCardManager} /> : null}
 
           {/* ── 4. Transactions ──────────────────────────────────────────── */}
           <View style={s.txSection}>

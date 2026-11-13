@@ -115,6 +115,19 @@ export const WALLET_ADDRESS_STORE_KEY = 'kura_smart_wallet_address_v1' as const;
 export const WALLET_IMPORTED_KEY = 'kura_wallet_imported_privkey_v1' as const;
 
 /**
+ * expo-secure-store key for the recovery phrase of a wallet created on this
+ * device (no-backend mode). Absent for wallets imported from a private key.
+ */
+export const WALLET_MNEMONIC_KEY = 'kura_wallet_mnemonic_v1' as const;
+
+/**
+ * expo-secure-store key for the owner EOA address of the on-device wallet
+ * (no-backend mode). Public data: lets the app tell that a wallet exists
+ * without reading the key, which would trigger an OS authentication prompt.
+ */
+export const WALLET_LOCAL_EOA_KEY = 'kura_wallet_local_eoa_v1' as const;
+
+/**
  * Clear all locally-cached wallet material (cached SCA address + imported key).
  *
  * MUST be called on logout: the cached SCA/EOA address is account-specific, so
@@ -126,5 +139,7 @@ export async function clearLocalWalletCache(): Promise<void> {
   await Promise.allSettled([
     SecureStore.deleteItemAsync(WALLET_ADDRESS_STORE_KEY),
     SecureStore.deleteItemAsync(WALLET_IMPORTED_KEY),
+    SecureStore.deleteItemAsync(WALLET_MNEMONIC_KEY),
+    SecureStore.deleteItemAsync(WALLET_LOCAL_EOA_KEY),
   ]);
 }
